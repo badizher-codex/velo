@@ -1,0 +1,85 @@
+<Window x:Class="VELO.UI.Dialogs.ClearDataWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Limpiar datos — VELO"
+        Width="440" Height="390"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundDarkBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}">
+
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
+            <TextBlock Text="🗑" FontSize="24" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <TextBlock x:Name="TitleLabel" FontSize="18" FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Height="1" Background="{StaticResource BorderBrush}" Margin="0,10,0,16"/>
+
+        <TextBlock x:Name="SubtitleLabel" Grid.Row="2"
+                   FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,18"/>
+
+        <!-- Checkboxes -->
+        <StackPanel Grid.Row="3">
+
+            <CheckBox x:Name="ClearHistoryCheck" IsChecked="True" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock x:Name="ClearHistoryLabel" FontSize="13"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="ClearHistoryDesc"
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                </StackPanel>
+            </CheckBox>
+
+            <CheckBox x:Name="ClearCookiesCheck" IsChecked="False" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock x:Name="ClearCookiesLabel" FontSize="13"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="ClearCookiesDesc"
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                </StackPanel>
+            </CheckBox>
+
+            <CheckBox x:Name="ClearCacheCheck" IsChecked="False" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock x:Name="ClearCacheLabel" FontSize="13"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="ClearCacheDesc"
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                </StackPanel>
+            </CheckBox>
+
+            <CheckBox x:Name="ClearDownloadsCheck" IsChecked="False">
+                <StackPanel>
+                    <TextBlock x:Name="ClearDownloadsLabel" FontSize="13"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="ClearDownloadsDesc"
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                </StackPanel>
+            </CheckBox>
+
+        </StackPanel>
+
+        <TextBlock x:Name="StatusLabel" Grid.Row="4"
+                   FontSize="12" Margin="0,16,0,0" Visibility="Collapsed"
+                   Foreground="{StaticResource TextMutedBrush}"/>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Margin="0,20,0,0">
+            <Button x:Name="CancelButton" Width="90" Margin="0,0,10,0" Click="OnCancelClick"/>
+            <Button x:Name="ClearButton" Width="120" Click="OnClearClick"
+                    Background="#E53935" Foreground="White" BorderBrush="#E53935"/>
+        </StackPanel>
+    </Grid>
+</Window>

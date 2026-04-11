@@ -1,0 +1,160 @@
+<Window x:Class="VELO.UI.Dialogs.HistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:VELO.UI.Converters"
+        Title="Historial — VELO"
+        Width="680" Height="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundDarkBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}">
+
+    <Window.Resources>
+        <conv:ZeroToCollapsedConverter x:Key="ZeroToCollapsed"/>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock x:Name="HeaderLabel" Grid.Row="0" FontSize="20" FontWeight="SemiBold"
+                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,16"/>
+
+        <!-- Search -->
+        <TextBox x:Name="SearchBox" Grid.Row="1"
+                 Background="{StaticResource BackgroundMidBrush}"
+                 Foreground="{StaticResource TextPrimaryBrush}"
+                 BorderBrush="{StaticResource BorderBrush}"
+                 BorderThickness="1" Padding="10,8" FontSize="13"
+                 Text="" TextChanged="SearchBox_TextChanged"
+                 Margin="0,0,0,12">
+            <TextBox.Resources>
+                <Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style>
+            </TextBox.Resources>
+        </TextBox>
+
+        <!-- List -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="HistoryList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="{StaticResource BackgroundMidBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="6"
+                                Margin="0,0,0,6" Padding="12,10"
+                                Cursor="Hand"
+                                MouseLeftButtonDown="Entry_Click"
+                                Tag="{Binding Url}">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Left: title, url, security row -->
+                                <StackPanel Grid.Column="0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <!-- Monster badge (Fase 2) -->
+                                        <TextBlock Text="👾 " FontSize="13"
+                                                   Visibility="{Binding MonsterCaptured, Converter={StaticResource ZeroToCollapsed}}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Title}"
+                                                   FontSize="13" FontWeight="Medium"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Url}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Margin="0,2,0,6"/>
+                                    <!-- Security row — always visible -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                                Visibility="{Binding BlockedCount, Converter={StaticResource ZeroToCollapsed}}">
+                                            <Border.Background>#33FF3D71</Border.Background>
+                                            <TextBlock FontSize="10" Foreground="#FF3D71">
+                                                <Run Text="{Binding BlockedCount}"/><Run Text=" bloqueados"/>
+                                            </TextBlock>
+                                        </Border>
+                                        <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                                Visibility="{Binding TrackerCount, Converter={StaticResource ZeroToCollapsed}}">
+                                            <Border.Background>#33FFB300</Border.Background>
+                                            <TextBlock FontSize="10" Foreground="#FFB300">
+                                                <Run Text="{Binding TrackerCount}"/><Run Text=" rastreadores"/>
+                                            </TextBlock>
+                                        </Border>
+                                        <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                                Visibility="{Binding MalwareCount, Converter={StaticResource ZeroToCollapsed}}">
+                                            <Border.Background>#44FF0000</Border.Background>
+                                            <TextBlock FontSize="10" Foreground="#FF6B6B">
+                                                <Run Text="{Binding MalwareCount}"/><Run Text=" malware"/>
+                                            </TextBlock>
+                                        </Border>
+                                        <TextBlock Text="✓ Sin amenazas"
+                                                   FontSize="10" Foreground="#4CAF50"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding BlockedCount}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Right: time + delete -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="12,0,0,0">
+                                    <TextBlock Text="{Binding VisitedAt, StringFormat='{}{0:dd/MM HH:mm}'}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               HorizontalAlignment="Right"/>
+                                    <Button Style="{StaticResource IconButton}"
+                                            Content="✕" FontSize="10" Padding="6"
+                                            HorizontalAlignment="Right"
+                                            Margin="0,4,0,0"
+                                            Click="Delete_Click"
+                                            Tag="{Binding Id}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="CountLabel"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       FontSize="12" VerticalAlignment="Center"/>
+            <Button x:Name="ClearAllBtn" Grid.Column="1"
+                    Style="{StaticResource IconButton}"
+                    Foreground="#FF3D71"
+                    Padding="12,6" FontSize="12"
+                    Click="ClearAll_Click"/>
+        </Grid>
+    </Grid>
+</Window>

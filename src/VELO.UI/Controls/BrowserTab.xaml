@@ -1,0 +1,20 @@
+<UserControl x:Class="VELO.UI.Controls.BrowserTab"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf">
+
+    <Grid>
+        <!-- WebView2 -->
+        <wv2:WebView2 x:Name="WebView"
+                      Visibility="Collapsed"/>
+
+        <!-- NewTabPage (shown when URL is velo://newtab) -->
+        <local:NewTabPage x:Name="NewTabPageControl"
+                          xmlns:local="clr-namespace:VELO.UI.Controls"
+                          Visibility="Visible"
+                          NavigationRequested="NewTabPage_NavigationRequested"/>
+
+        <!-- Loading indicator lives in UrlBar (sweep animation below toolbar) -->
+        <Border x:Name="LoadingBar" Visibility="Collapsed"/>
+    </Grid>
+</UserControl>

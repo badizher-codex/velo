@@ -1,0 +1,286 @@
+! VELO Bundled Tracker Blocklist — Minimal curated snapshot
+! Covers the most common trackers for day-1 offline protection
+! Updated automatically from EasyPrivacy + uBlock when online
+! Format: Adblock Plus (ABP)
+
+! ── Google Tracking ──────────────────────────────────────────────────────────
+||google-analytics.com^
+||googletagmanager.com^
+||googletagservices.com^
+||googlesyndication.com^
+||googleadservices.com^
+||doubleclick.net^
+||adservice.google.com^
+||adservice.google.es^
+||adservice.google.com.mx^
+||stats.g.doubleclick.net^
+||cm.g.doubleclick.net^
+||pagead2.googlesyndication.com^
+||tpc.googlesyndication.com^
+
+! ── Meta / Facebook ──────────────────────────────────────────────────────────
+||connect.facebook.net^
+||connect.facebook.com^
+||pixel.facebook.com^
+||an.facebook.com^
+||tr.facebook.com^
+||graph.facebook.com^
+||api.facebook.com^
+||edge-chat.facebook.com^
+
+! ── Instagram ────────────────────────────────────────────────────────────────
+||pixel.instagram.com^
+||i.instagram.com^
+
+! ── TikTok ───────────────────────────────────────────────────────────────────
+||analytics.tiktok.com^
+||ads-api.tiktok.com^
+||business-api.tiktok.com^
+||events.tiktok.com^
+||mon.tiktok.com^
+||log.tiktok.com^
+||log-va.tiktok.com^
+
+! ── Twitter / X ──────────────────────────────────────────────────────────────
+||ads-api.twitter.com^
+||analytics.twitter.com^
+||static.ads-twitter.com^
+||platform.twitter.com^
+||syndication.twitter.com^
+||ton.twimg.com^
+
+! ── LinkedIn ─────────────────────────────────────────────────────────────────
+||snap.licdn.com^
+||px.ads.linkedin.com^
+||dc.ads.linkedin.com^
+||platform.linkedin.com^
+
+! ── Amazon Advertising ───────────────────────────────────────────────────────
+||amazon-adsystem.com^
+||aps.amazon.com^
+||s.amazon-adsystem.com^
+||fls-na.amazon.com^
+||ir.ebaystatic.com^
+
+! ── Microsoft ────────────────────────────────────────────────────────────────
+||clarity.ms^
+||bat.bing.com^
+||ads.microsoft.com^
+||c.bing.com^
+||c1.microsoft.com^
+
+! ── Adobe Analytics ──────────────────────────────────────────────────────────
+||omtrdc.net^
+||2o7.net^
+||demdex.net^
+||adobedtm.com^
+||omniture.com^
+||sc.omtrdc.net^
+
+! ── Hotjar ───────────────────────────────────────────────────────────────────
+||hotjar.com^
+||static.hotjar.com^
+||in.hotjar.com^
+||vars.hotjar.com^
+
+! ── Segment ──────────────────────────────────────────────────────────────────
+||segment.io^
+||segment.com^
+||api.segment.io^
+||cdn.segment.com^
+
+! ── Mixpanel ─────────────────────────────────────────────────────────────────
+||mixpanel.com^
+||api.mixpanel.com^
+||cdn.mxpnl.com^
+
+! ── Amplitude ────────────────────────────────────────────────────────────────
+||amplitude.com^
+||api.amplitude.com^
+||cdn.amplitude.com^
+
+! ── Heap Analytics ───────────────────────────────────────────────────────────
+||heapanalytics.com^
+||heap.io^
+||cdn.heapanalytics.com^
+
+! ── New Relic ────────────────────────────────────────────────────────────────
+||newrelic.com^
+||bam.nr-data.net^
+||js-agent.newrelic.com^
+
+! ── Intercom ─────────────────────────────────────────────────────────────────
+||intercom.io^
+||intercomcdn.com^
+||static.intercomassets.com^
+||api-iam.intercom.io^
+||nexus-websocket-a.intercom.io^
+
+! ── Criteo ───────────────────────────────────────────────────────────────────
+||criteo.com^
+||criteo.net^
+||rtax.criteo.com^
+||static.criteo.net^
+||dis.us.criteo.com^
+
+! ── Taboola ──────────────────────────────────────────────────────────────────
+||taboola.com^
+||trc.taboola.com^
+||cdn.taboola.com^
+
+! ── Outbrain ─────────────────────────────────────────────────────────────────
+||outbrain.com^
+||amplify.outbrain.com^
+||odb.outbrain.com^
+||widgets.outbrain.com^
+
+! ── Quantcast ────────────────────────────────────────────────────────────────
+||quantserve.com^
+||quantcast.com^
+||pixel.quantserve.com^
+||edge.quantserve.com^
+
+! ── Comscore ─────────────────────────────────────────────────────────────────
+||scorecardresearch.com^
+||comscore.com^
+||sb.scorecardresearch.com^
+
+! ── Session Replay ───────────────────────────────────────────────────────────
+||fullstory.com^
+||rs.fullstory.com^
+||logrocket.com^
+||cdn.logrocket.io^
+||mouseflow.com^
+||cdn.mouseflow.com^
+||smartlook.com^
+||web.smartlook.com^
+||inspectlet.com^
+
+! ── Ad Exchanges ─────────────────────────────────────────────────────────────
+||rubiconproject.com^
+||fastlane.rubiconproject.com^
+||appnexus.com^
+||ib.adnxs.com^
+||openx.net^
+||openx.com^
+||pubmatic.com^
+||ads.pubmatic.com^
+||adsrvr.org^
+||match.adsrvr.org^
+||33across.com^
+||sic.33across.com^
+||casalemedia.com^
+||lijit.com^
+||sovrn.com^
+||indexexchange.com^
+||sharethrough.com^
+||triplelift.com^
+||districtm.io^
+||smartadserver.com^
+
+! ── SpotX ────────────────────────────────────────────────────────────────────
+||spotxchange.com^
+||spotx.tv^
+
+! ── Oath / Yahoo / Verizon ───────────────────────────────────────────────────
+||oath.com^
+||ads.yahoo.com^
+||udc.yahoo.com^
+
+! ── Mediamath ────────────────────────────────────────────────────────────────
+||mathtag.com^
+||pixel.mathtag.com^
+
+! ── Appboy / Braze ───────────────────────────────────────────────────────────
+||appboy.com^
+||braze.com^
+||sdk.iad-01.braze.com^
+
+! ── Klaviyo ──────────────────────────────────────────────────────────────────
+||klaviyo.com^
+||static.klaviyo.com^
+||a.klaviyo.com^
+
+! ── HubSpot ──────────────────────────────────────────────────────────────────
+||hubspot.com^
+||js.hs-analytics.net^
+||js.hsforms.net^
+||forms.hsforms.com^
+||track.hubspot.com^
+||cta-service-cms2.hubspot.com^
+
+! ── Drift / Salesloft ────────────────────────────────────────────────────────
+||drift.com^
+||js.driftt.com^
+||salesloft.com^
+
+! ── Sentry (telemetry only) ──────────────────────────────────────────────────
+||sentry.io^
+||browser.sentry-cdn.com^
+
+! ── Bugsnag ──────────────────────────────────────────────────────────────────
+||bugsnag.com^
+||notify.bugsnag.com^
+
+! ── LogRocket ────────────────────────────────────────────────────────────────
+||r.lr-ingest.io^
+||ingest.logrocket.com^
+
+! ── Tracking Pixels / Beacons ────────────────────────────────────────────────
+||trk.email^
+||t.co^
+||t.me^
+||click.convertkit-mail.com^
+||track.sendgrid.net^
+||trk.klclick.com^
+||links.iterable.com^
+
+! ── Spam / Malware ───────────────────────────────────────────────────────────
+||malware-traffic-analysis.net^
+||trafficjunky.net^
+||traffichaus.com^
+||propellerads.com^
+||adcash.com^
+||adfly.tv^
+||adf.ly^
+||shrinkme.io^
+||shorte.st^
+
+! ── Malicious ad redirectors / drive-by installers ───────────────────────────
+||torufutiov.com^
+||my.torufutiov.com^
+||trk.torufutiov.com^
+||toruftuiov.com^
+||my.toruftuiov.com^
+||rojadirect.sale^
+||rojadirecta.me^
+||rojadirecta.io^
+||first.eshkol.one^
+||eshkol.one^
+||lnkr.us^
+||linkvertise.com^
+||exe.io^
+||bcvc.live^
+||mcjs.io^
+||ouo.io^
+||ouo.press^
+||adbull.me^
+||gyldmedier.dk^
+||cdn77-static.com^
+||cdn77.com^
+||p.ato.mx^
+||prf.hn^
+||go.skimresources.com^
+||clk.ink^
+||go2.gg^
+||tinyurl.com^
+||rebrand.ly^
+||pushnotifications.online^
+||push.express^
+||pushground.com^
+||subscribers.com^
+||onesignal.com^
+||webpushr.com^
+||sendpulse.com^
+||gravitec.net^
+||ouo.io^

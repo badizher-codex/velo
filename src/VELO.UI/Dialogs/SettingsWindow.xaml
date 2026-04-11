@@ -1,0 +1,371 @@
+<Window x:Class="VELO.UI.Dialogs.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VELO — Configuración"
+        Width="720" Height="560"
+        MinWidth="620" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Sidebar nav button -->
+            <Style x:Key="NavButton" TargetType="Button">
+                <Setter Property="Background"      Value="Transparent"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Foreground"      Value="{StaticResource TextSecondaryBrush}"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="Padding"         Value="16,10"/>
+                <Setter Property="Cursor"          Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bg" Background="{TemplateBinding Background}"
+                                    CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="NavButtonActive" TargetType="Button" BasedOn="{StaticResource NavButton}">
+                <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource BackgroundDarkBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="180"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Grid.RowSpan="2"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+            <StackPanel Margin="8,16,8,8">
+                <TextBlock Text="VELO" FontSize="18" FontWeight="Light"
+                           Foreground="{StaticResource AccentBlueBrush}"
+                           Margin="16,0,0,20"/>
+
+                <Button x:Name="NavPrivacidad" Content="🔒  Privacidad"
+                        Style="{StaticResource NavButtonActive}"
+                        Click="Nav_Click" Tag="Privacidad"/>
+                <Button x:Name="NavDns" Content="🌐  DNS"
+                        Style="{StaticResource NavButton}"
+                        Click="Nav_Click" Tag="DNS" Margin="0,2"/>
+                <Button x:Name="NavIA" Content="🧠  Inteligencia Artificial"
+                        Style="{StaticResource NavButton}"
+                        Click="Nav_Click" Tag="IA" Margin="0,2"/>
+                <Button x:Name="NavBusqueda" Content="🔍  Búsqueda"
+                        Style="{StaticResource NavButton}"
+                        Click="Nav_Click" Tag="Busqueda" Margin="0,2"/>
+                <Button x:Name="NavVault" Content="🔑  Vault"
+                        Style="{StaticResource NavButton}"
+                        Click="Nav_Click" Tag="Vault" Margin="0,2"/>
+                <Button x:Name="NavIdioma" Content="🌍  Idioma"
+                        Style="{StaticResource NavButton}"
+                        Click="Nav_Click" Tag="Idioma" Margin="0,2"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Content area -->
+        <ScrollViewer Grid.Column="1" Grid.Row="0"
+                      VerticalScrollBarVisibility="Auto"
+                      Padding="32,24,32,16">
+            <StackPanel>
+
+                <!-- ── PRIVACIDAD ── -->
+                <StackPanel x:Name="PanelPrivacidad">
+                    <TextBlock Text="Privacidad" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,20"/>
+
+                    <TextBlock Text="Modo de seguridad" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <RadioButton x:Name="SecNormal" GroupName="SecMode" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Normal" FontWeight="SemiBold"/>
+                            <TextBlock Text="Bloquea rastreadores y anuncios. Uso diario."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="SecParanoid" GroupName="SecMode" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Paranoid" FontWeight="SemiBold"/>
+                            <TextBlock Text="Bloqueo agresivo. Historial borrado al salir."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="SecBunker" GroupName="SecMode" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="Bunker" FontWeight="SemiBold"/>
+                            <TextBlock Text="Máxima privacidad. Sin historial, sin cookies persistentes."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <Separator Margin="0,0,0,16"/>
+
+                    <TextBlock Text="Protección de huella digital" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <RadioButton x:Name="FpAggressive" GroupName="Fingerprint" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Agresivo (Recomendado)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Canvas, WebGL, AudioContext, hardware spoof."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="FpBalanced" GroupName="Fingerprint" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Balanceado" FontWeight="SemiBold"/>
+                            <TextBlock Text="Protección básica. Menos riesgo de romper sitios."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="FpOff" GroupName="Fingerprint" Margin="0,0,0,16">
+                        <TextBlock Text="Desactivado"/>
+                    </RadioButton>
+
+                    <Separator Margin="0,0,0,16"/>
+
+                    <TextBlock Text="WebRTC" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <RadioButton x:Name="WrtcRelay" GroupName="WebRTC" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Solo relay (Recomendado)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Oculta tu IP real usando solo servidores TURN."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="WrtcDisabled" GroupName="WebRTC" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Desactivado" FontWeight="SemiBold"/>
+                            <TextBlock Text="Elimina RTCPeerConnection. Puede romper videollamadas."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="WrtcOff" GroupName="WebRTC" Margin="0,0,0,16">
+                        <TextBlock Text="Sin protección"/>
+                    </RadioButton>
+
+                    <Separator Margin="0,0,0,16"/>
+
+                    <CheckBox x:Name="HistoryCheck" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="Guardar historial de navegación" FontWeight="SemiBold"/>
+                            <TextBlock Text="Desactiva en modo Paranoid/Bunker automáticamente."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </CheckBox>
+                    <CheckBox x:Name="ClearOnExitCheck">
+                        <StackPanel>
+                            <TextBlock Text="Borrar historial al salir" FontWeight="SemiBold"/>
+                            <TextBlock Text="Siempre activo en modo Paranoid y Bunker."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </CheckBox>
+                </StackPanel>
+
+                <!-- ── DNS ── -->
+                <StackPanel x:Name="PanelDns" Visibility="Collapsed">
+                    <TextBlock Text="DNS Privado (DoH)" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="Tu ISP puede ver qué sitios visitas con DNS normal. VELO usa DNS encriptado sobre HTTPS."
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,20"/>
+
+                    <RadioButton x:Name="DnsQuad9" GroupName="DNS" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="Quad9 (Recomendado)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Sin logs · Bloquea malware · Con sede en Suiza"
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="DnsCloudflare" GroupName="DNS" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="Cloudflare 1.1.1.1" FontWeight="SemiBold"/>
+                            <TextBlock Text="Ultra rápido · Política de privacidad limitada a 24h"
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="DnsNextDns" GroupName="DNS" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="NextDNS" FontWeight="SemiBold"/>
+                            <TextBlock Text="Filtrado personalizable · Requiere cuenta gratuita"
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="DnsCustom" GroupName="DNS" Margin="0,0,0,4">
+                        <TextBlock Text="Personalizado"/>
+                    </RadioButton>
+                    <TextBlock Text="URL DoH:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               Margin="20,4,0,2"/>
+                    <TextBox x:Name="DnsCustomUrl" Margin="20,0,0,0" IsEnabled="False"
+                             Tag="https://dns.example.com/dns-query"/>
+                </StackPanel>
+
+                <!-- ── IA ── -->
+                <StackPanel x:Name="PanelIA" Visibility="Collapsed">
+                    <TextBlock Text="Inteligencia Artificial" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="VELO analiza URLs y recursos en tiempo real para detectar amenazas."
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,20"/>
+
+                    <RadioButton x:Name="AiOffline" GroupName="AIMode" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="Offline (Recomendado)" FontWeight="SemiBold"/>
+                            <TextBlock Text="100% local. Sin API key. Reglas heurísticas."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="AiClaude" GroupName="AIMode" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="Claude (Mejor detección)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Requiere API key de Anthropic."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <TextBlock Text="API Key:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               Margin="20,4,0,2"/>
+                    <TextBox x:Name="ApiKeyField" Margin="20,0,0,12" IsEnabled="False"
+                             Tag="sk-ant-..."/>
+
+                    <RadioButton x:Name="AiCustom" GroupName="AIMode" Margin="0,0,0,6">
+                        <StackPanel>
+                            <TextBlock Text="LLM Personalizado (Ollama)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Cualquier endpoint compatible con OpenAI API."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <TextBlock Text="Endpoint:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               Margin="20,4,0,2"/>
+                    <TextBox x:Name="CustomEndpointField" Margin="20,0,0,4" IsEnabled="False"
+                             Tag="http://localhost:11434"/>
+                    <TextBlock Text="Modelo:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               Margin="20,0,0,2"/>
+                    <TextBox x:Name="CustomModelField" Margin="20,0,0,8" IsEnabled="False"
+                             Tag="llama3"/>
+                    <Button x:Name="TestOllamaButton" Content="Probar conexión"
+                            Margin="20,0,0,0" HorizontalAlignment="Left" IsEnabled="False"
+                            Click="OnTestOllamaClick"/>
+                    <TextBlock x:Name="OllamaTestResult" Margin="20,6,0,0"
+                               FontSize="11" Visibility="Collapsed" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- ── BÚSQUEDA ── -->
+                <StackPanel x:Name="PanelBusqueda" Visibility="Collapsed">
+                    <TextBlock Text="Motor de búsqueda" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,20"/>
+
+                    <RadioButton x:Name="SearchDDG" GroupName="Search" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="DuckDuckGo (Recomendado)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Sin rastreo · Sin perfil de usuario"
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="SearchBrave" GroupName="Search" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="Brave Search" FontWeight="SemiBold"/>
+                            <TextBlock Text="Índice propio · Sin Google"
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="SearchSearx" GroupName="Search" Margin="0,0,0,8">
+                        <StackPanel>
+                            <TextBlock Text="SearxNG" FontWeight="SemiBold"/>
+                            <TextBlock Text="Meta-buscador open source · Auto-hospedado"
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton x:Name="SearchCustom" GroupName="Search" Margin="0,0,0,8">
+                        <TextBlock Text="Personalizado"/>
+                    </RadioButton>
+                    <TextBox x:Name="SearchCustomUrl" Margin="20,0,0,0" IsEnabled="False"/>
+                    <TextBlock Text="Usa {query} como marcador. Ej: https://mi-searx.com/search?q={query}"
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               Margin="20,4,0,0"/>
+                </StackPanel>
+
+                <!-- ── VAULT ── -->
+                <StackPanel x:Name="PanelVault" Visibility="Collapsed">
+                    <TextBlock Text="Password Vault" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="Gestor de contraseñas encriptado con AES-256-GCM. La master password nunca se almacena."
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,20"/>
+
+                    <TextBlock Text="Bloqueo automático" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <ComboBox x:Name="AutoLockCombo" Width="200" HorizontalAlignment="Left">
+                        <ComboBoxItem Content="5 minutos"  Tag="5"/>
+                        <ComboBoxItem Content="10 minutos" Tag="10"/>
+                        <ComboBoxItem Content="15 minutos" Tag="15"/>
+                        <ComboBoxItem Content="30 minutos" Tag="30"/>
+                        <ComboBoxItem Content="1 hora"     Tag="60"/>
+                        <ComboBoxItem Content="Nunca"      Tag="0"/>
+                    </ComboBox>
+
+                    <Separator Margin="0,20,0,16"/>
+
+                    <TextBlock Text="Cambiar master password" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="Nueva master password:" Margin="0,0,0,4"/>
+                    <PasswordBox x:Name="NewMasterPwd" Width="300" HorizontalAlignment="Left"
+                                 Padding="8,6"
+                                 Background="{StaticResource BackgroundLightBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 BorderThickness="1"/>
+                    <TextBlock Text="Confirmar:" Margin="0,8,0,4"/>
+                    <PasswordBox x:Name="ConfirmMasterPwd" Width="300" HorizontalAlignment="Left"
+                                 Padding="8,6"
+                                 Background="{StaticResource BackgroundLightBrush}"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 BorderThickness="1"/>
+                    <TextBlock x:Name="VaultError" Text="" Foreground="{StaticResource VerdictBlockBrush}"
+                               FontSize="11" Margin="0,6,0,0" Visibility="Collapsed"/>
+                    <Button Content="Cambiar password" Margin="0,10,0,0"
+                            HorizontalAlignment="Left" Padding="14,7"
+                            Click="ChangePassword_Click"/>
+                </StackPanel>
+
+                <!-- ── IDIOMA ── -->
+                <StackPanel x:Name="PanelIdioma" Visibility="Collapsed">
+                    <TextBlock x:Name="LangTitle" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="LangSubtitle" FontSize="12" Margin="0,0,0,24"
+                               TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}"/>
+
+                    <TextBlock x:Name="LangChooseLabel" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <ComboBox x:Name="LanguagePicker" Width="220" HorizontalAlignment="Left"
+                              SelectionChanged="LanguagePicker_Changed"/>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Bottom bar -->
+        <Border Grid.Column="1" Grid.Row="1"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
+                Padding="32,12">
+            <Grid>
+                <TextBlock x:Name="StatusText" Text=""
+                           Foreground="{StaticResource VerdictSafeBrush}"
+                           VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancelar" Padding="16,8" Margin="0,0,8,0"
+                            Click="Cancel_Click"/>
+                    <Button Content="Guardar" Padding="16,8"
+                            Style="{StaticResource AccentButton}"
+                            Click="Save_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

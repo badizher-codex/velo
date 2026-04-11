@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Platforms>x64</Platforms>
+    <AssemblyName>VELO</AssemblyName>
+    <RootNamespace>VELO.App</RootNamespace>
+    <ApplicationIcon>velo.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Copyright>© 2025 VELO Browser Contributors</Copyright>
+    <Company>VELO Browser</Company>
+    <Product>VELO</Product>
+    <Description>Privacy Browser for Windows</Description>
+  </PropertyGroup>
+
+  <!-- Strip WebView2 XML doc files from publish output -->
+  <Target Name="RemoveWebView2Docs" AfterTargets="Publish">
+    <Delete Files="@(PublishDir->Combine('Microsoft.Web.WebView2.Core.xml'))" ContinueOnError="true"/>
+    <Delete Files="@(PublishDir->Combine('Microsoft.Web.WebView2.WinForms.xml'))" ContinueOnError="true"/>
+    <Delete Files="@(PublishDir->Combine('Microsoft.Web.WebView2.Wpf.xml'))" ContinueOnError="true"/>
+  </Target>
+
+  <ItemGroup>
+    <Content Include="..\..\resources\blocklists\trackers-bundled.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\blocklists\trackers-bundled.txt</Link>
+    </Content>
+    <Content Include="..\..\resources\scripts\reader.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\scripts\reader.js</Link>
+    </Content>
+    <Content Include="..\..\resources\scripts\fingerprint-noise.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\scripts\fingerprint-noise.js</Link>
+    </Content>
+    <Content Include="..\..\resources\scripts\webrtc-spoof.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\scripts\webrtc-spoof.js</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VELO.UI\VELO.UI.csproj" />
+    <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
+    <ProjectReference Include="..\VELO.Security\VELO.Security.csproj" />
+    <ProjectReference Include="..\VELO.DNS\VELO.DNS.csproj" />
+    <ProjectReference Include="..\VELO.Data\VELO.Data.csproj" />
+    <ProjectReference Include="..\VELO.Vault\VELO.Vault.csproj" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="*" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="*" />
+    <PackageReference Include="Serilog" Version="*" />
+    <PackageReference Include="Serilog.Sinks.File" Version="*" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="*" />
+  </ItemGroup>
+
+</Project>

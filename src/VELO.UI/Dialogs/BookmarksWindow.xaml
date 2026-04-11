@@ -1,0 +1,55 @@
+<Window x:Class="VELO.UI.Dialogs.BookmarksWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VELO — Marcadores"
+        Width="520" Height="480"
+        MinWidth="400" MinHeight="300"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource BackgroundDarkBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="20,16,20,0">
+            <TextBlock x:Name="HeaderLabel" FontSize="16" FontWeight="SemiBold"/>
+        </Grid>
+
+        <!-- Search -->
+        <Border Grid.Row="1" Margin="20,10,20,0"
+                Background="{StaticResource BackgroundLightBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1" CornerRadius="6" Padding="10,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="🔍" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{StaticResource TextMutedBrush}"/>
+                <TextBox x:Name="SearchBox" Grid.Column="1"
+                         Background="Transparent" BorderThickness="0"
+                         Foreground="{StaticResource TextPrimaryBrush}"
+                         Padding="0,9" TextChanged="Search_Changed"/>
+            </Grid>
+        </Border>
+
+        <!-- List -->
+        <ScrollViewer Grid.Row="2" Margin="20,10,20,12"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="BookmarkList"/>
+        </ScrollViewer>
+    </Grid>
+</Window>

@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore VELO.sln
+
+      - name: Publish (self-contained, win-x64)
+        run: >
+          dotnet publish src/VELO.App/VELO.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+          --output publish/VELO
+
+      - name: Zip artifact
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          Compress-Archive -Path publish/VELO/* -DestinationPath "VELO-$tag-win-x64.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "VELO ${{ github.ref_name }}"
+          body: |
+            ## VELO ${{ github.ref_name }}
+
+            ### Instalación
+            1. Descarga `VELO-${{ github.ref_name }}-win-x64.zip`
+            2. Extrae en cualquier carpeta
+            3. Ejecuta `VELO.exe`
+
+            > **Requisito:** Windows 10/11 x64 con [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) instalado (ya incluido en Windows 11).
+
+            ### Cambios
+            Ver [CHANGELOG](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }})
+          files: VELO-${{ github.ref_name }}-win-x64.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}

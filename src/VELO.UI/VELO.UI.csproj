@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\velo-logo.png"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
+    <ProjectReference Include="..\VELO.Security\VELO.Security.csproj" />
+    <ProjectReference Include="..\VELO.DNS\VELO.DNS.csproj" />
+    <ProjectReference Include="..\VELO.Vault\VELO.Vault.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="*" />
+    <PackageReference Include="ModernWpfUI" Version="*" />
+  </ItemGroup>
+
+</Project>

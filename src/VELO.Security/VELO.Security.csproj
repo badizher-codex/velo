@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VELO.Data\VELO.Data.csproj" />
+    <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
+    <PackageReference Include="Anthropic.SDK" Version="*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
+    <PackageReference Include="System.Text.Json" Version="*" />
+  </ItemGroup>
+
+</Project>
