@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="VELO — Privacy Browser for Windows. Zero telemetry, AI threat detection, DNS-over-HTTPS, fingerprint protection and more." />
+  <meta property="og:title" content="VELO — Privacy Browser for Windows" />
+  <meta property="og:description" content="Zero telemetry. No tracking. Local AI threat detection." />
+  <meta property="og:type" content="website" />
+  <title>VELO — Privacy Browser for Windows</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0d0f;
+      --bg2:       #13131a;
+      --bg3:       #1a1a24;
+      --border:    #2a2a3a;
+      --accent:    #6c63ff;
+      --accent2:   #a78bfa;
+      --text:      #e2e2f0;
+      --muted:     #8888aa;
+      --danger:    #f87171;
+      --success:   #4ade80;
+      --radius:    12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13, 13, 15, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+
+    .nav-logo {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-logo span { color: var(--accent2); }
+
+    .nav-links {
+      display: flex;
+      gap: 1.8rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── HERO ── */
+    .hero {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 6rem 2rem 4rem;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(108, 99, 255, 0.15);
+      border: 1px solid rgba(108, 99, 255, 0.4);
+      color: var(--accent2);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      padding: 0.25rem 0.75rem;
+      border-radius: 99px;
+      margin-bottom: 1.5rem;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 6vw, 3.6rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 1.2rem;
+    }
+
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, #6c63ff, #a78bfa, #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 1.2rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.6rem;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: transform 0.15s, opacity 0.15s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn:hover { transform: translateY(-2px); text-decoration: none; opacity: 0.92; }
+    .btn:active { transform: translateY(0); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .hero-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .hero-note a { color: var(--muted); }
+    .hero-note a:hover { color: var(--accent2); }
+
+    /* ── DIVIDER ── */
+    .section { padding: 4rem 2rem; max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 0.6rem;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.8rem;
+    }
+    .section-sub {
+      color: var(--muted);
+      max-width: 560px;
+      margin-bottom: 3rem;
+    }
+
+    hr.divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0 2rem;
+    }
+
+    /* ── PILLARS ── */
+    .pillars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .pillar {
+      background: var(--bg2);
+      padding: 2rem;
+    }
+
+    .pillar-icon {
+      font-size: 1.8rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .pillar h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+    }
+
+    .pillar p {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── FEATURES GRID ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .feature-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.4rem;
+      transition: border-color 0.2s;
+    }
+
+    .feature-card:hover { border-color: rgba(108, 99, 255, 0.5); }
+
+    .feature-card .icon {
+      font-size: 1.3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card h4 {
+      font-size: 0.92rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+    }
+
+    .feature-card p {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    /* ── REQUIREMENTS ── */
+    .req-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .req-table th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      background: var(--bg3);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .req-table td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .req-table tr:last-child td { border-bottom: none; }
+
+    .req-table td:first-child { color: var(--muted); width: 35%; }
+
+    .req-wrap {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    /* ── INSTALL STEPS ── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      counter-reset: step;
+    }
+
+    .step {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.4rem;
+      position: relative;
+      counter-increment: step;
+    }
+
+    .step::before {
+      content: counter(step);
+      position: absolute;
+      top: 1rem;
+      right: 1.2rem;
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: rgba(108, 99, 255, 0.15);
+      line-height: 1;
+    }
+
+    .step h4 { font-size: 0.92rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .step p  { font-size: 0.82rem; color: var(--muted); }
+
+    /* ── ARCHITECTURE ── */
+    .arch-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      max-width: 560px;
+    }
+
+    .arch-layer {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.7rem 1.2rem;
+      font-size: 0.88rem;
+    }
+
+    .arch-layer .num {
+      background: rgba(108, 99, 255, 0.2);
+      color: var(--accent2);
+      font-weight: 700;
+      font-size: 0.78rem;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .arch-layer .name { font-weight: 600; min-width: 160px; }
+    .arch-layer .desc { color: var(--muted); font-size: 0.8rem; }
+
+    /* ── DOWNLOAD SECTION ── */
+    .download-box {
+      background: linear-gradient(135deg, rgba(108, 99, 255, 0.08), rgba(167, 139, 250, 0.05));
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      text-align: center;
+    }
+
+    .download-box h2 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .download-box p {
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+
+    .download-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      text-align: left;
+      margin-bottom: 1.5rem;
+    }
+
+    .dl-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .dl-card .dl-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .dl-card .dl-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .dl-card .dl-btn {
+      margin-top: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: border-color 0.2s, transform 0.15s;
+      text-decoration: none;
+      width: fit-content;
+    }
+
+    .dl-card .dl-btn:hover {
+      border-color: var(--accent2);
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+
+    .dl-card.recommended { border-color: rgba(108, 99, 255, 0.5); }
+    .dl-card.recommended .dl-btn {
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .tag {
+      display: inline-block;
+      background: rgba(108, 99, 255, 0.2);
+      color: var(--accent2);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--accent2); text-decoration: none; }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      nav { padding: 0 1rem; }
+      .nav-links { gap: 1rem; }
+      .hero { padding: 4rem 1.2rem 3rem; }
+      .section { padding: 3rem 1.2rem; }
+      .arch-layer .desc { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#a78bfa"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+      VE<span>LO</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#architecture">How it works</a></li>
+      <li><a href="https://github.com/badizher-codex/velo">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="badge">Open Source · AGPLv3 · Windows 10/11</div>
+    <h1>The browser that<br><em>works for you</em>, not against you</h1>
+    <p class="hero-sub">
+      VELO is a privacy-first Windows browser with zero telemetry, local AI threat detection,
+      DNS&#8209;over&#8209;HTTPS and fingerprint protection — all built-in, no extensions needed.
+    </p>
+    <div class="cta-group">
+      <a class="btn btn-primary" href="https://github.com/badizher-codex/velo/releases/latest/download/VELO-v1.0.0-Setup.exe">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download v1.0.0
+      </a>
+      <a class="btn btn-secondary" href="https://github.com/badizher-codex/velo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.37.6.1.82-.26.82-.57v-2c-3.34.73-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.08-.74.08-.73.08-.73 1.2.09 1.83 1.23 1.83 1.23 1.07 1.83 2.8 1.3 3.48 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.3-1.23 3.3-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.21.69.83.57C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+    <p class="hero-note">
+      Windows 10/11 x64 &nbsp;·&nbsp;
+      Requires <a href="https://developer.microsoft.com/microsoft-edge/webview2/" target="_blank" rel="noopener">WebView2 Runtime</a>
+      (included in Windows 11)
+    </p>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- PILLARS -->
+  <section class="section">
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-icon">🛡️</div>
+        <h3>Zero telemetry</h3>
+        <p>VELO never phones home. No crash reports, no usage analytics, no update pings. Your traffic stays between you and the sites you visit.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">🤖</div>
+        <h3>Local AI security</h3>
+        <p>Threat analysis runs on your machine with Ollama or offline heuristics. Claude API is optional. No request data leaves your device.</p>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">🔓</div>
+        <h3>Free & open source</h3>
+        <p>Every line of code is auditable. Licensed under AGPLv3 — you can inspect, fork and improve it freely.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <div class="section-label">What's included</div>
+    <h2 class="section-title">Everything built-in, nothing phoning home</h2>
+    <p class="section-sub">No extension store, no upsells. Every privacy and security feature ships in the box.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="icon">🧬</div>
+        <h4>Fingerprint Protection</h4>
+        <p>Injects noise into Canvas, WebGL, AudioContext and hardware APIs so trackers can't build a profile from your browser fingerprint.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📡</div>
+        <h4>DNS-over-HTTPS</h4>
+        <p>All DNS queries are encrypted via Quad9, Cloudflare, NextDNS or a custom endpoint. Your ISP never sees what you look up.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🚫</div>
+        <h4>Tracker Blocker</h4>
+        <p>250+ bundled tracker domains blocked at the request level. No list to enable — it's on by default from first launch.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📦</div>
+        <h4>Identity Containers</h4>
+        <p>Isolate different browsing contexts — work, personal, shopping — so sites can't cross-track you across sessions.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔒</div>
+        <h4>TLSGuard</h4>
+        <p>Enforces HSTS preloads and verifies Certificate Transparency logs to catch certificate misissuance in real time.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📥</div>
+        <h4>DownloadGuard</h4>
+        <p>Blocks drive-by downloads, executable burst attacks and suspicious cross-origin binary transfers before they reach disk.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🍪</div>
+        <h4>Cookie Wall Bypass</h4>
+        <p>Automatically dismisses GDPR consent banners by injecting the correct accept/reject signals before the page renders.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📡</div>
+        <h4>WebRTC Leak Prevention</h4>
+        <p>Forces relay-only mode or disables WebRTC entirely so your real IP address is never exposed, even on VPN.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🗝️</div>
+        <h4>Password Vault</h4>
+        <p>AES-256 encrypted vault protected by a master password. Uses PBKDF2 with 310,000 iterations. The master password is never stored.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📖</div>
+        <h4>Reader Mode</h4>
+        <p>Strip ads, banners and clutter from any article with F9. Clean reading experience, zero trackers loaded.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">☠️</div>
+        <h4>Malwaredex</h4>
+        <p>A collectible threat tracker with 43 threat types across 6 categories — know exactly what VELO blocked and why.</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🌑</div>
+        <h4>Dark theme only</h4>
+        <p>VELO is dark by design. No eye-straining light mode, no theme toggles, no distractions. Just a clean, focused interface.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- INSTALL -->
+  <section class="section" id="install">
+    <div class="section-label">Get started</div>
+    <h2 class="section-title">Install in seconds</h2>
+    <p class="section-sub">No account, no signup, no telemetry opt-out required. Just download and run.</p>
+
+    <div class="steps">
+      <div class="step">
+        <h4>Download the installer</h4>
+        <p>Grab <strong>VELO-v1.0.0-Setup.exe</strong> from the releases page below.</p>
+      </div>
+      <div class="step">
+        <h4>Run the setup</h4>
+        <p>Double-click the installer. It creates a Start Menu entry and an optional Desktop shortcut.</p>
+      </div>
+      <div class="step">
+        <h4>Complete onboarding</h4>
+        <p>VELO walks you through choosing a search engine, DoH provider and AI mode on first launch.</p>
+      </div>
+      <div class="step">
+        <h4>Browse privately</h4>
+        <p>Every feature is on by default. Nothing to configure to be private from day one.</p>
+      </div>
+    </div>
+
+    <br />
+
+    <div class="req-wrap">
+      <table class="req-table">
+        <thead>
+          <tr><th>Requirement</th><th>Details</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>OS</td><td>Windows 10 (1803+) or Windows 11 — x64 only</td></tr>
+          <tr><td>WebView2 Runtime</td><td>Already included in Windows 11 and most updated Windows 10 systems. <a href="https://developer.microsoft.com/microsoft-edge/webview2/" target="_blank" rel="noopener">Download if missing →</a></td></tr>
+          <tr><td>RAM</td><td>4 GB minimum, 8 GB recommended (16 GB if using local AI)</td></tr>
+          <tr><td>Disk</td><td>~120 MB installed</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- ARCHITECTURE -->
+  <section class="section" id="architecture">
+    <div class="section-label">Under the hood</div>
+    <h2 class="section-title">6-layer security pipeline</h2>
+    <p class="section-sub">Every web request passes through all six layers before the page loads. Each layer can block, warn or pass through.</p>
+
+    <div class="arch-flow">
+      <div class="arch-layer">
+        <div class="num">1</div>
+        <div class="name">WebView2 Intercept</div>
+        <div class="desc">Captures every request via WebResourceRequested (&lt;100ms budget)</div>
+      </div>
+      <div class="arch-layer">
+        <div class="num">2</div>
+        <div class="name">DoH Engine</div>
+        <div class="desc">Resolves DNS over HTTPS via Quad9, Cloudflare or custom provider</div>
+      </div>
+      <div class="arch-layer">
+        <div class="num">3</div>
+        <div class="name">Security Guards</div>
+        <div class="desc">Blocklist → TLS → Request → Container checks</div>
+      </div>
+      <div class="arch-layer">
+        <div class="num">4</div>
+        <div class="name">AI Security Engine</div>
+        <div class="desc">Cache → Local rules → AI adapter (3s timeout, never blocks fast path)</div>
+      </div>
+      <div class="arch-layer">
+        <div class="num">5</div>
+        <div class="name">Cookie Wall Bypass</div>
+        <div class="desc">ConsentInjector runs before DOMContentLoaded via script injection</div>
+      </div>
+      <div class="arch-layer">
+        <div class="num">6</div>
+        <div class="name">UI Result</div>
+        <div class="desc">SecurityPanel appears only on WARN or BLOCK — no noise for clean pages</div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+  <!-- DOWNLOAD -->
+  <section class="section">
+    <div class="download-box">
+      <h2>Download VELO v1.0.0</h2>
+      <p>Free, open source, no account required.</p>
+
+      <div class="download-cards">
+        <div class="dl-card recommended">
+          <div class="dl-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Installer
+            <span class="tag">Recommended</span>
+          </div>
+          <div class="dl-desc">VELO-v1.0.0-Setup.exe · Windows installer with Start Menu &amp; Desktop shortcut</div>
+          <a class="dl-btn" href="https://github.com/badizher-codex/velo/releases/latest/download/VELO-v1.0.0-Setup.exe">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download .exe
+          </a>
+        </div>
+
+        <div class="dl-card">
+          <div class="dl-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Portable ZIP
+          </div>
+          <div class="dl-desc">VELO-v1.0.0-win-x64-portable.zip · Extract anywhere and run, no install needed</div>
+          <a class="dl-btn" href="https://github.com/badizher-codex/velo/releases/latest/download/VELO-v1.0.0-win-x64-portable.zip">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download .zip
+          </a>
+        </div>
+
+        <div class="dl-card">
+          <div class="dl-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.2 11.37.6.1.82-.26.82-.57v-2c-3.34.73-4.04-1.6-4.04-1.6-.55-1.4-1.34-1.77-1.34-1.77-1.08-.74.08-.73.08-.73 1.2.09 1.83 1.23 1.83 1.23 1.07 1.83 2.8 1.3 3.48 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 0 1 3-.4c1.02 0 2.04.13 3 .4 2.28-1.55 3.3-1.23 3.3-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.8 5.63-5.48 5.92.43.37.82 1.1.82 2.22v3.29c0 .32.21.69.83.57C20.56 21.8 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            All releases
+          </div>
+          <div class="dl-desc">View changelog, previous versions and release notes on GitHub Releases</div>
+          <a class="dl-btn" href="https://github.com/badizher-codex/velo/releases">
+            View all releases →
+          </a>
+        </div>
+      </div>
+
+      <p style="font-size:0.8rem; color:var(--muted);">
+        SHA-256 checksums available on the
+        <a href="https://github.com/badizher-codex/velo/releases/latest">releases page</a>.
+        Source code is <a href="https://github.com/badizher-codex/velo">fully auditable on GitHub</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div>VELO Browser &copy; 2025 VELO Browser Contributors</div>
+    <div class="footer-links">
+      <a href="https://github.com/badizher-codex/velo">GitHub</a>
+      <a href="https://github.com/badizher-codex/velo/releases">Releases</a>
+      <a href="https://github.com/badizher-codex/velo/issues">Issues</a>
+      <a href="https://github.com/badizher-codex/velo/blob/main/LICENSE">AGPLv3 License</a>
+    </div>
+    <div style="margin-top:0.5rem; font-size:0.75rem;">
+      Built with C# / .NET 8 · WPF · Microsoft WebView2
+    </div>
+  </footer>
+
+</body>
+</html>
