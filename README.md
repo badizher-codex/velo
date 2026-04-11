@@ -7,7 +7,7 @@
 
 [![Build](https://img.shields.io/badge/build-passing-brightgreen)](#building)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)](#requirements)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--v3-blue)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com)
 
 ---
@@ -130,4 +130,4 @@ Pull requests are welcome. For major changes, please open an issue first.
 
 ## License
 
-[MIT](LICENSE) © 2025 VELO Browser Contributors
+[GNU Affero General Public License v3.0](LICENSE) © 2025 VELO Browser Contributors

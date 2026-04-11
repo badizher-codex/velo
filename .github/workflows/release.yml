@@ -36,11 +36,34 @@ jobs:
           -p:DebugType=none
           --output publish/VELO
 
-      - name: Zip artifact
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Update version in installer script
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}" -replace '^v', ''
+          (Get-Content installer/velo-setup.iss) -replace '#define AppVersion\s+"[^"]+"', "#define AppVersion   `"$tag`"" |
+            Set-Content installer/velo-setup.iss
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\velo-setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Zip portable artifact
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          Compress-Archive -Path publish/VELO/* -DestinationPath "VELO-$tag-win-x64.zip"
+          Compress-Archive -Path publish/VELO/* -DestinationPath "VELO-$tag-win-x64-portable.zip"
+
+      - name: Rename installer
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag -replace '^v', ''
+          Rename-Item "publish/installer/VELO-v$version-Setup.exe" "VELO-$tag-Setup.exe"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -49,15 +72,27 @@ jobs:
           body: |
             ## VELO ${{ github.ref_name }}
 
-            ### Instalación
-            1. Descarga `VELO-${{ github.ref_name }}-win-x64.zip`
-            2. Extrae en cualquier carpeta
-            3. Ejecuta `VELO.exe`
+            ### Descargas
 
-            > **Requisito:** Windows 10/11 x64 con [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) instalado (ya incluido en Windows 11).
+            | Archivo | Descripción |
+            |---|---|
+            | `VELO-${{ github.ref_name }}-Setup.exe` | **Instalador recomendado** — instala en Archivos de programa, acceso directo en escritorio |
+            | `VELO-${{ github.ref_name }}-win-x64-portable.zip` | Versión portable — extrae y ejecuta `VELO.exe` directamente |
 
-            ### Cambios
-            Ver [CHANGELOG](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }})
-          files: VELO-${{ github.ref_name }}-win-x64.zip
+            ### Requisitos
+            - Windows 10 (1803+) o Windows 11 — **solo x64**
+            - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) *(ya incluido en Windows 11 y la mayoría de Windows 10 actualizados)*
+
+            ### Instalación rápida (portable)
+            ```powershell
+            Expand-Archive VELO-${{ github.ref_name }}-win-x64-portable.zip -DestinationPath "$env:LOCALAPPDATA\VELO"
+            Start-Process "$env:LOCALAPPDATA\VELO\VELO.exe"
+            ```
+
+            ---
+            > VELO es software libre bajo la licencia [GNU AGPLv3](https://github.com/${{ github.repository }}/blob/main/LICENSE).
+          files: |
+            VELO-${{ github.ref_name }}-Setup.exe
+            VELO-${{ github.ref_name }}-win-x64-portable.zip
           draft: false
           prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
