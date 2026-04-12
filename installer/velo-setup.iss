@@ -65,6 +65,7 @@ Type: filesandordirs; Name: "{userappdata}\VELO\WebView2"
 const
   WEBVIEW2_KEY = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
   WEBVIEW2_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+  CRLF = #13#10;
 
 function WebView2Installed: Boolean;
 var
@@ -80,11 +81,11 @@ procedure InitializeWizard;
 begin
   if not WebView2Installed then
     MsgBox(
-      'VELO requires the Microsoft Edge WebView2 Runtime.' + #13#10 +
-      #13#10 +
-      'After the installation finishes, please download and install WebView2 from:' + #13#10 +
-      WEBVIEW2_URL + #13#10 +
-      #13#10 +
+      'VELO requires the Microsoft Edge WebView2 Runtime.' + CRLF +
+      CRLF +
+      'After the installation finishes, please download and install WebView2 from:' + CRLF +
+      WEBVIEW2_URL + CRLF +
+      CRLF +
       '(Windows 11 and most Windows 10 systems already have it installed.)',
       mbInformation, MB_OK
     );
