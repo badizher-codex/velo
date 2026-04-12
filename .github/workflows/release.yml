@@ -58,12 +58,12 @@ jobs:
           $tag = "${{ github.ref_name }}"
           Compress-Archive -Path publish/VELO/* -DestinationPath "VELO-$tag-win-x64-portable.zip"
 
-      - name: Rename installer
+      - name: Move installer to root
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag -replace '^v', ''
-          Rename-Item "publish/installer/VELO-v$version-Setup.exe" "VELO-$tag-Setup.exe"
+          Move-Item "publish/installer/VELO-v$version-Setup.exe" "VELO-$tag-Setup.exe"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
