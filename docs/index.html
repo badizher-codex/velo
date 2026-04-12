@@ -637,6 +637,10 @@
         <p>Grab <strong>VELO-v1.0.0-Setup.exe</strong> from the releases page below.</p>
       </div>
       <div class="step">
+        <h4>Allow the app to run</h4>
+        <p>Windows SmartScreen may warn you. Click <strong>"More info"</strong> → <strong>"Run anyway"</strong>. VELO is open source — you can audit every line on GitHub.</p>
+      </div>
+      <div class="step">
         <h4>Run the setup</h4>
         <p>Double-click the installer. It creates a Start Menu entry and an optional Desktop shortcut.</p>
       </div>
@@ -755,11 +759,16 @@
         </div>
       </div>
 
-      <p style="font-size:0.8rem; color:var(--muted);">
-        SHA-256 checksums available on the
-        <a href="https://github.com/badizher-codex/velo/releases/latest">releases page</a>.
-        Source code is <a href="https://github.com/badizher-codex/velo">fully auditable on GitHub</a>.
-      </p>
+      <div style="display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem;">
+        <div style="background:rgba(250,204,21,0.08); border:1px solid rgba(250,204,21,0.25); border-radius:8px; padding:0.75rem 1rem; font-size:0.82rem; color:#fbbf24; text-align:left; display:flex; gap:0.6rem; align-items:flex-start;">
+          <span style="flex-shrink:0;">⚠️</span>
+          <span><strong>Windows SmartScreen</strong> puede mostrar una advertencia al abrir el instalador porque aún no tiene certificado de firma de código. Haz clic en <strong>"Más información"</strong> → <strong>"Ejecutar de todas formas"</strong>. VELO es 100% open source — puedes revisar cada línea en GitHub.</span>
+        </div>
+        <div style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.25); border-radius:8px; padding:0.75rem 1rem; font-size:0.82rem; color:#a5b4fc; text-align:left; display:flex; gap:0.6rem; align-items:flex-start;">
+          <span style="flex-shrink:0;">ℹ️</span>
+          <span><strong>Microsoft Edge WebView2 Runtime</strong> es necesario para ejecutar VELO. Ya viene incluido en Windows 11 y en la mayoría de sistemas Windows 10 actualizados. Si VELO no abre, <a href="https://developer.microsoft.com/microsoft-edge/webview2/" target="_blank" rel="noopener" style="color:#a5b4fc;">descárgalo aquí</a> (es gratis, ~2 MB).</span>
+        </div>
+      </div>
     </div>
   </section>
 
