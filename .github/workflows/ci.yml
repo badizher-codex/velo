@@ -25,21 +25,35 @@ jobs:
       - name: Build
         run: dotnet build VELO.sln --configuration Release -p:Platform=x64 --no-restore -v quiet
 
-      - name: Test
+      - name: Test — VELO.Security.Tests
         run: >
-          dotnet test VELO.sln
+          dotnet test tests/VELO.Security.Tests/VELO.Security.Tests.csproj
           --configuration Release
           -p:Platform=x64
-          --logger "trx;LogFileName=test-results.trx"
+          --no-build
+          --logger "trx;LogFileName=security.trx"
           --logger "console;verbosity=detailed"
           --results-directory TestResults
 
-      - name: Dump test results (debug)
-        if: always()
-        shell: pwsh
-        run: |
-          $trx = Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue
-          foreach ($f in $trx) { Write-Host "=== $($f.FullName) ==="; Get-Content $f.FullName }
+      - name: Test — VELO.Agent.Tests
+        run: >
+          dotnet test tests/VELO.Agent.Tests/VELO.Agent.Tests.csproj
+          --configuration Release
+          -p:Platform=x64
+          --no-build
+          --logger "trx;LogFileName=agent.trx"
+          --logger "console;verbosity=detailed"
+          --results-directory TestResults
+
+      - name: Test — VELO.Core.Tests
+        run: >
+          dotnet test tests/VELO.Core.Tests/VELO.Core.Tests.csproj
+          --configuration Release
+          -p:Platform=x64
+          --no-build
+          --logger "trx;LogFileName=core.trx"
+          --logger "console;verbosity=detailed"
+          --results-directory TestResults
 
       - name: Upload test results
         if: always()
