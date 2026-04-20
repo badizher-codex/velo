@@ -1,0 +1,82 @@
+# VELO Browser — Winget Package Manifest
+# Submit this manifest (and the two companion files) as a PR to:
+# https://github.com/microsoft/winget-pkgs
+#
+# To install: winget install velo.velo
+# To upgrade: winget upgrade velo.velo
+
+PackageIdentifier: velo.velo
+PackageVersion: 2.0.0
+DefaultLocale: es-ES
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0
+
+# ── Metadata ────────────────────────────────────────────────────────────────
+
+PackageName: VELO Browser
+Publisher: VELO Browser Contributors
+PublisherUrl: https://github.com/badizher-codex/velo
+PublisherSupportUrl: https://github.com/badizher-codex/velo/issues
+PrivacyUrl: https://github.com/badizher-codex/velo/blob/main/PRIVACY.md
+License: GNU Affero General Public License v3.0
+LicenseUrl: https://github.com/badizher-codex/velo/blob/main/LICENSE
+Copyright: Copyright © 2026 VELO Browser Contributors
+CopyrightUrl: https://github.com/badizher-codex/velo/blob/main/LICENSE
+
+# ── Description ──────────────────────────────────────────────────────────────
+
+ShortDescription: Privacy-first browser for Windows. Built-in AI security, no telemetry, open-source.
+
+Description: |-
+  VELO is a privacy-first browser for Windows built on WebView2 (Chromium engine).
+
+  Key features:
+    • Shield Score — visual security rating for every site (Red/Yellow/Green/Gold)
+    • Real-time threat blocking — trackers, malware, fingerprinting attempts
+    • VELO Security Inspector — standalone window with TLS, tracker, AI and fingerprint details
+    • Command Bar (Ctrl+K) — fuzzy-search tabs, bookmarks, history, and commands
+    • Glance link preview — hover any link to preview it without loading it
+    • Workspaces + Split View + Tab tear-off — Arc-like UX
+    • VeloAgent — local AI assistant powered by Ollama or LLamaSharp (no cloud required)
+    • Paste Protection + Anti-capture banking mode
+    • Portable mode — run from USB drive, no install needed
+    • Zero telemetry — no crash reports, no usage data ever sent
+
+  Requires Microsoft Edge WebView2 Runtime (pre-installed on Windows 11).
+
+Tags:
+  - browser
+  - privacy
+  - security
+  - web
+  - ai
+  - open-source
+  - webview2
+
+Moniker: velo
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+
+ReleaseNotes: |-
+  Version 2.0.0 — Fase 2
+
+  New features:
+  - Shield Score (visual security badge in URL bar)
+  - VELO Security Inspector (standalone analysis window, Ctrl+Shift+V)
+  - NewTab v2 with top-sites mosaic and lifetime privacy stats
+  - Command Bar (Ctrl+K) with fuzzy-search
+  - Glance link preview (hover 600ms to preview)
+  - Vertical tabs sidebar with Workspaces, Split View, and tab tear-off
+  - VeloAgent chat panel with local AI (Ollama / LLamaSharp)
+  - Portable mode (run from USB / no install)
+  - Auto-updater (background check, user confirmation required)
+  - Chocolatey and Winget packages
+
+ReleaseNotesUrl: https://github.com/badizher-codex/velo/releases/tag/v2.0.0
+
+# ── Platform requirements ─────────────────────────────────────────────────────
+
+Agreements:
+  - AgreementLabel: GNU Affero General Public License v3.0
+    AgreementUrl: https://github.com/badizher-codex/velo/blob/main/LICENSE
+    Agreement: By installing this software you agree to the GNU AGPLv3 license terms.

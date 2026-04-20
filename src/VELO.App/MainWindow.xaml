@@ -8,106 +8,145 @@
         WindowStartupLocation="CenterScreen"
         Closing="Window_Closing">
 
+    <!-- Root: sidebar | main area -->
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>   <!-- TabBar -->
-            <RowDefinition Height="Auto"/>   <!-- UrlBar -->
-            <RowDefinition Height="Auto"/>   <!-- FindBar (hidden by default) -->
-            <RowDefinition Height="*"/>      <!-- Browser content + SecurityPanel -->
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>   <!-- TabSidebar -->
+            <ColumnDefinition Width="*"/>      <!-- Main area  -->
+        </Grid.ColumnDefinitions>
 
-        <!-- TabBar -->
-        <ui:TabBar x:Name="TabBarControl"
-                   Grid.Row="0"
-                   NewTabRequested="TabBar_NewTabRequested"
-                   TabSelected="TabBar_TabSelected"
-                   TabCloseRequested="TabBar_TabCloseRequested"/>
+        <!-- ── Vertical tab sidebar ──────────────────────────────────── -->
+        <ui:TabSidebar x:Name="TabSidebarControl"
+                       Grid.Column="0"
+                       NewTabRequested="TabBar_NewTabRequested"
+                       TabSelected="TabBar_TabSelected"
+                       TabCloseRequested="TabBar_TabCloseRequested"
+                       TabContainerChangeRequested="TabBar_TabContainerChangeRequested"
+                       SplitRequested="TabSidebar_SplitRequested"
+                       AddWorkspaceRequested="TabSidebar_AddWorkspaceRequested"
+                       WorkspaceSelected="TabSidebar_WorkspaceSelected"
+                       WorkspaceRemoved="TabSidebar_WorkspaceRemoved"
+                       TabTearOffRequested="TabSidebar_TabTearOffRequested"/>
 
-        <!-- UrlBar -->
-        <ui:UrlBar x:Name="UrlBarControl"
-                   Grid.Row="1"
-                   NavigationRequested="UrlBar_NavigationRequested"
-                   BackRequested="UrlBar_BackRequested"
-                   ForwardRequested="UrlBar_ForwardRequested"
-                   ReloadRequested="UrlBar_ReloadRequested"
-                   StopRequested="UrlBar_StopRequested"
-                   MenuRequested="UrlBar_MenuRequested"/>
+        <!-- ── Main area: url bar + find bar + content ───────────────── -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- UrlBar -->
+                <RowDefinition Height="Auto"/>   <!-- FindBar (hidden by default) -->
+                <RowDefinition Height="*"/>      <!-- Browser content + panels -->
+            </Grid.RowDefinitions>
 
-        <!-- Find bar (Ctrl+F) -->
-        <Border x:Name="FindBarPanel"
-                Grid.Row="2"
-                Visibility="Collapsed"
-                Background="#1E1E30"
-                BorderBrush="#2A2A45"
-                BorderThickness="0,1,0,1"
-                Padding="8,4">
-            <Grid>
+            <!-- UrlBar -->
+            <ui:UrlBar x:Name="UrlBarControl"
+                       Grid.Row="0"
+                       NavigationRequested="UrlBar_NavigationRequested"
+                       BackRequested="UrlBar_BackRequested"
+                       ForwardRequested="UrlBar_ForwardRequested"
+                       ReloadRequested="UrlBar_ReloadRequested"
+                       StopRequested="UrlBar_StopRequested"
+                       MenuRequested="UrlBar_MenuRequested"
+                       AgentChatRequested="UrlBar_AgentChatRequested"/>
+
+            <!-- Find bar (Ctrl+F) -->
+            <Border x:Name="FindBarPanel"
+                    Grid.Row="1"
+                    Visibility="Collapsed"
+                    Background="#1E1E30"
+                    BorderBrush="#2A2A45"
+                    BorderThickness="0,1,0,1"
+                    Padding="8,4">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Grid.Column="0" Text="Buscar:" VerticalAlignment="Center"
+                               Foreground="#A0A0C0" FontSize="12" Margin="0,0,8,0"/>
+
+                    <TextBox x:Name="FindTextBox" Grid.Column="1"
+                             Background="#12122A" Foreground="#E0E0FF"
+                             BorderBrush="#3A3A60" BorderThickness="1"
+                             Padding="6,3" FontSize="13"
+                             VerticalAlignment="Center"
+                             KeyDown="FindTextBox_KeyDown"
+                             TextChanged="FindTextBox_TextChanged"/>
+
+                    <Button x:Name="FindPrevButton" Grid.Column="2"
+                            Content="↑" FontSize="14"
+                            Background="Transparent" Foreground="#A0A0C0"
+                            BorderThickness="0" Padding="8,3" Margin="4,0,0,0"
+                            Cursor="Hand" VerticalAlignment="Center"
+                            Click="FindPrev_Click" ToolTip="Anterior (Shift+Enter)"/>
+
+                    <Button x:Name="FindNextButton" Grid.Column="3"
+                            Content="↓" FontSize="14"
+                            Background="Transparent" Foreground="#A0A0C0"
+                            BorderThickness="0" Padding="8,3"
+                            Cursor="Hand" VerticalAlignment="Center"
+                            Click="FindNext_Click" ToolTip="Siguiente (Enter)"/>
+
+                    <TextBlock x:Name="FindStatusText" Grid.Column="4"
+                               VerticalAlignment="Center" FontSize="12"
+                               Foreground="#606080" Margin="8,0"/>
+
+                    <!-- spacer -->
+                    <TextBlock Grid.Column="5"/>
+
+                    <Button x:Name="FindCloseButton" Grid.Column="6"
+                            Content="✕" FontSize="12"
+                            Background="Transparent" Foreground="#606080"
+                            BorderThickness="0" Padding="8,3"
+                            Cursor="Hand" VerticalAlignment="Center"
+                            Click="FindClose_Click" ToolTip="Cerrar (Esc)"/>
+                </Grid>
+            </Border>
+
+            <!-- Content area: browser tabs + security panel + agent panel -->
+            <Grid Grid.Row="2">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="220"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="Buscar:" VerticalAlignment="Center"
-                           Foreground="#A0A0C0" FontSize="12" Margin="0,0,8,0"/>
+                <!-- Browser tabs (all kept in visual tree; active one is Visible) -->
+                <Grid x:Name="BrowserContent" Grid.Column="0"/>
 
-                <TextBox x:Name="FindTextBox" Grid.Column="1"
-                         Background="#12122A" Foreground="#E0E0FF"
-                         BorderBrush="#3A3A60" BorderThickness="1"
-                         Padding="6,3" FontSize="13"
-                         VerticalAlignment="Center"
-                         KeyDown="FindTextBox_KeyDown"
-                         TextChanged="FindTextBox_TextChanged"/>
+                <!-- Security Panel (slides in from right) -->
+                <ui:SecurityPanel x:Name="SecurityPanelControl"
+                                  Grid.Column="1"
+                                  AllowOnceRequested="Security_AllowOnce"
+                                  WhitelistRequested="Security_Whitelist"/>
 
-                <Button x:Name="FindPrevButton" Grid.Column="2"
-                        Content="↑" FontSize="14"
-                        Background="Transparent" Foreground="#A0A0C0"
-                        BorderThickness="0" Padding="8,3" Margin="4,0,0,0"
-                        Cursor="Hand" VerticalAlignment="Center"
-                        Click="FindPrev_Click" ToolTip="Anterior (Shift+Enter)"/>
-
-                <Button x:Name="FindNextButton" Grid.Column="3"
-                        Content="↓" FontSize="14"
-                        Background="Transparent" Foreground="#A0A0C0"
-                        BorderThickness="0" Padding="8,3"
-                        Cursor="Hand" VerticalAlignment="Center"
-                        Click="FindNext_Click" ToolTip="Siguiente (Enter)"/>
-
-                <TextBlock x:Name="FindStatusText" Grid.Column="4"
-                           VerticalAlignment="Center" FontSize="12"
-                           Foreground="#606080" Margin="8,0"/>
-
-                <!-- spacer -->
-                <TextBlock Grid.Column="5"/>
-
-                <Button x:Name="FindCloseButton" Grid.Column="6"
-                        Content="✕" FontSize="12"
-                        Background="Transparent" Foreground="#606080"
-                        BorderThickness="0" Padding="8,3"
-                        Cursor="Hand" VerticalAlignment="Center"
-                        Click="FindClose_Click" ToolTip="Cerrar (Esc)"/>
+                <!-- VeloAgent Chat Panel (colapsable, lado derecho) -->
+                <ui:VeloAgentPanel x:Name="AgentPanelControl"
+                                   Grid.Column="2"
+                                   CloseRequested="AgentPanel_CloseRequested"
+                                   ClearRequested="AgentPanel_ClearRequested"/>
             </Grid>
-        </Border>
 
-        <!-- Content area: browser tabs + security panel -->
-        <Grid Grid.Row="3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+            <!-- ── CommandBar overlay (spans all rows, floats above everything) ── -->
+            <ui:CommandBar x:Name="CommandBarControl"
+                           Grid.Row="0"
+                           Grid.RowSpan="3"
+                           Panel.ZIndex="100"
+                           ResultSelected="CommandBar_ResultSelected"
+                           QueryChanged="CommandBar_QueryChanged"
+                           Closed="CommandBar_Closed"/>
 
-            <!-- Browser tabs (all kept in visual tree; active one is Visible) -->
-            <Grid x:Name="BrowserContent" Grid.Column="0"/>
-
-            <!-- Security Panel (slides in from right) -->
-            <ui:SecurityPanel x:Name="SecurityPanelControl"
-                              Grid.Column="1"
-                              AllowOnceRequested="Security_AllowOnce"
-                              WhitelistRequested="Security_Whitelist"/>
+            <!-- ── Glance popup (positioned via Canvas.Left/Top in code-behind) ── -->
+            <Canvas Grid.Row="0"
+                    Grid.RowSpan="3"
+                    Panel.ZIndex="90"
+                    IsHitTestVisible="False">
+                <ui:GlancePopup x:Name="GlancePopupControl"/>
+            </Canvas>
         </Grid>
     </Grid>
 </Window>

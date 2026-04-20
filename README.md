@@ -54,7 +54,7 @@
 
 ```powershell
 # Clone the repository
-git clone https://github.com/Badizher-codex/velo.git
+git clone https://github.com/badizher-codex/velo.git
 cd velo
 
 # Restore & build (x64 required)

@@ -57,6 +57,43 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
+[Registry]
+; ── ProgID for HTML files ─────────────────────────────────────────────────────
+Root: HKLM; Subkey: "SOFTWARE\Classes\VELOHTML"; ValueType: string; ValueData: "VELO HTML Document"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\Classes\VELOHTML\DefaultIcon"; ValueType: string; ValueData: "{app}\{#AppExeName},1"
+Root: HKLM; Subkey: "SOFTWARE\Classes\VELOHTML\shell\open\command"; ValueType: string; ValueData: """{app}\{#AppExeName}"" ""%1"""
+
+; ── ProgID for URLs ───────────────────────────────────────────────────────────
+Root: HKLM; Subkey: "SOFTWARE\Classes\VELOURL"; ValueType: string; ValueData: "VELO URL"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\Classes\VELOURL\DefaultIcon"; ValueType: string; ValueData: "{app}\{#AppExeName},1"
+Root: HKLM; Subkey: "SOFTWARE\Classes\VELOURL\shell\open\command"; ValueType: string; ValueData: """{app}\{#AppExeName}"" ""%1"""
+Root: HKLM; Subkey: "SOFTWARE\Classes\VELOURL"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+
+; ── RegisteredApplications ───────────────────────────────────────────────────
+Root: HKLM; Subkey: "SOFTWARE\RegisteredApplications"; ValueType: string; ValueName: "VELO"; ValueData: "SOFTWARE\VELO\Capabilities"; Flags: uninsdeletevalue
+
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "VELO"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Privacy-first browser for Windows"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities"; ValueType: string; ValueName: "ApplicationIcon"; ValueData: "{app}\{#AppExeName},0"
+
+; ── File associations ─────────────────────────────────────────────────────────
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\FileAssociations"; ValueType: string; ValueName: ".htm";   ValueData: "VELOHTML"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\FileAssociations"; ValueType: string; ValueName: ".html";  ValueData: "VELOHTML"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\FileAssociations"; ValueType: string; ValueName: ".shtml"; ValueData: "VELOHTML"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\FileAssociations"; ValueType: string; ValueName: ".xhtml"; ValueData: "VELOHTML"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\FileAssociations"; ValueType: string; ValueName: ".webp";  ValueData: "VELOHTML"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\FileAssociations"; ValueType: string; ValueName: ".svg";   ValueData: "VELOHTML"
+
+; ── URL associations ─────────────────────────────────────────────────────────
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\URLAssociations"; ValueType: string; ValueName: "http";  ValueData: "VELOURL"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\URLAssociations"; ValueType: string; ValueName: "https"; ValueData: "VELOURL"
+Root: HKLM; Subkey: "SOFTWARE\VELO\Capabilities\URLAssociations"; ValueType: string; ValueName: "ftp";   ValueData: "VELOURL"
+
+; ── Start Menu Internet (legacy, requerido por Windows 10) ───────────────────
+Root: HKLM; Subkey: "SOFTWARE\Clients\StartMenuInternet\VELO"; ValueType: string; ValueData: "VELO"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\Clients\StartMenuInternet\VELO\DefaultIcon"; ValueType: string; ValueData: "{app}\{#AppExeName},0"
+Root: HKLM; Subkey: "SOFTWARE\Clients\StartMenuInternet\VELO\shell\open\command"; ValueType: string; ValueData: """{app}\{#AppExeName}"""
+
 [UninstallDelete]
 Type: filesandordirs; Name: "{userappdata}\VELO\Cache"
 Type: filesandordirs; Name: "{userappdata}\VELO\WebView2"

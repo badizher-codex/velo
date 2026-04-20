@@ -21,6 +21,19 @@
     <Color x:Key="VerdictWarn">#FFFFB300</Color>
     <Color x:Key="VerdictSafe">#FF7FFF5F</Color>
 
+    <!-- Shield Score (Fase 2) -->
+    <Color x:Key="ShieldRed">#FFE53E3E</Color>
+    <Color x:Key="ShieldYellow">#FFF0B429</Color>
+    <Color x:Key="ShieldGreen">#FF2EB54F</Color>
+    <Color x:Key="ShieldGold">#FFD4AF37</Color>
+    <Color x:Key="ShieldAnalyzing">#FF555555</Color>
+
+    <SolidColorBrush x:Key="ShieldRedBrush"       Color="{StaticResource ShieldRed}"/>
+    <SolidColorBrush x:Key="ShieldYellowBrush"    Color="{StaticResource ShieldYellow}"/>
+    <SolidColorBrush x:Key="ShieldGreenBrush"     Color="{StaticResource ShieldGreen}"/>
+    <SolidColorBrush x:Key="ShieldGoldBrush"      Color="{StaticResource ShieldGold}"/>
+    <SolidColorBrush x:Key="ShieldAnalyzingBrush" Color="{StaticResource ShieldAnalyzing}"/>
+
     <!-- Container colors -->
     <Color x:Key="ContainerPersonal">#FF00E5FF</Color>
     <Color x:Key="ContainerWork">#FF7FFF5F</Color>

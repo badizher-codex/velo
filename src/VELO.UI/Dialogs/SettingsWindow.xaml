@@ -80,6 +80,9 @@
                 <Button x:Name="NavIdioma" Content="🌍  Idioma"
                         Style="{StaticResource NavButton}"
                         Click="Nav_Click" Tag="Idioma" Margin="0,2"/>
+                <Button x:Name="NavGeneral" Content="⚙️  General"
+                        Style="{StaticResource NavButton}"
+                        Click="Nav_Click" Tag="General" Margin="0,2"/>
             </StackPanel>
         </Border>
 
@@ -334,6 +337,26 @@
                     <Button Content="Cambiar password" Margin="0,10,0,0"
                             HorizontalAlignment="Left" Padding="14,7"
                             Click="ChangePassword_Click"/>
+                </StackPanel>
+
+                <!-- ── GENERAL ── -->
+                <StackPanel x:Name="PanelGeneral" Visibility="Collapsed">
+                    <TextBlock Text="General" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                    <TextBlock Text="Navegador predeterminado" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock TextWrapping="Wrap" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,12">
+                        VELO se abrirá cuando hagas clic en enlaces desde email, apps y documentos.
+                        Windows 11 requiere que confirmes el cambio en Configuración del sistema.
+                    </TextBlock>
+                    <Button x:Name="SetDefaultBrowserButton"
+                            Content="Establecer VELO como navegador predeterminado"
+                            HorizontalAlignment="Left" Padding="14,8"
+                            AutomationProperties.Name="Establecer VELO como navegador predeterminado"
+                            AutomationProperties.HelpText="Abre la pantalla de Configuración de Windows para establecer VELO como tu navegador predeterminado"
+                            Click="SetDefaultBrowser_Click"/>
+                    <TextBlock x:Name="DefaultBrowserStatus" Margin="0,8,0,0"
+                               FontSize="11" Visibility="Collapsed" TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <!-- ── IDIOMA ── -->

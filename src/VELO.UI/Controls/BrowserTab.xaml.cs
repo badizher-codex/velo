@@ -1,13 +1,16 @@
 using System.IO;
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
+using VELO.Core.Containers;
 using VELO.Core.Downloads;
 using VELO.Core.Localization;
 using VELO.Core.Navigation;
+using VELO.Data.Repositories;
 using VELO.Security.AI;
 using VELO.Security.AI.Models;
 using VELO.Security.CookieWall;
@@ -23,6 +26,8 @@ public partial class BrowserTab : UserControl
     public event EventHandler<(bool CanBack, bool CanForward)>? NavigationStateChanged;
     public event EventHandler<AIVerdict>? SecurityVerdictReceived;
     public event EventHandler<TlsStatus>? TlsStatusChanged;
+    /// <summary>Raised when the user hovers a link long enough. Arg = URL to preview (empty = hide).</summary>
+    public event EventHandler<string>? GlanceLinkHovered;
 
     private string _tabId = "";
     private bool _webViewInitialized;
@@ -34,13 +39,52 @@ public partial class BrowserTab : UserControl
     private TLSGuard? _tlsGuard;
     private DownloadGuard? _downloadGuard;
     private DownloadManager? _downloadManager;
-    private string _fingerprintLevel = "Aggressive";
-    private string _webRtcMode       = "Relay";
-    private string _currentPageUrl   = "";
+    private string _fingerprintLevel    = "Aggressive";
+    private string _webRtcMode          = "Relay";
+    private string _currentPageUrl      = "";
+    private string _currentContainerId  = "none";
 
     // Popup burst: tracks timestamps of recent new-window requests per tab
     private readonly Queue<DateTime> _popupTimes = new();
     private static readonly TimeSpan PopupBurstWindow = TimeSpan.FromSeconds(3);
+
+    // Fase 2: enriched context menu (optional — falls back to WebView2 default if null)
+    private ContextMenuBuilder? _contextMenuBuilder;
+
+    public void SetContextMenuBuilder(ContextMenuBuilder builder) => _contextMenuBuilder = builder;
+
+    // Fase 2: banking-mode flag (set by caller after Initialize)
+    private bool _isBankingContainer;
+
+    // Fase 2: PasteGuard
+    private PasteGuard? _pasteGuard;
+
+    // Fase 2: Sprint 6 — history repo for NewTab v2 top sites
+    private HistoryRepository? _historyRepo;
+
+    public void SetPasteGuard(PasteGuard guard) => _pasteGuard = guard;
+
+    /// <summary>Provides the history repository so NewTab v2 can load top sites.</summary>
+    public void SetHistoryRepository(HistoryRepository repo) => _historyRepo = repo;
+
+    /// <summary>Opens the native Chromium DevTools window for this tab.</summary>
+    public void OpenDevTools()
+    {
+        if (!_webViewInitialized) return;
+        try
+        {
+            // Re-enable dev tools for programmatic open (they are off by default for privacy)
+            WebView.CoreWebView2.Settings.AreDevToolsEnabled = true;
+            WebView.CoreWebView2.OpenDevToolsWindow();
+        }
+        catch { }
+    }
+
+    public void SetContainer(string containerId)
+    {
+        _currentContainerId  = containerId;
+        _isBankingContainer  = BankingContainerPolicy.Applies(containerId);
+    }
 
     public string TabId => _tabId;
 
@@ -83,7 +127,7 @@ public partial class BrowserTab : UserControl
 
         // Zero-telemetry settings
         WebView.CoreWebView2.Settings.IsBuiltInErrorPageEnabled = false;
-        WebView.CoreWebView2.Settings.IsWebMessageEnabled = false;
+        WebView.CoreWebView2.Settings.IsWebMessageEnabled = true; // required for PasteGuard bridge
         WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
         WebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
         WebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
@@ -121,6 +165,38 @@ public partial class BrowserTab : UserControl
         }
         catch { /* never block WebView init */ }
 
+        // PasteGuard — inject bridge + detector script
+        try
+        {
+            var pgScript = await LoadScriptResourceAsync("paste-guard.js");
+            if (pgScript != null)
+            {
+                var bridge = PasteGuard.BuildBridgeScript("");
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(bridge + "\n" + pgScript);
+            }
+        }
+        catch { }
+
+        // Glance modal — hover-link preview
+        try
+        {
+            var glanceScript = await LoadScriptResourceAsync("glance-hover.js");
+            if (glanceScript != null)
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(glanceScript);
+        }
+        catch { }
+
+        // Banking container — inject strict fingerprint spoofing + no-referrer
+        if (_isBankingContainer)
+        {
+            try
+            {
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                    BankingContainerPolicy.FingerprintScript);
+            }
+            catch { }
+        }
+
         // Hooks
         WebView.CoreWebView2.WebResourceRequested += OnWebResourceRequested;
         WebView.CoreWebView2.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
@@ -131,6 +207,7 @@ public partial class BrowserTab : UserControl
         WebView.CoreWebView2.DownloadStarting           += OnDownloadStarting;
         WebView.CoreWebView2.ContextMenuRequested       += OnContextMenuRequested;
         WebView.CoreWebView2.ServerCertificateErrorDetected += OnServerCertificateError;
+        WebView.CoreWebView2.WebMessageReceived             += OnWebMessageReceived;
 
         _webViewInitialized = true;
     }
@@ -287,10 +364,9 @@ public partial class BrowserTab : UserControl
             <hr class="divider"/>
             <div class="meta">
               Construido con C# · .NET 8 · WPF · Microsoft WebView2<br/>
-              <a href="https://github.com/YOUR_USERNAME/velo" target="_blank">github.com/YOUR_USERNAME/velo</a><br/>
+              <a href="https://github.com/badizher-codex/velo" target="_blank">github.com/badizher-codex/velo</a><br/>
               <br/>
-              © 2025 VELO Browser Contributors · Licencia MIT<br/>
-              <a href="https://github.com/Badizher-codex/velo" target="_blank">github.com/Badizher-codex/velo</a>
+              © 2026 VELO Browser Contributors · GNU AGPLv3
             </div>
           </div>
         </body>
@@ -360,6 +436,14 @@ public partial class BrowserTab : UserControl
     }
 
     public void AllowOnce(string domain) => _allowedOnce.Add(domain.ToLowerInvariant());
+
+    /// <summary>Executes arbitrary JavaScript — used by AgentActionExecutor for DOM actions.</summary>
+    public async Task<string> ExecuteScriptAsync(string javascript)
+    {
+        if (!_webViewInitialized) return "";
+        try { return await WebView.CoreWebView2.ExecuteScriptAsync(javascript); }
+        catch { return ""; }
+    }
 
     /// <summary>Clears cookies and/or cache for this tab's WebView2 profile.</summary>
     public async Task ClearBrowsingDataAsync(bool cookies, bool cache)
@@ -613,6 +697,15 @@ public partial class BrowserTab : UserControl
     {
         var navUri = e.Uri ?? "";
 
+        // ── Banking container: force HTTPS ────────────────────────────────────
+        if (_isBankingContainer && BankingContainerPolicy.ShouldBlockHttp(navUri))
+        {
+            e.Cancel = true;
+            var httpsUrl = BankingContainerPolicy.ForceHttps(navUri);
+            _ = Dispatcher.InvokeAsync(() => WebView.CoreWebView2.Navigate(httpsUrl));
+            return;
+        }
+
         // ── NavGuard: block navigations to known malicious or suspicious domains ─
         // Runs for ALL navigations including first load of a new tab (_currentPageUrl = "")
         if (_requestGuard != null)
@@ -730,6 +823,40 @@ public partial class BrowserTab : UserControl
             Source     = "TLS",
             Confidence = 95
         }));
+    }
+
+    private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            var json = e.TryGetWebMessageAsString();
+            var node = JsonNode.Parse(json);
+            if (node == null) return;
+
+            var kind = node["kind"]?.GetValue<string>();
+
+            switch (kind)
+            {
+                case "pasteguard" when _pasteGuard != null:
+                {
+                    var signal = node["signal"]?.GetValue<string>() ?? "unknown";
+                    var domain = GetHost(_currentPageUrl);
+                    _pasteGuard.Process(_tabId, domain, signal);
+                    break;
+                }
+                case "glance-show":
+                {
+                    var url = node["url"]?.GetValue<string>() ?? "";
+                    if (!string.IsNullOrEmpty(url))
+                        GlanceLinkHovered?.Invoke(this, url);
+                    break;
+                }
+                case "glance-hide":
+                    GlanceLinkHovered?.Invoke(this, "");
+                    break;
+            }
+        }
+        catch { }
     }
 
     private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
@@ -921,14 +1048,35 @@ public partial class BrowserTab : UserControl
 
         Dispatcher.InvokeAsync(() =>
         {
+            // ── Fase 2: use enriched ContextMenuBuilder if available ──────
+            if (_contextMenuBuilder is not null)
+            {
+                var target = e.ContextMenuTarget;
+                var ctx = new ContextMenuContext(
+                    LinkUrl:           target.HasLinkUri    ? target.LinkUri    : null,
+                    LinkText:          target.HasLinkText   ? target.LinkText   : null,
+                    HasImage:          target.HasSourceUri,
+                    ImageUrl:          target.HasSourceUri  ? target.SourceUri  : null,
+                    SelectedText:      target.HasSelection  ? target.SelectionText : null,
+                    CurrentDomain:     GetHost(_currentPageUrl),
+                    CurrentContainerId: _currentContainerId ?? "none",
+                    Location:          new System.Windows.Point(e.Location.X, e.Location.Y));
+
+                var enrichedMenu = _contextMenuBuilder.Build(ctx);
+                enrichedMenu.IsOpen = true;
+                deferral.Complete();
+                return;
+            }
+
+            // ── Fallback: WebView2 default items styled as WPF ───────────
             var menu = new ContextMenu
             {
-                Background       = new SolidColorBrush(_menuBg),
-                BorderBrush      = new SolidColorBrush(_menuBorder),
-                BorderThickness  = new Thickness(1),
-                Padding          = new Thickness(0, 4, 0, 4),
-                HasDropShadow    = true,
-                StaysOpen        = false,
+                Background        = new SolidColorBrush(_menuBg),
+                BorderBrush       = new SolidColorBrush(_menuBorder),
+                BorderThickness   = new Thickness(1),
+                Padding           = new Thickness(0, 4, 0, 4),
+                HasDropShadow     = true,
+                StaysOpen         = false,
                 UseLayoutRounding = true
             };
 
@@ -1019,6 +1167,10 @@ public partial class BrowserTab : UserControl
         WebView.Visibility = Visibility.Collapsed;
         TitleChanged?.Invoke(this, LocalizationService.Current.T("newtab.title"));
         NewTabPageControl.Focus();
+
+        // Sprint 6: load top sites from history DB (fire-and-forget; never blocks nav)
+        if (_historyRepo != null)
+            _ = NewTabPageControl.LoadTopSitesAsync(_historyRepo);
     }
 
     private void ShowWebView()

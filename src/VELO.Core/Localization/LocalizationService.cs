@@ -441,6 +441,25 @@ public sealed class LocalizationService
             ["ru"] = "Поиск или ввод адреса",
             ["ja"] = "検索またはURLを入力",
         },
+        ["newtab.stats.empty"] = new()
+        {
+            ["es"] = "Navega por la web, aquí verás tus estadísticas de privacidad.",
+            ["en"] = "Browse the web, your privacy stats will appear here.",
+            ["pt"] = "Navegue pela web, suas estatísticas de privacidade aparecerão aqui.",
+            ["fr"] = "Naviguez sur le web, vos statistiques de confidentialité apparaîtront ici.",
+            ["de"] = "Surfe im Web, deine Datenschutz-Statistiken erscheinen hier.",
+            ["zh"] = "浏览网页，您的隐私统计数据将显示在这里。",
+            ["ru"] = "Просматривайте веб, здесь появится статистика конфиденциальности.",
+            ["ja"] = "ウェブを閲覧すると、プライバシー統計がここに表示されます。",
+        },
+
+        // ── Sidebar ───────────────────────────────────────────────────────
+        ["sidebar.newtab"]           = new() { ["es"]="+ Nueva pestaña",["en"]="+ New tab",["pt"]="+ Nova aba",["fr"]="+ Nouvel onglet",["de"]="+ Neuer Tab",["zh"]="+ 新标签",["ru"]="+ Новая вкладка",["ja"]="+ 新しいタブ" },
+        ["sidebar.newtab.tooltip"]   = new() { ["es"]="Nueva pestaña (Ctrl+T)",["en"]="New tab (Ctrl+T)",["pt"]="Nova aba (Ctrl+T)",["fr"]="Nouvel onglet (Ctrl+T)",["de"]="Neuer Tab (Ctrl+T)",["zh"]="新标签页 (Ctrl+T)",["ru"]="Новая вкладка (Ctrl+T)",["ja"]="新しいタブ (Ctrl+T)" },
+        ["sidebar.split.tooltip"]    = new() { ["es"]="Vista dividida (Ctrl+\\)",["en"]="Split view (Ctrl+\\)",["pt"]="Vista dividida (Ctrl+\\)",["fr"]="Vue partagée (Ctrl+\\)",["de"]="Geteilte Ansicht (Ctrl+\\)",["zh"]="分屏视图 (Ctrl+\\)",["ru"]="Разделённый вид (Ctrl+\\)",["ja"]="分割表示 (Ctrl+\\)" },
+        ["sidebar.workspace.tooltip"]= new() { ["es"]="Nuevo workspace",["en"]="New workspace",["pt"]="Novo workspace",["fr"]="Nouvel espace de travail",["de"]="Neuer Arbeitsbereich",["zh"]="新工作区",["ru"]="Новое рабочее пространство",["ja"]="新しいワークスペース" },
+        ["sidebar.collapse.tooltip"] = new() { ["es"]="Compactar barra lateral",["en"]="Collapse sidebar",["pt"]="Recolher barra lateral",["fr"]="Réduire la barre latérale",["de"]="Seitenleiste einklappen",["zh"]="收起侧栏",["ru"]="Свернуть боковую панель",["ja"]="サイドバーを折りたたむ" },
+        ["sidebar.expand.tooltip"]   = new() { ["es"]="Expandir barra lateral",["en"]="Expand sidebar",["pt"]="Expandir barra lateral",["fr"]="Développer la barre latérale",["de"]="Seitenleiste aufklappen",["zh"]="展开侧栏",["ru"]="Развернуть боковую панель",["ja"]="サイドバーを展開する" },
 
         // ── Window titles ─────────────────────────────────────────────────
         ["title.settings"] = new()

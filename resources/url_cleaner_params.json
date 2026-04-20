@@ -1,0 +1,15 @@
+{
+  "generic_tracking": ["utm_source", "utm_medium", "utm_campaign", "utm_term",
+                       "utm_content", "utm_id", "utm_name", "utm_reader"],
+  "facebook":         ["fbclid", "fb_source", "fb_ref"],
+  "google":           ["gclid", "gclsrc", "dclid", "_ga", "_gid", "_gac"],
+  "microsoft":        ["msclkid", "mkt_tok"],
+  "yandex":           ["yclid", "ymclid"],
+  "generic_ref":      ["ref", "referrer", "source", "ref_src", "ref_url"],
+  "mailchimp":        ["mc_cid", "mc_eid"],
+  "hubspot":          ["hsa_acc", "hsa_cam", "hsa_grp", "hsa_ad", "hsa_src",
+                       "hsa_tgt", "hsa_kw", "hsa_mt", "hsa_net", "hsa_ver"],
+  "amazon":           ["ref_", "tag", "linkCode"],
+  "twitter":          ["t", "s", "twclid"],
+  "tiktok":           ["ttclid"]
+}

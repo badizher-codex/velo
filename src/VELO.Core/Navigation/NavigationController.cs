@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using VELO.Core.Containers;
 using VELO.Core.Events;
 using VELO.Core.Search;
 using VELO.Data.Models;
@@ -39,9 +40,11 @@ public class NavigationController(
         var securityMode = await _settings.GetAsync(SettingKeys.SecurityMode, "Normal");
         var historyEnabled = await _settings.GetBoolAsync(SettingKeys.HistoryEnabled, true);
 
-        if (historyEnabled && securityMode != "Bunker")
+        var tab = _tabManager.GetTab(tabId);
+        var isBanking = BankingContainerPolicy.Applies(tab?.ContainerId ?? "");
+
+        if (historyEnabled && securityMode != "Bunker" && !isBanking)
         {
-            var tab = _tabManager.GetTab(tabId);
             await _historyRepo.SaveAsync(new HistoryEntry
             {
                 Url = url,

@@ -11,16 +11,23 @@ public class VeloDatabase : IDisposable
 
     public SQLiteAsyncConnection Connection => _db;
 
-    public VeloDatabase(ILogger<VeloDatabase> logger)
+    /// <param name="dataFolderPath">
+    /// Root user-data folder resolved by <c>DataLocation.GetUserDataPath()</c>.
+    /// When empty/null, falls back to <c>%LocalAppData%\VELO\</c> (non-portable default).
+    /// </param>
+    public VeloDatabase(ILogger<VeloDatabase> logger, string? dataFolderPath = null)
     {
         _logger = logger;
 
-        var appDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "VELO");
-        Directory.CreateDirectory(appDataPath);
+        var folder = string.IsNullOrEmpty(dataFolderPath)
+            ? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "VELO")
+            : dataFolderPath;
 
-        var dbPath = Path.Combine(appDataPath, "velo.db");
+        Directory.CreateDirectory(folder);
+
+        var dbPath = Path.Combine(folder, "velo.db");
 
         // SQLCipher connection — password is set after unlock
         // For initial setup we use an empty password; the vault uses a separate key derived from master password
@@ -43,9 +50,14 @@ public class VeloDatabase : IDisposable
             await _db.CreateTableAsync<PasswordEntry>();
             await _db.CreateTableAsync<CachedVerdict>();
             await _db.CreateTableAsync<Container>();
+            try { await _db.ExecuteAsync("ALTER TABLE containers ADD COLUMN ExpiresAt TEXT"); }     catch { }
+            try { await _db.ExecuteAsync("ALTER TABLE containers ADD COLUMN IsBankingMode INTEGER DEFAULT 0"); } catch { }
             await _db.CreateTableAsync<MalwaredexEntry>();
+            await _db.CreateTableAsync<PrivacyStats>();
+            await _db.CreateTableAsync<WorkspaceEntry>();
 
             await SeedDefaultContainersAsync();
+            await SeedDefaultWorkspaceAsync();
 
             _logger.LogInformation("Database initialized at {Path}", _db.DatabasePath);
         }
@@ -66,6 +78,21 @@ public class VeloDatabase : IDisposable
         await _db.InsertOrReplaceAsync(Container.Banking);
         await _db.InsertOrReplaceAsync(Container.Shopping);
         await _db.InsertOrReplaceAsync(Container.None);
+    }
+
+    private async Task SeedDefaultWorkspaceAsync()
+    {
+        // Only seed when table is brand-new (no rows yet)
+        var count = await _db.Table<WorkspaceEntry>().CountAsync();
+        if (count > 0) return;
+
+        await _db.InsertOrReplaceAsync(new WorkspaceEntry
+        {
+            Id        = "default",
+            Name      = "Principal",
+            Color     = "#00E5FF",
+            SortOrder = 0,
+        });
     }
 
     public void Dispose()

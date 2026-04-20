@@ -34,4 +34,57 @@ public class HistoryRepository(VeloDatabase db)
         await _db.Connection.Table<HistoryEntry>()
             .DeleteAsync(h => h.VisitedAt < cutoff);
     }
+
+    /// <summary>
+    /// Returns up to <paramref name="limit"/> most-visited distinct origins,
+    /// grouped by host. Each entry carries the most-recent URL, title, visit count,
+    /// and the total trackers blocked across all visits to that host.
+    /// </summary>
+    public async Task<List<TopSiteEntry>> GetTopSitesAsync(int limit = 8)
+    {
+        var all = await _db.Connection.Table<HistoryEntry>()
+            .Where(h => h.Url != null && h.Url.StartsWith("http"))
+            .OrderByDescending(h => h.VisitedAt)
+            .Take(500)
+            .ToListAsync();
+
+        return all
+            .GroupBy(h => TryGetHost(h.Url))
+            .Where(g => !string.IsNullOrEmpty(g.Key))
+            .OrderByDescending(g => g.Count())
+            .Take(limit)
+            .Select(g =>
+            {
+                var best = g.OrderByDescending(h => h.VisitedAt).First();
+                return new TopSiteEntry(
+                    Url:              best.Url,
+                    Host:             g.Key,
+                    Title:            string.IsNullOrWhiteSpace(best.Title) ? g.Key : best.Title!,
+                    VisitCount:       g.Count(),
+                    TrackersBlocked:  g.Sum(h => h.TrackerCount));
+            })
+            .ToList();
+    }
+
+    /// <summary>Returns lifetime totals across all history entries.</summary>
+    public async Task<(int TotalTrackers, int TotalBlocked, int TotalSites)> GetLifetimeStatsAsync()
+    {
+        var all = await _db.Connection.Table<HistoryEntry>().ToListAsync();
+        return (all.Sum(h => h.TrackerCount),
+                all.Sum(h => h.BlockedCount),
+                all.Select(h => TryGetHost(h.Url)).Where(h => !string.IsNullOrEmpty(h)).Distinct().Count());
+    }
+
+    private static string TryGetHost(string url)
+    {
+        try { return new Uri(url).Host.ToLowerInvariant(); }
+        catch { return ""; }
+    }
 }
+
+public record TopSiteEntry(
+    string Url,
+    string Host,
+    string Title,
+    int    VisitCount,
+    int    TrackersBlocked);

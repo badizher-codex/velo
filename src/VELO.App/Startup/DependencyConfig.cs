@@ -3,17 +3,24 @@ using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using VELO.Agent;
+using VELO.Agent.Adapters;
+using VELO.Core;
+using VELO.Core.Containers;
 using VELO.Core.Downloads;
 using VELO.Core.Events;
 using VELO.Core.Navigation;
 using VELO.Core.Search;
+using VELO.Core.Sessions;
 using VELO.Data;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
 using VELO.DNS;
 using VELO.DNS.Providers;
+using VELO.Security;
 using VELO.Security.AI;
 using VELO.Security.AI.Adapters;
+using VELO.Security.GoldenList;
 using VELO.Security.Guards;
 using VELO.Security.CookieWall;
 using VELO.Security.Rules;
@@ -27,11 +34,10 @@ public static class DependencyConfig
     {
         var services = new ServiceCollection();
 
-        // Logging — Serilog to file only, never remote
-        var appDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VELO");
-        Directory.CreateDirectory(appDataPath);
+        // Resolve user-data root (supports portable mode via DataLocation)
+        var appDataPath = DataLocation.GetUserDataPath();
 
+        // Logging — Serilog to file only, never remote
         Log.Logger = new LoggerConfiguration()
             .WriteTo.File(
                 Path.Combine(appDataPath, "logs", "velo-.log"),
@@ -46,8 +52,11 @@ public static class DependencyConfig
             lb.AddSerilog(Log.Logger);
         });
 
-        // Data
-        services.AddSingleton<VeloDatabase>();
+        // Data — pass portable-aware data folder to DB constructor
+        services.AddSingleton<VeloDatabase>(sp =>
+            new VeloDatabase(
+                sp.GetRequiredService<ILogger<VeloDatabase>>(),
+                appDataPath));
         services.AddSingleton<SettingsRepository>();
         services.AddSingleton<HistoryRepository>();
         services.AddSingleton<BookmarkRepository>();
@@ -55,6 +64,7 @@ public static class DependencyConfig
         services.AddSingleton<SecurityCacheRepository>();
         services.AddSingleton<ContainerRepository>();
         services.AddSingleton<MalwaredexRepository>();
+        services.AddSingleton<WorkspaceRepository>();
 
         // Bootstrapper (singleton so MainWindow can call ConfigureAIAdapterAsync after settings change)
         services.AddSingleton<AppBootstrapper>();
@@ -87,6 +97,48 @@ public static class DependencyConfig
 
         // Vault
         services.AddSingleton<VaultService>();
+
+        // Containers (Fase 2)
+        services.AddSingleton<ContainerExpiryService>();
+
+        // Privacy Receipt (Fase 2)
+        services.AddSingleton<PrivacyReceiptService>();
+
+        // GoldenList (Fase 2)
+        services.AddSingleton<GoldenListService>();
+        services.AddSingleton<IGoldenList>(sp => sp.GetRequiredService<GoldenListService>());
+        services.AddSingleton<GoldenListUpdater>();
+
+        // Safety Scorer — Shield Score engine (Fase 2)
+        services.AddSingleton<SafetyScorer>();
+
+        // Auto-updater (Sprint 7)
+        services.AddSingleton<UpdateChecker>();
+
+        // PasteGuard (Fase 2 / Sprint 3)
+        services.AddSingleton<PasteGuard>();
+
+        // Agent (Fase 2 / Sprint 4)
+        services.AddSingleton<AgentActionSandbox>();
+        services.AddSingleton<AgentActionExecutor>();
+
+        // Agent adapters — registered in priority order (LLamaSharp → Ollama → none)
+        // LLamaSharp is registered but not loaded until a model path is configured
+        services.AddSingleton<LLamaSharpAdapter>(sp =>
+        {
+            var modelPath = Path.Combine(appDataPath, "models", "agent.gguf");
+            return new LLamaSharpAdapter(modelPath,
+                sp.GetRequiredService<ILogger<LLamaSharpAdapter>>());
+        });
+        services.AddSingleton<IEnumerable<IAgentAdapter>>(sp =>
+        {
+            var adapters = new List<IAgentAdapter>
+            {
+                sp.GetRequiredService<LLamaSharpAdapter>(),
+            };
+            return adapters;
+        });
+        services.AddSingleton<AgentLauncher>();
 
         return services.BuildServiceProvider();
     }

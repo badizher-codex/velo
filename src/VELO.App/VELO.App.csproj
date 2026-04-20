@@ -10,10 +10,10 @@
     <AssemblyName>VELO</AssemblyName>
     <RootNamespace>VELO.App</RootNamespace>
     <ApplicationIcon>velo.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <Copyright>© 2025 VELO Browser Contributors</Copyright>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <Copyright>© 2026 VELO Browser Contributors</Copyright>
     <Company>VELO Browser</Company>
     <Product>VELO</Product>
     <Description>Privacy Browser for Windows</Description>
@@ -43,10 +43,23 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>resources\scripts\webrtc-spoof.js</Link>
     </Content>
+    <Content Include="..\..\resources\scripts\glance-hover.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\scripts\glance-hover.js</Link>
+    </Content>
+    <Content Include="..\..\resources\scripts\paste-guard.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\scripts\paste-guard.js</Link>
+    </Content>
+    <Content Include="..\..\resources\blocklists\golden_list.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\blocklists\golden_list.json</Link>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\VELO.UI\VELO.UI.csproj" />
+    <ProjectReference Include="..\VELO.Agent\VELO.Agent.csproj" />
     <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
     <ProjectReference Include="..\VELO.Security\VELO.Security.csproj" />
     <ProjectReference Include="..\VELO.DNS\VELO.DNS.csproj" />

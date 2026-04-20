@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/badizher-codex/velo/discussions
+    about: General questions and community chat
+  - name: 🔒 Security vulnerability
+    url: https://github.com/badizher-codex/velo/security/advisories/new
+    about: Please report security issues privately, not as a public issue

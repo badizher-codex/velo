@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using VELO.Core.Localization;
+using VELO.Security.Models;
 
 namespace VELO.UI.Controls;
 
@@ -18,6 +19,9 @@ public partial class UrlBar : UserControl
     public event EventHandler? BookmarkRequested;
     public event EventHandler? ZoomResetRequested;
     public event EventHandler? ReaderModeRequested;
+    public event EventHandler? ShieldScoreClicked;
+    /// <summary>Fired when the user clicks the 🤖 IA indicator — caller opens VeloAgent chat.</summary>
+    public event EventHandler? AgentChatRequested;
 
     private bool _isLoading;
     private bool _isBookmarked;
@@ -106,13 +110,19 @@ public partial class UrlBar : UserControl
             _                    => ("#555566", "IA", "IA offline · Análisis heurístico local activo",               Color.FromRgb(0x55, 0x55, 0x66)),
         };
 
-        AiDot.Fill      = new SolidColorBrush(color);
+        AiDot.Fill         = new SolidColorBrush(color);
         AiLabel.Foreground = new SolidColorBrush(color);
-        AiLabel.Text    = label;
+        AiLabel.Text       = label;
+        AiRobot.Opacity    = status == AiStatus.Ready ? 1.0 : 0.4;
 
         // Update tooltip (it's on the parent StackPanel)
-        var parent = AiDot.Parent as System.Windows.Controls.StackPanel;
-        if (parent != null) ToolTipService.SetToolTip(parent, tooltip);
+        ToolTipService.SetToolTip(AiIndicatorPanel, tooltip);
+    }
+
+    private void AiIndicator_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        AgentChatRequested?.Invoke(this, EventArgs.Empty);
+        e.Handled = true;
     }
 
     // Keep backward compat for any callers
@@ -191,6 +201,12 @@ public partial class UrlBar : UserControl
     /// <summary>Shows the reader mode button only on real web pages (not newtab).</summary>
     public void SetReaderModeAvailable(bool available)
         => ReaderModeButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+
+    public void UpdateShieldScore(SafetyResult result) => ShieldBadge.Update(result);
+    public void SetShieldAnalyzing() => ShieldBadge.SetAnalyzing();
+
+    private void ShieldBadge_Click(object sender, EventArgs e)
+        => ShieldScoreClicked?.Invoke(this, EventArgs.Empty);
 
     public void SetBookmarked(bool bookmarked)
     {

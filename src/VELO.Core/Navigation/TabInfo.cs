@@ -57,4 +57,7 @@ public class TabInfo : INotifyPropertyChanged
     public bool CanGoForward { get => _canGoForward; set => Set(ref _canGoForward, value); }
 
     public byte[]? FaviconData { get; set; }
+
+    private string _workspaceId = "default";
+    public string WorkspaceId { get => _workspaceId; set => Set(ref _workspaceId, value); }
 }

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>velo</id>
+    <version>2.0.0</version>
+    <packageSourceUrl>https://github.com/badizher-codex/velo/tree/main/chocolatey</packageSourceUrl>
+    <owners>badizher-codex</owners>
+
+    <title>VELO Browser</title>
+    <authors>VELO Browser Contributors</authors>
+    <projectUrl>https://github.com/badizher-codex/velo</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/badizher-codex/velo/main/assets/icon256.png</iconUrl>
+    <licenseUrl>https://github.com/badizher-codex/velo/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/badizher-codex/velo</projectSourceUrl>
+    <docsUrl>https://github.com/badizher-codex/velo/wiki</docsUrl>
+    <bugTrackerUrl>https://github.com/badizher-codex/velo/issues</bugTrackerUrl>
+    <tags>browser privacy security webview2 ai open-source portable</tags>
+
+    <summary>Privacy-first browser for Windows. Built-in AI security, no telemetry, open-source.</summary>
+    <description><![CDATA[
+## VELO Browser
+
+VELO is a privacy-first browser for Windows built on WebView2 (Chromium engine).
+
+### Key features
+
+- **Shield Score** — visual security rating for every site (Red / Yellow / Green / Gold)
+- **Real-time threat blocking** — trackers, malware, fingerprinting attempts
+- **VELO Security Inspector** (`Ctrl+Shift+V`) — standalone window with TLS, tracker, AI and fingerprint details
+- **Command Bar** (`Ctrl+K`) — fuzzy-search tabs, bookmarks, history, and commands
+- **Glance link preview** — hover any link to preview it without loading it
+- **Workspaces + Split View + Tab tear-off** — Arc-like UX
+- **VeloAgent** — local AI assistant powered by Ollama or LLamaSharp (no cloud required)
+- **Paste Protection + Anti-capture banking mode**
+- **Portable mode** — run from USB drive, no install needed
+- **Zero telemetry** — no crash reports, no usage data ever sent
+
+### Requirements
+
+- Windows 10 (1903+) or Windows 11
+- Microsoft Edge WebView2 Runtime (pre-installed on Windows 11; installed automatically by this package on Windows 10)
+
+### Notes
+
+- The installer is an Inno Setup executable signed with Authenticode.
+- VELO stores all data in `%LocalAppData%\VELO\` by default.
+- For portable mode, place a `portable.flag` file next to `VELO.exe`.
+    ]]></description>
+
+    <releaseNotes>https://github.com/badizher-codex/velo/releases/tag/v2.0.0</releaseNotes>
+    <copyright>Copyright © 2026 VELO Browser Contributors</copyright>
+    <dependencies>
+      <dependency id="webview2-runtime" version="109.0.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

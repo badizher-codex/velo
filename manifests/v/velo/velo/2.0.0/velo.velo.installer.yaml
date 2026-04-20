@@ -1,0 +1,31 @@
+# VELO Browser — Winget Installer Manifest
+PackageIdentifier: velo.velo
+PackageVersion: 2.0.0
+ManifestType: installer
+ManifestVersion: 1.6.0
+
+MinimumOSVersion: 10.0.18362.0  # Windows 10 1903
+
+Installers:
+  - Architecture: x64
+    InstallerType: inno
+    InstallerUrl: https://github.com/badizher-codex/velo/releases/download/v2.0.0/VELO-2.0.0-Setup.exe
+    InstallerSha256: PLACEHOLDER_SHA256_REPLACE_BEFORE_PUBLISH
+    InstallerLocale: es-ES
+    Scope: user
+    InstallModes:
+      - interactive
+      - silent
+    InstallerSwitches:
+      Silent: /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+      SilentWithProgress: /SILENT /SUPPRESSMSGBOXES /NORESTART
+    UpgradeBehavior: install
+    Commands:
+      - velo
+    ProductCode: VELO Browser_is1
+
+Dependencies:
+  WindowsFeatures:
+    - Microsoft-Windows-Desktop-Runtime-2_0-x64
+  ExternalDependencies:
+    - Microsoft Edge WebView2 Runtime

@@ -7,18 +7,23 @@ using Serilog;
 using VELO.Vault;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
+using VELO.Agent;
 using VELO.App.Startup;
+using VELO.Core;
 using VELO.Core.Downloads;
 using VELO.Core.Events;
 using VELO.Core.Localization;
 using VELO.Core.Navigation;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
+using VELO.Security;
 using VELO.Security.AI;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
+using VELO.Security.Models;
 using VELO.UI.Controls;
 using VELO.UI.Dialogs;
+using InputDialog = VELO.UI.Dialogs.InputDialog;
 
 namespace VELO.App;
 
@@ -34,6 +39,9 @@ public partial class MainWindow : Window
     private readonly SettingsRepository _settings;
     private readonly EventBus _eventBus;
     private readonly DownloadManager _downloadManager;
+    private readonly AgentLauncher _agentLauncher;
+    private readonly AgentActionSandbox _agentSandbox;
+    private readonly AgentActionExecutor _agentExecutor;
 
     private CoreWebView2Environment? _webViewEnv;
     private string _fingerprintLevel = "Aggressive";
@@ -50,9 +58,27 @@ public partial class MainWindow : Window
     // Threat types already in the Malwaredex (loaded at startup to avoid repeated DB checks)
     private HashSet<string> _capturedThreatTypes = [];
     private DownloadsWindow? _downloadsWindow;
+    private string _initialUrl = "velo://newtab";
 
-    public MainWindow(IServiceProvider services)
+    // ── Split view state ─────────────────────────────────────────────────
+    private bool _isSplitMode;
+    private string? _primaryTabId;   // left pane
+    private string? _splitTabId;     // right pane
+    private GridSplitter? _panesSplitter;
+    // Suppresses normal tab-activation logic while we are setting up the secondary pane
+    private bool _suppressSplitActivation;
+
+    // ── Sprint 6 — Security Inspector + Shield Score ─────────────────────
+    // Last known TLS status per tab (UI enum from BrowserTab events)
+    private readonly Dictionary<string, TlsStatus> _tabTlsStatus = [];
+    // Last AI verdict per tab (null = no verdict yet this navigation)
+    private readonly Dictionary<string, AIVerdict?> _tabLastAiVerdict = [];
+    // Singleton inspector window (non-modal, stays open)
+    private SecurityInspectorWindow? _inspectorWindow;
+
+    public MainWindow(IServiceProvider services, string? initialUrl = null)
     {
+        if (initialUrl != null) _initialUrl = initialUrl;
         _services = services;
         _tabManager       = services.GetRequiredService<TabManager>();
         _navController    = services.GetRequiredService<NavigationController>();
@@ -64,25 +90,47 @@ public partial class MainWindow : Window
         _eventBus         = services.GetRequiredService<EventBus>();
         _downloadManager  = services.GetRequiredService<DownloadManager>();
         _downloadManager.DownloadStarted += (_, _) => Dispatcher.Invoke(OpenDownloads);
+        _agentLauncher    = services.GetRequiredService<AgentLauncher>();
+        _agentSandbox     = services.GetRequiredService<AgentActionSandbox>();
+        _agentExecutor    = services.GetRequiredService<AgentActionExecutor>();
 
         InitializeComponent();
 
         _eventBus.Subscribe<TabCreatedEvent>(OnTabCreated);
         _eventBus.Subscribe<TabClosedEvent>(OnTabClosed);
         _eventBus.Subscribe<TabActivatedEvent>(OnTabActivated);
+        _eventBus.Subscribe<PasteGuardTriggeredEvent>(OnPasteGuardTriggered);
+        _eventBus.Subscribe<ContainerDestroyedEvent>(OnContainerDestroyed);
 
-        UrlBarControl.BookmarkRequested  += async (_, _) => await ToggleBookmarkAsync();
-        UrlBarControl.ZoomResetRequested += (_, _) => ActiveBrowserTab()?.ResetZoom();
-        UrlBarControl.ReaderModeRequested += async (_, _) =>
+        UrlBarControl.BookmarkRequested    += async (_, _) => await ToggleBookmarkAsync();
+        UrlBarControl.ZoomResetRequested   += (_, _) => ActiveBrowserTab()?.ResetZoom();
+        UrlBarControl.ReaderModeRequested  += async (_, _) =>
             { if (ActiveBrowserTab() is { } bt) await bt.ToggleReaderModeAsync(); };
+        UrlBarControl.ShieldScoreClicked   += (_, _) => OpenSecurityInspector();
 
-        TabBarControl.TabContainerChangeRequested += (_, args) =>
+        // "Aprender más" en el panel de seguridad → navegar a URL de documentación
+        SecurityPanelControl.LearnMoreRequested += (_, url) =>
         {
-            var (tabId, containerId) = args;
-            _tabManager.UpdateTab(tabId, t => t.ContainerId = containerId);
-            if (_tabManager.ActiveTab?.Id == tabId)
-                UrlBarControl.SetContainer(containerId, ContainerColor(containerId));
+            if (!string.IsNullOrEmpty(url))
+                _ = ActiveBrowserTab()?.NavigateAsync(url.Replace("velo://docs/threats/",
+                    "https://github.com/badizher-codex/velo/blob/main/docs/threats/") + ".md");
         };
+
+        // Sidebar: seed default workspace
+        TabSidebarControl.AddWorkspace(Workspace.Default);
+
+        // VeloAgent panel wiring
+        AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
+        _agentExecutor.ScriptExecutor = async (tabId, js) =>
+        {
+            if (_browserTabs.TryGetValue(tabId, out var bt))
+                return await bt.ExecuteScriptAsync(js);
+            return "";
+        };
+        _agentSandbox.ActionApproved += async (tabId, action) =>
+            await _agentExecutor.ExecuteAsync(tabId, action);
+
+        // (Ctrl+Shift+A is handled in OnPreviewKeyDown)
 
         Loaded += async (_, _) =>
         {
@@ -128,11 +176,10 @@ public partial class MainWindow : Window
                 "--disable-component-update")
         };
 
-        var userDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "VELO", "Profile");
+        var userDataPath = DataLocation.SubPath("Profile");
 
         _webViewEnv = await CoreWebView2Environment.CreateAsync(null, userDataPath, options);
+        GlancePopupControl.SetEnvironment(_webViewEnv);
 
         // Cache privacy settings used by every new tab
         _fingerprintLevel = await _settings.GetAsync(SettingKeys.FingerprintLevel, "Aggressive");
@@ -158,9 +205,41 @@ public partial class MainWindow : Window
         else
             UrlBarControl.SetAiStatus(UrlBar.AiStatus.Offline);
 
-        // Create initial tab
-        _tabManager.CreateTab();
+        // Restore persisted workspaces (replaces the in-memory Default seed)
+        await RestoreWorkspacesAsync();
+
+        // Start background update checker — fires event on update available
+        var updater = _services.GetRequiredService<UpdateChecker>();
+        updater.UpdateAvailable += info => Dispatcher.Invoke(() => ShowUpdateToast(info));
+        updater.StartBackgroundCheck();
+
+        // Create initial tab (uses URL injected for tear-off windows, otherwise newtab)
+        _tabManager.CreateTab(_initialUrl);
     }
+
+    private void ShowUpdateToast(UpdateInfo info)
+    {
+        // Non-intrusive: only show once per session, and only if user hasn't dismissed
+        if (_updateToastShown) return;
+        _updateToastShown = true;
+
+        var result = MessageBox.Show(
+            $"VELO {info.LatestVersion} está disponible (tienes {info.CurrentVersion}).\n\n" +
+            $"¿Ir a la página de descarga ahora?",
+            "Actualización disponible",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Information);
+
+        if (result == MessageBoxResult.Yes)
+            _ = ActiveBrowserTab()?.NavigateAsync(info.DownloadUrl)
+                ?? Task.Run(() =>
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = info.DownloadUrl,
+                        UseShellExecute = true
+                    }));
+    }
+    private bool _updateToastShown;
 
     // ── Tab events ───────────────────────────────────────────────────────
 
@@ -173,8 +252,15 @@ public partial class MainWindow : Window
             browserTab.Initialize(e.TabId, _aiEngine, _requestGuard, _tlsGuard, _downloadGuard, _downloadManager, _fingerprintLevel, _webRtcMode);
             browserTab.TlsStatusChanged += (_, status) => Dispatcher.Invoke(() =>
             {
-                if (_tabManager.ActiveTab?.Id == e.TabId)
+                // Store per-tab (used by Security Inspector)
+                _tabTlsStatus[e.TabId] = status;
+
+                if (IsUiDrivingTab(e.TabId))
+                {
                     UrlBarControl.SetTlsStatus(status);
+                    // Recompute shield score after TLS status is known
+                    RefreshShieldScore(e.TabId);
+                }
             });
             browserTab.Visibility = Visibility.Collapsed;
 
@@ -185,14 +271,27 @@ public partial class MainWindow : Window
             browserTab.SecurityVerdictReceived += (_, verdict) => OnSecurityVerdict(e.TabId, verdict);
             browserTab.ZoomChanged += (_, factor) => Dispatcher.Invoke(() =>
             {
-                if (_tabManager.ActiveTab?.Id == e.TabId)
+                if (IsUiDrivingTab(e.TabId))
                     UrlBarControl.SetZoom(factor);
             });
+
+            browserTab.GlanceLinkHovered += (_, url) => Dispatcher.Invoke(() =>
+            {
+                if (!IsUiDrivingTab(e.TabId)) return;   // only primary pane drives Glance
+                if (string.IsNullOrEmpty(url))
+                    GlancePopupControl.HidePreview();
+                else
+                    ShowGlanceAt(url);
+            });
+
+            // Sprint 6: inject history repo so NewTab v2 can show top sites
+            var histRepo = _services.GetRequiredService<HistoryRepository>();
+            browserTab.SetHistoryRepository(histRepo);
 
             // Add to panel (keeps WebView2 HWND alive across tab switches)
             BrowserContent.Children.Add(browserTab);
             _browserTabs[e.TabId] = browserTab;
-            TabBarControl.AddTab(tab);
+            TabSidebarControl.AddTab(tab);
 
             if (_webViewEnv != null)
                 await browserTab.EnsureWebViewInitializedAsync(_webViewEnv);
@@ -209,8 +308,83 @@ public partial class MainWindow : Window
                 bt.CloseTab();
                 BrowserContent.Children.Remove(bt);
             }
-            TabBarControl.RemoveTab(e.TabId);
+            TabSidebarControl.RemoveTab(e.TabId);
+
+            // If a split pane's tab was closed, tear down the split
+            if (_isSplitMode && (e.TabId == _primaryTabId || e.TabId == _splitTabId))
+                DeactivateSplit(closingTabId: e.TabId);
         });
+    }
+
+    private void OnPasteGuardTriggered(PasteGuardTriggeredEvent e)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (!IsUiDrivingTab(e.TabId)) return;
+
+            var signalText = e.SignalType switch
+            {
+                "clipboard-read"    => "intentó leer tu portapapeles",
+                "execcommand-paste" => "intentó acceder al portapapeles (execCommand)",
+                _                   => "monitoreó eventos del portapapeles",
+            };
+
+            SecurityPanelControl.Show(e.Domain, new VELO.Security.AI.Models.AIVerdict
+            {
+                Verdict    = VELO.Security.AI.Models.VerdictType.Warn,
+                Reason     = $"PasteGuard: {e.Domain} {signalText}",
+                ThreatType = VELO.Security.AI.Models.ThreatType.Fingerprinting,
+                Source     = "PasteGuard",
+                Confidence = 90,
+            });
+        });
+    }
+
+    private void OnContainerDestroyed(ContainerDestroyedEvent e)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            var tabsInContainer = _tabManager.Tabs
+                .Where(t => t.ContainerId == e.ContainerId)
+                .Select(t => t.Id)
+                .ToList();
+
+            foreach (var tabId in tabsInContainer)
+                _tabManager.CloseTab(tabId);
+        });
+    }
+
+    // ── VeloAgent panel handlers ─────────────────────────────────────────────
+
+    private void AgentPanel_CloseRequested(object sender, EventArgs e)
+        => AgentPanelControl.Visibility = Visibility.Collapsed;
+
+    private void AgentPanel_ClearRequested(object sender, EventArgs e)
+    { /* history already cleared inside the panel */ }
+
+    private void UpdateAgentContext(string tabId)
+    {
+        var tab = _tabManager.GetTab(tabId);
+        if (tab == null) return;
+
+        AgentPanelControl.SetTabContext(tabId, new VELO.Agent.Models.AgentContext
+        {
+            CurrentUrl    = tab.Url,
+            CurrentDomain = ExtractDomain(tab.Url),
+            PageTitle     = tab.Title ?? "",
+            ContainerId   = tab.ContainerId,
+            OpenTabCount  = _tabManager.Tabs.Count,
+        });
+    }
+
+    /// <summary>True when <paramref name="tabId"/> is the tab whose navigation should drive the URL bar.</summary>
+    private bool IsUiDrivingTab(string tabId) =>
+        _isSplitMode ? tabId == _primaryTabId : tabId == _tabManager.ActiveTab?.Id;
+
+    private static string ExtractDomain(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return url;
+        return uri.Host;
     }
 
     private void OnTabActivated(TabActivatedEvent e)
@@ -219,11 +393,35 @@ public partial class MainWindow : Window
         {
             if (!_browserTabs.TryGetValue(e.TabId, out var browserTab)) return;
 
-            // Show active tab, hide all others
+            // ── Split-mode path ───────────────────────────────────────────
+            if (_isSplitMode)
+            {
+                if (_suppressSplitActivation)
+                {
+                    // This activation belongs to the secondary tab being set up —
+                    // capture its ID and bail; ActivateSplit() will call RefreshSplitLayout.
+                    _splitTabId = e.TabId;
+                    return;
+                }
+
+                // User switched tabs via the sidebar while split is live:
+                // • clicking the current secondary  → swap left ↔ right
+                // • clicking any other tab          → that tab becomes primary
+                if (e.TabId == _splitTabId && _primaryTabId != null)
+                    (_primaryTabId, _splitTabId) = (_splitTabId, _primaryTabId);
+                else
+                    _primaryTabId = e.TabId;
+
+                RefreshSplitLayout();
+                await UpdatePrimaryUiAsync();
+                return;
+            }
+
+            // ── Single-tab path ───────────────────────────────────────────
             foreach (var kv in _browserTabs)
                 kv.Value.Visibility = kv.Key == e.TabId ? Visibility.Visible : Visibility.Collapsed;
 
-            TabBarControl.SetActiveTab(e.TabId);
+            TabSidebarControl.SetActiveTab(e.TabId);
 
             var tab = _tabManager.GetTab(e.TabId);
             if (tab != null)
@@ -238,15 +436,63 @@ public partial class MainWindow : Window
                     && tab.Url != "velo://newtab"
                     && tab.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase);
                 UrlBarControl.SetReaderModeAvailable(isRealPage);
+                UpdateAgentContext(e.TabId);
             }
 
-            // Only navigate on first activation — switching back must not reload
+            // Refresh shield score and inspector for the newly-active tab
+            RefreshShieldScore(e.TabId);
+            RefreshInspectorWindow(e.TabId);
+
             if (!_navigatedTabs.Contains(e.TabId) && tab?.Url != null)
             {
                 _navigatedTabs.Add(e.TabId);
                 await browserTab.NavigateAsync(tab.Url);
             }
         });
+    }
+
+    /// <summary>Updates URL bar, nav buttons etc. for the current primary pane tab.</summary>
+    private async Task UpdatePrimaryUiAsync()
+    {
+        if (_primaryTabId == null) return;
+        if (!_browserTabs.TryGetValue(_primaryTabId, out var primaryBt)) return;
+
+        TabSidebarControl.SetActiveTab(_primaryTabId);
+
+        var tab = _tabManager.GetTab(_primaryTabId);
+        if (tab != null)
+        {
+            UrlBarControl.SetUrl(tab.Url);
+            UrlBarControl.SetCanGoBack(tab.CanGoBack);
+            UrlBarControl.SetCanGoForward(tab.CanGoForward);
+            UrlBarControl.SetContainer(tab.ContainerId, ContainerColor(tab.ContainerId));
+            UrlBarControl.SetZoom(primaryBt.ZoomFactor);
+            await UpdateBookmarkStarAsync(tab.Url);
+            var isRealPage = !string.IsNullOrEmpty(tab.Url)
+                && tab.Url != "velo://newtab"
+                && tab.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+            UrlBarControl.SetReaderModeAvailable(isRealPage);
+            UpdateAgentContext(_primaryTabId);
+        }
+
+        // First-time navigation for primary pane
+        if (!_navigatedTabs.Contains(_primaryTabId) && tab?.Url != null)
+        {
+            _navigatedTabs.Add(_primaryTabId);
+            await primaryBt.NavigateAsync(tab.Url);
+        }
+
+        // First-time navigation for secondary pane (runs in parallel)
+        if (_splitTabId != null && !_navigatedTabs.Contains(_splitTabId)
+            && _browserTabs.TryGetValue(_splitTabId, out var splitBt))
+        {
+            var splitTab = _tabManager.GetTab(_splitTabId);
+            if (splitTab?.Url != null)
+            {
+                _navigatedTabs.Add(_splitTabId);
+                await splitBt.NavigateAsync(splitTab.Url);
+            }
+        }
     }
 
     // ── Browser tab events ───────────────────────────────────────────────
@@ -271,13 +517,19 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Reset block/capture counters for this tab on new navigation
-            _tabBlockCounts[tabId] = (0, 0, 0);
+            // Reset block/capture counters and security state for this tab on new navigation
+            _tabBlockCounts[tabId]      = (0, 0, 0);
             _tabNewCapture.Remove(tabId);
-            _tabVerdictLevel[tabId] = 0;
+            _tabVerdictLevel[tabId]     = 0;
+            _tabLastAiVerdict[tabId]    = null;
+            _tabTlsStatus.Remove(tabId);
+
+            // Show "analyzing" on shield while new page loads
+            if (IsUiDrivingTab(tabId))
+                UrlBarControl.SetShieldAnalyzing();
 
             _tabManager.UpdateTab(tabId, t => t.Url = url);
-            if (_tabManager.ActiveTab?.Id == tabId)
+            if (IsUiDrivingTab(tabId))
             {
                 UrlBarControl.SetUrl(url);
                 await UpdateBookmarkStarAsync(url);
@@ -285,6 +537,7 @@ public partial class MainWindow : Window
                     && url != "velo://newtab"
                     && url.StartsWith("http", StringComparison.OrdinalIgnoreCase);
                 UrlBarControl.SetReaderModeAvailable(isRealPage);
+                UpdateAgentContext(tabId);
             }
         });
     }
@@ -297,8 +550,8 @@ public partial class MainWindow : Window
             var tab = _tabManager.GetTab(tabId);
             if (tab != null)
             {
-                TabBarControl.UpdateTab(tab);
-                if (_tabManager.ActiveTab?.Id == tabId)
+                TabSidebarControl.UpdateTab(tab);
+                if (IsUiDrivingTab(tabId))
                     Title = $"{title} — VELO";
             }
             var url = _tabManager.GetTab(tabId)?.Url ?? "";
@@ -317,8 +570,13 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(() =>
         {
             _tabManager.UpdateTab(tabId, t => t.IsLoading = loading);
-            if (_tabManager.ActiveTab?.Id == tabId)
+            if (IsUiDrivingTab(tabId))
+            {
                 UrlBarControl.SetLoading(loading);
+                // Recompute shield score once the page finishes loading
+                if (!loading)
+                    RefreshShieldScore(tabId);
+            }
         });
     }
 
@@ -331,7 +589,7 @@ public partial class MainWindow : Window
                 t.CanGoBack    = state.CanBack;
                 t.CanGoForward = state.CanForward;
             });
-            if (_tabManager.ActiveTab?.Id == tabId)
+            if (IsUiDrivingTab(tabId))
             {
                 UrlBarControl.SetCanGoBack(state.CanBack);
                 UrlBarControl.SetCanGoForward(state.CanForward);
@@ -384,7 +642,12 @@ public partial class MainWindow : Window
                 }
             }
 
-            if (_tabManager.ActiveTab?.Id != tabId) return;
+            // Store for Security Inspector (keep the worst verdict, or latest if same level)
+        var prev = _tabLastAiVerdict.GetValueOrDefault(tabId);
+        if (prev == null || (int)verdict.Verdict >= (int)prev.Verdict)
+            _tabLastAiVerdict[tabId] = verdict;
+
+        if (!IsUiDrivingTab(tabId)) return;
             if (verdict.Verdict == VerdictType.Safe) return;
 
             // Only show the panel if this verdict is more severe than what was already shown
@@ -406,34 +669,24 @@ public partial class MainWindow : Window
     {
         SecurityPanelControl.Hide();
         var url = await _navController.ResolveUrlAsync(input);
-        var activeTabId = _tabManager.ActiveTab?.Id;
-        if (activeTabId != null && _browserTabs.TryGetValue(activeTabId, out var bt))
+        if (ActiveBrowserTab() is { } bt)
             await bt.NavigateAsync(url);
     }
 
     private void UrlBar_BackRequested(object? sender, EventArgs e)
-    {
-        if (_tabManager.ActiveTab?.Id is string id && _browserTabs.TryGetValue(id, out var bt))
-            bt.GoBack();
-    }
+        => ActiveBrowserTab()?.GoBack();
 
     private void UrlBar_ForwardRequested(object? sender, EventArgs e)
-    {
-        if (_tabManager.ActiveTab?.Id is string id && _browserTabs.TryGetValue(id, out var bt))
-            bt.GoForward();
-    }
+        => ActiveBrowserTab()?.GoForward();
 
     private void UrlBar_ReloadRequested(object? sender, EventArgs e)
-    {
-        if (_tabManager.ActiveTab?.Id is string id && _browserTabs.TryGetValue(id, out var bt))
-            bt.Reload();
-    }
+        => ActiveBrowserTab()?.Reload();
 
     private void UrlBar_StopRequested(object? sender, EventArgs e)
-    {
-        if (_tabManager.ActiveTab?.Id is string id && _browserTabs.TryGetValue(id, out var bt))
-            bt.Stop();
-    }
+        => ActiveBrowserTab()?.Stop();
+
+    private void UrlBar_AgentChatRequested(object? sender, EventArgs e)
+        => AgentPanelControl.ToggleVisibility();
 
     private void UrlBar_MenuRequested(object? sender, EventArgs e)
     {
@@ -446,7 +699,9 @@ public partial class MainWindow : Window
             var s = _services.GetRequiredService<SettingsRepository>();
             var v = _services.GetRequiredService<VaultService>();
             new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this }.ShowDialog();
-            await _services.GetRequiredService<AppBootstrapper>().ConfigureAIAdapterAsync();
+            var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
+            await bootstrapper.ConfigureAIAdapterAsync();
+            await bootstrapper.ConfigureAgentAdaptersAsync();
         };
 
         var itemVault = new MenuItem { Header = loc.T("menu.vault") };
@@ -472,11 +727,13 @@ public partial class MainWindow : Window
         var itemClearData = new MenuItem { Header = loc.T("menu.cleardata") };
         itemClearData.Click += (_, _) => OpenClearData();
 
+        var itemInspector = new MenuItem { Header = "🔍 Security Inspector  Ctrl+Shift+V" };
+        itemInspector.Click += (_, _) => OpenSecurityInspector();
+
         var itemAbout = new MenuItem { Header = loc.T("menu.about") };
         itemAbout.Click += async (_, _) =>
         {
-            var activeId = _tabManager.ActiveTab?.Id;
-            if (activeId != null && _browserTabs.TryGetValue(activeId, out var bt))
+            if (ActiveBrowserTab() is { } bt)
                 await bt.NavigateAsync("velo://about");
         };
 
@@ -488,13 +745,15 @@ public partial class MainWindow : Window
         menu.Items.Add(itemDownloads);
         menu.Items.Add(itemMalwaredex);
         menu.Items.Add(new Separator());
+        menu.Items.Add(itemInspector);
+        menu.Items.Add(new Separator());
         menu.Items.Add(itemClearData);
         menu.Items.Add(itemAbout);
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
         menu.IsOpen = true;
     }
 
-    // ── TabBar events ────────────────────────────────────────────────────
+    // ── TabBar / TabSidebar events ───────────────────────────────────────
 
     private void TabBar_NewTabRequested(object? sender, EventArgs e)
         => _tabManager.CreateTab();
@@ -505,12 +764,127 @@ public partial class MainWindow : Window
     private void TabBar_TabCloseRequested(object? sender, string tabId)
         => _tabManager.CloseTab(tabId);
 
+    private void TabBar_TabContainerChangeRequested(object? sender,
+        (string TabId, string ContainerId) args)
+    {
+        var (tabId, containerId) = args;
+        _tabManager.UpdateTab(tabId, t => t.ContainerId = containerId);
+        if (IsUiDrivingTab(tabId))
+            UrlBarControl.SetContainer(containerId, ContainerColor(containerId));
+    }
+
+    // ── TabSidebar-specific events ───────────────────────────────────────
+
+    private void TabSidebar_SplitRequested(object? sender, EventArgs e)
+    {
+        if (_isSplitMode) DeactivateSplit();
+        else ActivateSplit();
+    }
+
+    private async void TabSidebar_AddWorkspaceRequested(object? sender, EventArgs e)
+    {
+        var name = InputDialog.Show(
+            owner: this,
+            title: "Nuevo workspace",
+            prompt: "Nombre del workspace:",
+            defaultValue: $"Workspace {TabSidebarControl.WorkspaceCount + 1}");
+
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        // Pick a color cycling through a preset palette
+        var palette = new[] { "#7FFF5F", "#FFB300", "#FF3D71", "#A259FF", "#00E5FF", "#FF6B35" };
+        var color   = palette[TabSidebarControl.WorkspaceCount % palette.Length];
+
+        var ws = new Workspace { Name = name, Color = color };
+        TabSidebarControl.AddWorkspace(ws);
+        TabSidebarControl.SetActiveWorkspace(ws.Id);
+
+        // Persist immediately
+        try
+        {
+            var repo  = _services.GetRequiredService<WorkspaceRepository>();
+            var entry = new VELO.Data.Models.WorkspaceEntry
+            {
+                Id        = ws.Id,
+                Name      = ws.Name,
+                Color     = ws.Color,
+                SortOrder = TabSidebarControl.WorkspaceCount - 1,
+            };
+            await repo.SaveAsync(entry);
+        }
+        catch (Exception ex) { Log.Warning(ex, "Could not persist workspace"); }
+    }
+
+    private async void TabSidebar_TabTearOffRequested(object? sender, string tabId)
+    {
+        var tab = _tabManager.GetTab(tabId);
+        if (tab == null) return;
+
+        var url = tab.Url;
+
+        // Don't tear off if it's the only tab — that would leave an empty window
+        if (_tabManager.Tabs.Count <= 1) return;
+
+        // Close the tab in this window first
+        _tabManager.CloseTab(tabId);
+
+        // Build a completely isolated service provider for the new window.
+        // Each window owns its own TabManager, EventBus, and security engine —
+        // complete isolation, which is the right model for a privacy browser.
+        var newServices = DependencyConfig.Build();
+        try
+        {
+            var bootstrapper = newServices.GetRequiredService<AppBootstrapper>();
+            await bootstrapper.InitializeAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "TearOff: bootstrapper init warning — window may open with reduced security");
+        }
+
+        var cursorPos = CursorScreenPosition();
+        var newWindow = new MainWindow(newServices, url)
+        {
+            Left   = cursorPos.X - 100,
+            Top    = cursorPos.Y - 30,
+            Width  = Width,
+            Height = Height,
+            WindowStartupLocation = WindowStartupLocation.Manual,
+        };
+        newWindow.Show();
+    }
+
+    private void TabSidebar_WorkspaceSelected(object? sender, string workspaceId)
+    {
+        // Activate the first tab in the chosen workspace, or create a new one.
+        var firstTab = _tabManager.Tabs.FirstOrDefault(t => t.WorkspaceId == workspaceId);
+        if (firstTab != null)
+            _tabManager.ActivateTab(firstTab.Id);
+        else
+        {
+            var tab = _tabManager.CreateTab();
+            tab.WorkspaceId = workspaceId;
+        }
+    }
+
+    private async void TabSidebar_WorkspaceRemoved(object? sender, string workspaceId)
+    {
+        // Don't allow deleting the last workspace
+        if (TabSidebarControl.WorkspaceCount == 0) return;
+
+        try
+        {
+            var repo = _services.GetRequiredService<WorkspaceRepository>();
+            await repo.DeleteAsync(workspaceId);
+        }
+        catch (Exception ex) { Log.Warning(ex, "Could not delete workspace {Id}", workspaceId); }
+    }
+
     // ── Security panel ───────────────────────────────────────────────────
 
     private void Security_AllowOnce(object? sender, string domain)
     {
-        if (_tabManager.ActiveTab?.Id is string id && _browserTabs.TryGetValue(id, out var bt))
-            bt.AllowOnce(domain);
+        ActiveBrowserTab()?.AllowOnce(domain);
     }
 
     private void Security_Whitelist(object? sender, string domain)
@@ -560,8 +934,7 @@ public partial class MainWindow : Window
         var win  = new VELO.UI.Dialogs.HistoryWindow(repo) { Owner = this };
         win.NavigationRequested += async (_, url) =>
         {
-            var activeId = _tabManager.ActiveTab?.Id;
-            if (activeId != null && _browserTabs.TryGetValue(activeId, out var bt))
+            if (ActiveBrowserTab() is { } bt)
                 await bt.NavigateAsync(url);
         };
         win.ShowDialog();
@@ -607,8 +980,7 @@ public partial class MainWindow : Window
         var win  = new VELO.UI.Dialogs.BookmarksWindow(repo) { Owner = this };
         win.NavigationRequested += async (_, url) =>
         {
-            var activeId = _tabManager.ActiveTab?.Id;
-            if (activeId != null && _browserTabs.TryGetValue(activeId, out var bt))
+            if (ActiveBrowserTab() is { } bt)
                 await bt.NavigateAsync(url);
         };
         win.ShowDialog();
@@ -616,15 +988,29 @@ public partial class MainWindow : Window
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out NativePoint lpPoint);
+
+    private record struct NativePoint(int X, int Y);
+
+    /// <summary>Returns the screen cursor position in device-independent pixels.</summary>
+    private Point CursorScreenPosition()
+    {
+        GetCursorPos(out var raw);
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget == null) return new Point(raw.X, raw.Y);
+        return source.CompositionTarget.TransformFromDevice.Transform(new Point(raw.X, raw.Y));
+    }
+
     private static async Task<bool> PingOllamaAsync(string endpoint, string model)
     {
         try
         {
             using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-            var response = await http.GetAsync($"{endpoint.TrimEnd('/')}/api/tags");
+            // OpenAI-compatible endpoint — works with Ollama, LM Studio, llama.cpp server
+            var response = await http.GetAsync($"{endpoint.TrimEnd('/')}/v1/models");
             if (!response.IsSuccessStatusCode) return false;
             var body = await response.Content.ReadAsStringAsync();
-            // Check the model is actually loaded/available
             return string.IsNullOrEmpty(model) || body.Contains(model.Split(':')[0]);
         }
         catch { return false; }
@@ -758,6 +1144,30 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
 
+            // VeloAgent panel toggle
+            case Key.A when ctrl && shift:
+                AgentPanelControl.ToggleVisibility();
+                e.Handled = true;
+                break;
+
+            // Security Inspector (Ctrl+Shift+V)
+            case Key.V when ctrl && shift:
+                OpenSecurityInspector();
+                e.Handled = true;
+                break;
+
+            // Split view toggle (Ctrl+\)
+            case Key.OemBackslash when ctrl:
+                TabSidebar_SplitRequested(this, EventArgs.Empty);
+                e.Handled = true;
+                break;
+
+            // Command palette
+            case Key.K when ctrl:
+                _ = ShowCommandBarAsync();
+                e.Handled = true;
+                break;
+
             // Next / Previous tab
             case Key.Tab when ctrl && !shift:
                 SwitchTabByOffset(+1);
@@ -783,7 +1193,8 @@ public partial class MainWindow : Window
 
     private BrowserTab? ActiveBrowserTab()
     {
-        var id = _tabManager.ActiveTab?.Id;
+        // In split mode the "active" tab for keyboard shortcuts / URL bar is always the primary pane
+        var id = _isSplitMode ? _primaryTabId : _tabManager.ActiveTab?.Id;
         return id != null && _browserTabs.TryGetValue(id, out var bt) ? bt : null;
     }
 
@@ -795,6 +1206,511 @@ public partial class MainWindow : Window
         var cur = tabs.ToList().FindIndex(t => t.Id == active?.Id);
         var next = (cur + offset + tabs.Count) % tabs.Count;
         _tabManager.ActivateTab(tabs[next].Id);
+    }
+
+    // ── Workspace persistence ─────────────────────────────────────────────
+
+    private async Task RestoreWorkspacesAsync()
+    {
+        try
+        {
+            var repo    = _services.GetRequiredService<WorkspaceRepository>();
+            var entries = await repo.GetAllAsync();
+
+            if (entries.Count == 0) return; // DB is empty — keep the in-memory Default
+
+            // Replace the seeded Default with whatever is in the DB
+            // (the DB seed ensures "default" is always present on first run)
+            TabSidebarControl.RemoveWorkspace(Workspace.Default.Id);
+
+            foreach (var e in entries)
+            {
+                var ws = new Workspace { Id = e.Id, Name = e.Name, Color = e.Color };
+                TabSidebarControl.AddWorkspace(ws);
+            }
+
+            // Activate the first workspace (preserves last-used ordering by SortOrder)
+            TabSidebarControl.SetActiveWorkspace(entries[0].Id);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not restore workspaces — using defaults");
+        }
+    }
+
+    // ── CommandBar ────────────────────────────────────────────────────────
+
+    private async Task ShowCommandBarAsync(string query = "")
+    {
+        var results = await BuildCommandResultsAsync(query);
+        CommandBarControl.Show(results);
+    }
+
+    private async Task<List<CommandResult>> BuildCommandResultsAsync(string query)
+    {
+        var q      = query.Trim();
+        var list   = new List<CommandResult>();
+        var isBlank = string.IsNullOrEmpty(q);
+
+        // ── Open tabs ─────────────────────────────────────────────────────
+        foreach (var tab in _tabManager.Tabs)
+        {
+            if (!isBlank &&
+                !Contains(tab.Title, q) &&
+                !Contains(tab.Url, q)) continue;
+
+            list.Add(new CommandResult
+            {
+                Kind     = CommandResultKind.Tab,
+                Icon     = tab.IsLoading ? "⏳" : "🌐",
+                Title    = string.IsNullOrWhiteSpace(tab.Title) ? tab.Url : tab.Title,
+                Subtitle = tab.Url,
+                Badge    = "pestaña",
+                Tag      = tab.Id,
+            });
+        }
+
+        // ── Bookmarks ─────────────────────────────────────────────────────
+        try
+        {
+            var bookmarkRepo = _services.GetRequiredService<BookmarkRepository>();
+            var bookmarks    = await bookmarkRepo.GetAllAsync();
+            foreach (var bm in bookmarks)
+            {
+                if (!isBlank && !Contains(bm.Title, q) && !Contains(bm.Url, q)) continue;
+                list.Add(new CommandResult
+                {
+                    Kind     = CommandResultKind.Bookmark,
+                    Icon     = "⭐",
+                    Title    = bm.Title,
+                    Subtitle = bm.Url,
+                    Badge    = "marcador",
+                    Tag      = bm.Url,
+                });
+            }
+        }
+        catch { /* best-effort */ }
+
+        // ── History ────────────────────────────────────────────────────────
+        try
+        {
+            var historyRepo = _services.GetRequiredService<HistoryRepository>();
+            var entries = isBlank
+                ? await historyRepo.GetRecentAsync(30)
+                : await historyRepo.SearchAsync(q);
+
+            var seen = new HashSet<string>();
+            foreach (var h in entries)
+            {
+                if (!seen.Add(h.Url)) continue;
+                if (list.Count >= 60) break;
+                list.Add(new CommandResult
+                {
+                    Kind     = CommandResultKind.History,
+                    Icon     = "🕒",
+                    Title    = string.IsNullOrWhiteSpace(h.Title) ? h.Url : h.Title,
+                    Subtitle = h.Url,
+                    Badge    = "historial",
+                    Tag      = h.Url,
+                });
+            }
+        }
+        catch { /* best-effort */ }
+
+        // ── Built-in commands ─────────────────────────────────────────────
+        var commands = BuiltInCommands();
+        foreach (var cmd in commands)
+        {
+            if (!isBlank && !Contains(cmd.Title, q)) continue;
+            list.Add(cmd);
+        }
+
+        // ── Navigate to typed URL / search query ───────────────────────────
+        if (!isBlank && list.Count == 0)
+        {
+            list.Add(new CommandResult
+            {
+                Kind     = CommandResultKind.Navigate,
+                Icon     = "↗",
+                Title    = q,
+                Subtitle = "Navegar o buscar",
+                Badge    = "ir",
+                Tag      = q,
+            });
+        }
+
+        return list;
+    }
+
+    private IEnumerable<CommandResult> BuiltInCommands() =>
+    [
+        new() { Kind = CommandResultKind.Command, Icon = "＋", Title = "Nueva pestaña",
+                Badge = "comando", Tag = (Action)(() => _tabManager.CreateTab()) },
+        new() { Kind = CommandResultKind.Command, Icon = "✕", Title = "Cerrar pestaña activa",
+                Badge = "comando", Tag = (Action)(() => { if (_tabManager.ActiveTab is { } t) _tabManager.CloseTab(t.Id); }) },
+        new() { Kind = CommandResultKind.Command, Icon = "⊞", Title = "Vista dividida",
+                Badge = "comando", Tag = (Action)(() => TabSidebar_SplitRequested(this, EventArgs.Empty)) },
+        new() { Kind = CommandResultKind.Command, Icon = "⚙", Title = "Configuración",
+                Badge = "comando", Tag = (Action)(async () =>
+                {
+                    var s = _services.GetRequiredService<SettingsRepository>();
+                    var v = _services.GetRequiredService<VaultService>();
+                    new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this }.ShowDialog();
+                    var bs = _services.GetRequiredService<AppBootstrapper>();
+                    await bs.ConfigureAIAdapterAsync();
+                    await bs.ConfigureAgentAdaptersAsync();
+                }) },
+        new() { Kind = CommandResultKind.Command, Icon = "🕒", Title = "Historial",
+                Badge = "comando", Tag = (Action)(() => OpenHistory()) },
+        new() { Kind = CommandResultKind.Command, Icon = "⬇", Title = "Descargas",
+                Badge = "comando", Tag = (Action)(() => OpenDownloads()) },
+        new() { Kind = CommandResultKind.Command, Icon = "⭐", Title = "Marcadores",
+                Badge = "comando", Tag = (Action)(() => OpenBookmarks()) },
+        new() { Kind = CommandResultKind.Command, Icon = "🔒", Title = "Vault / Contraseñas",
+                Badge = "comando", Tag = (Action)(() =>
+                {
+                    var s = _services.GetRequiredService<SettingsRepository>();
+                    var v = _services.GetRequiredService<VaultService>();
+                    new VELO.UI.Dialogs.VaultWindow(v, s) { Owner = this }.ShowDialog();
+                }) },
+        new() { Kind = CommandResultKind.Command, Icon = "🛡", Title = "Malwaredex",
+                Badge = "comando", Tag = (Action)(() => OpenMalwaredex()) },
+        new() { Kind = CommandResultKind.Command, Icon = "🤖", Title = "VeloAgent",
+                Badge = "comando", Tag = (Action)(() => AgentPanelControl.ToggleVisibility()) },
+        new() { Kind = CommandResultKind.Command, Icon = "🔍", Title = "Security Inspector",
+                Badge = "comando", Tag = (Action)(() => OpenSecurityInspector()) },
+    ];
+
+    private static bool Contains(string? source, string query)
+        => source?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
+
+    private async void CommandBar_QueryChanged(object? sender, string query)
+    {
+        var results = await BuildCommandResultsAsync(query);
+        CommandBarControl.SetResults(results);
+    }
+
+    private async void CommandBar_ResultSelected(object? sender, CommandResult result)
+    {
+        switch (result.Kind)
+        {
+            case CommandResultKind.Tab:
+                if (result.Tag is string tabId)
+                    _tabManager.ActivateTab(tabId);
+                break;
+
+            case CommandResultKind.Bookmark:
+            case CommandResultKind.History:
+            case CommandResultKind.Navigate:
+                if (result.Tag is string url)
+                {
+                    var resolved = await _navController.ResolveUrlAsync(url);
+                    if (ActiveBrowserTab() is { } bt)
+                        await bt.NavigateAsync(resolved);
+                }
+                break;
+
+            case CommandResultKind.Command:
+                switch (result.Tag)
+                {
+                    case Action syncAction:
+                        syncAction();
+                        break;
+                    case Func<Task> asyncAction:
+                        await asyncAction();
+                        break;
+                }
+                break;
+        }
+    }
+
+    private void CommandBar_Closed(object? sender, EventArgs e) { /* focus returns naturally */ }
+
+    // ── Glance modal ──────────────────────────────────────────────────────
+
+    private void ShowGlanceAt(string url)
+    {
+        // Position the popup near the cursor, offset so it doesn't cover the link
+        var cursor = CursorScreenPosition();
+
+        // Convert screen position to coordinates relative to the main-area Grid
+        var mainGrid = (System.Windows.Controls.Grid)GlancePopupControl.Parent;
+        var relative = mainGrid.PointFromScreen(cursor);
+
+        const double popupW = 420;
+        const double popupH = 280;
+        const double offsetY = 20;
+
+        var left = relative.X - popupW / 2;
+        var top  = relative.Y + offsetY;
+
+        // Keep within window bounds
+        left = Math.Max(0, Math.Min(left, mainGrid.ActualWidth  - popupW));
+        top  = Math.Max(0, Math.Min(top,  mainGrid.ActualHeight - popupH));
+
+        System.Windows.Controls.Canvas.SetLeft(GlancePopupControl, left);
+        System.Windows.Controls.Canvas.SetTop(GlancePopupControl,  top);
+
+        GlancePopupControl.ShowPreview(url);
+    }
+
+    // ── Security Inspector (Sprint 6) ────────────────────────────────────
+
+    private void OpenSecurityInspector()
+    {
+        var tabId = ActiveBrowserTab()?.TabId;
+        if (tabId == null) return;
+
+        if (_inspectorWindow == null || !_inspectorWindow.IsLoaded)
+        {
+            _inspectorWindow = new SecurityInspectorWindow { Owner = this };
+            _inspectorWindow.OpenDevToolsRequested = () => ActiveBrowserTab()?.OpenDevTools();
+            _inspectorWindow.ForceScanRequested    = () =>
+            {
+                var id = ActiveBrowserTab()?.TabId;
+                if (id != null)
+                {
+                    RefreshShieldScore(id);
+                    RefreshInspectorWindow(id);
+                }
+            };
+            _inspectorWindow.Closed += (_, _) => _inspectorWindow = null;
+            _inspectorWindow.Show();
+        }
+
+        RefreshInspectorWindow(tabId);
+        _inspectorWindow.Activate();
+    }
+
+    private void RefreshInspectorWindow(string tabId)
+    {
+        if (_inspectorWindow == null || !_inspectorWindow.IsLoaded) return;
+        var data = BuildInspectorData(tabId);
+        _inspectorWindow.Refresh(data);
+    }
+
+    private SecurityInspectorData BuildInspectorData(string tabId)
+    {
+        var tab    = _tabManager.GetTab(tabId);
+        var url    = tab?.Url ?? "";
+        var domain = ExtractDomain(url);
+        var counts = _tabBlockCounts.GetValueOrDefault(tabId);
+        var tlsUi  = _tabTlsStatus.GetValueOrDefault(tabId, TlsStatus.Secure);
+        var ai     = _tabLastAiVerdict.GetValueOrDefault(tabId);
+
+        // Shield score
+        var safetyResult  = TryComputeSafetyResult(tabId);
+        var shieldLevel   = safetyResult?.Level ?? SafetyLevel.Analyzing;
+        var shieldScore   = safetyResult?.NumericScore ?? 0;
+        var reasonsPos    = safetyResult?.ReasonsPositive.ToArray() ?? [];
+        var reasonsNeg    = safetyResult?.ReasonsNegative.ToArray() ?? [];
+
+        // TLS label
+        var (tlsLabel, tlsIcon) = tlsUi switch
+        {
+            TlsStatus.Secure   => ("Seguro (HTTPS)", "✅"),
+            TlsStatus.Warning  => ("Advertencia — revisar certificado", "⚠️"),
+            TlsStatus.Insecure => ("Sin cifrado (HTTP)", "🔴"),
+            _                  => ("Desconocido", "❓"),
+        };
+
+        // AI label
+        string aiLabel, aiIcon;
+        if (ai == null)
+        {
+            aiLabel = "Sin análisis";
+            aiIcon  = "⏳";
+        }
+        else
+        {
+            (aiLabel, aiIcon) = ai.Verdict switch
+            {
+                VerdictType.Safe  => ("Seguro", "✅"),
+                VerdictType.Warn  => ("Advertencia", "⚠️"),
+                VerdictType.Block => ("Bloqueado", "🔴"),
+                _                 => ("Sin análisis", "⏳"),
+            };
+        }
+
+        var scriptsBlocked  = Math.Max(0, counts.Blocked - counts.Trackers - counts.Malware);
+
+        return new SecurityInspectorData(
+            url, domain, shieldLevel, shieldScore,
+            reasonsPos, reasonsNeg,
+            tlsLabel, tlsIcon,
+            counts.Trackers, scriptsBlocked, counts.Malware,
+            aiLabel, aiIcon,
+            ai?.Confidence ?? 0,
+            ai?.Reason     ?? "",
+            ai?.Source     ?? "—",
+            _fingerprintLevel != "Off",
+            _fingerprintLevel,
+            DateTime.UtcNow);
+    }
+
+    private SafetyResult? TryComputeSafetyResult(string tabId)
+    {
+        try
+        {
+            var url = _tabManager.GetTab(tabId)?.Url ?? "";
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return null;
+
+            var tlsUi = _tabTlsStatus.GetValueOrDefault(tabId, TlsStatus.Secure);
+            var tlsSec = tlsUi switch
+            {
+                TlsStatus.Insecure => VELO.Security.Models.TLSStatus.Http,
+                TlsStatus.Warning  => VELO.Security.Models.TLSStatus.SelfSigned,
+                _                  => VELO.Security.Models.TLSStatus.Valid,
+            };
+
+            var ai     = _tabLastAiVerdict.GetValueOrDefault(tabId);
+            var counts = _tabBlockCounts.GetValueOrDefault(tabId);
+
+            var ctx = new SafetyContext
+            {
+                Uri                      = uri,
+                TLSStatus                = tlsSec,
+                AIVerdict                = ai,
+                TrackersBlockedCount     = counts.Trackers,
+                FingerprintAttemptsBlocked = 0,
+                IsGoldenList             = false,
+                IsWhitelistedByUser      = false,
+                SessionVerdicts          = [],
+            };
+
+            return _services.GetRequiredService<SafetyScorer>().Compute(ctx);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Recomputes and pushes the shield score to the URL bar (and inspector if open).</summary>
+    private void RefreshShieldScore(string tabId)
+    {
+        if (!IsUiDrivingTab(tabId)) return;
+
+        var url = _tabManager.GetTab(tabId)?.Url ?? "";
+        if (url == "velo://newtab" || string.IsNullOrEmpty(url))
+        {
+            UrlBarControl.SetShieldAnalyzing();
+            return;
+        }
+
+        var result = TryComputeSafetyResult(tabId);
+        if (result != null)
+        {
+            UrlBarControl.UpdateShieldScore(result);
+            RefreshInspectorWindow(tabId);
+        }
+        else
+        {
+            UrlBarControl.SetShieldAnalyzing();
+        }
+    }
+
+    // ── Split view ────────────────────────────────────────────────────────
+
+    private void ActivateSplit()
+    {
+        if (_isSplitMode || _tabManager.Tabs.Count < 1) return;
+
+        _primaryTabId = _tabManager.ActiveTab?.Id;
+
+        // Upgrade BrowserContent to 3-column grid (left | splitter | right)
+        BrowserContent.ColumnDefinitions.Clear();
+        BrowserContent.ColumnDefinitions.Add(new ColumnDefinition());   // col 0: primary *
+        BrowserContent.ColumnDefinitions.Add(new ColumnDefinition      // col 1: splitter 4 px
+            { Width = new GridLength(4) });
+        BrowserContent.ColumnDefinitions.Add(new ColumnDefinition());   // col 2: secondary *
+
+        _panesSplitter = new GridSplitter
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment   = VerticalAlignment.Stretch,
+            Background          = new System.Windows.Media.SolidColorBrush(
+                                      System.Windows.Media.Color.FromRgb(0x2A, 0x2A, 0x3A)),
+            ResizeBehavior      = GridResizeBehavior.PreviousAndNext,
+            ResizeDirection     = GridResizeDirection.Columns,
+        };
+        Grid.SetColumn(_panesSplitter, 1);
+        // Insert at index 0 so existing BrowserTab children sit on top in z-order
+        BrowserContent.Children.Insert(0, _panesSplitter);
+
+        // Flag split mode ON before CreateTab fires, so OnTabActivated routes correctly
+        _isSplitMode = true;
+        _suppressSplitActivation = true;
+
+        // Create the secondary tab — OnTabActivated will be suppressed;
+        // _splitTabId is set there when _suppressSplitActivation is true.
+        _tabManager.CreateTab();
+
+        _suppressSplitActivation = false;
+
+        // Re-sync TabManager's active tab back to primary so that keyboard shortcuts,
+        // ToggleBookmark, SwitchTabByOffset etc. all target the left pane.
+        // OnTabActivated will fire, see _isSplitMode, and trigger RefreshSplitLayout + UpdatePrimaryUiAsync.
+        if (_primaryTabId != null)
+            _tabManager.ActivateTab(_primaryTabId);
+
+        // Visual feedback on sidebar button
+        TabSidebarControl.SetSplitActive(true);
+    }
+
+    private void DeactivateSplit(string? closingTabId = null)
+    {
+        if (!_isSplitMode) return;
+        _isSplitMode = false;
+
+        // Close the secondary tab (unless it was the one that triggered this cleanup)
+        if (_splitTabId != null && _splitTabId != closingTabId)
+            _tabManager.CloseTab(_splitTabId);
+
+        _splitTabId   = null;
+        _primaryTabId = null;
+
+        // Remove the splitter
+        if (_panesSplitter != null)
+        {
+            BrowserContent.Children.Remove(_panesSplitter);
+            _panesSplitter = null;
+        }
+
+        // Collapse back to single implicit column
+        BrowserContent.ColumnDefinitions.Clear();
+        foreach (var bt in _browserTabs.Values)
+        {
+            Grid.SetColumn(bt, 0);
+            bt.Visibility = Visibility.Collapsed;
+        }
+
+        // Re-activate the primary tab (or whatever TabManager considers active)
+        var resumeId = _tabManager.ActiveTab?.Id;
+        if (resumeId != null && _browserTabs.TryGetValue(resumeId, out var resumeBt))
+            resumeBt.Visibility = Visibility.Visible;
+
+        TabSidebarControl.SetActiveTab(resumeId ?? "");
+        TabSidebarControl.SetSplitActive(false);
+    }
+
+    private void RefreshSplitLayout()
+    {
+        foreach (var (tabId, bt) in _browserTabs)
+        {
+            if (tabId == _primaryTabId)
+            {
+                Grid.SetColumn(bt, 0);
+                bt.Visibility = Visibility.Visible;
+            }
+            else if (tabId == _splitTabId)
+            {
+                Grid.SetColumn(bt, 2);
+                bt.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                Grid.SetColumn(bt, 0);
+                bt.Visibility = Visibility.Collapsed;
+            }
+        }
     }
 
     // ── Find bar ─────────────────────────────────────────────────────────

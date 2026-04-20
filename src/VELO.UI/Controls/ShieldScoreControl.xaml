@@ -1,0 +1,44 @@
+<UserControl x:Class="VELO.UI.Controls.ShieldScoreControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationFramework"
+             Width="32" Height="32"
+             Cursor="Hand"
+             AutomationProperties.Name="Shield Score"
+             AutomationProperties.HelpText="Puntuación de seguridad y privacidad de la página actual">
+
+    <UserControl.Resources>
+        <Style x:Key="ShieldBadge" TargetType="Border">
+            <Setter Property="CornerRadius"  Value="16"/>
+            <Setter Property="Width"         Value="28"/>
+            <Setter Property="Height"        Value="28"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment"   Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Border x:Name="BadgeBorder"
+                Style="{StaticResource ShieldBadge}"
+                Background="#FF333344">
+
+            <TextBlock x:Name="IconLabel"
+                       Text="🛡"
+                       FontSize="14"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       AutomationProperties.Name="Nivel de escudo"/>
+        </Border>
+
+        <!-- Pulse ring — visible briefly on level change -->
+        <Border x:Name="PulseRing"
+                CornerRadius="16"
+                Width="28" Height="28"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                BorderThickness="2"
+                BorderBrush="Transparent"
+                Opacity="0"
+                IsHitTestVisible="False"/>
+    </Grid>
+</UserControl>

@@ -1,6 +1,8 @@
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using VELO.Agent;
+using VELO.Agent.Adapters;
 using VELO.Core.Localization;
 using VELO.Data;
 using VELO.Data.Models;
@@ -42,6 +44,9 @@ public class AppBootstrapper(IServiceProvider services)
 
         // 4. Configure AI adapter from saved settings
         await ConfigureAIAdapterAsync();
+
+        // 5. Configure VeloAgent adapters from saved settings
+        await ConfigureAgentAdaptersAsync();
 
         // 4. Update blocklists in background (never blocks startup)
         var settings = _services.GetRequiredService<SettingsRepository>();
@@ -96,6 +101,37 @@ public class AppBootstrapper(IServiceProvider services)
     {
         if (string.IsNullOrWhiteSpace(apiKey)) return new OfflineAdapter();
         return new ClaudeAdapter(apiKey, model, logger);
+    }
+
+    /// <summary>
+    /// Rebuilds the VeloAgent adapter list from current settings and pushes it to AgentLauncher.
+    /// Call this on startup and whenever the user saves AI settings.
+    /// </summary>
+    public async Task ConfigureAgentAdaptersAsync()
+    {
+        var settings = _services.GetRequiredService<SettingsRepository>();
+        var launcher = _services.GetRequiredService<AgentLauncher>();
+        var adapters = new List<IAgentAdapter>();
+
+        // LLamaSharp — available when a GGUF model file is present on disk
+        adapters.Add(_services.GetRequiredService<LLamaSharpAdapter>());
+
+        // Ollama / LM Studio — available when AI mode is Custom/Ollama and a model is configured
+        var aiMode = await settings.GetAsync(SettingKeys.AiMode, "Offline");
+        if (aiMode is "Ollama" or "Custom")
+        {
+            var endpoint = await settings.GetAsync(SettingKeys.AiCustomEndpoint, "http://localhost:11434");
+            var model    = await settings.GetAsync(SettingKeys.AiClaudeModel, "");
+            if (!string.IsNullOrWhiteSpace(model))
+            {
+                var ollamaLogger = _services.GetRequiredService<ILogger<OllamaAgentAdapter>>();
+                adapters.Add(new OllamaAgentAdapter(endpoint, model, ollamaLogger));
+                _logger?.LogInformation("VeloAgent: OllamaAgentAdapter configured → {Endpoint} / {Model}",
+                    endpoint, model);
+            }
+        }
+
+        launcher.UpdateAdapters(adapters);
     }
 
     public Task<bool> IsOnboardingCompletedAsync(SettingsRepository settings)

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -54,12 +55,14 @@ public partial class SettingsWindow : Window
     private void LoadLanguagePicker()
     {
         LanguagePicker.ItemsSource = LocalizationService.Languages
-            .Select(kv => new { kv.Key, Display = $"{kv.Value}" })
+            .Select(kv => new LanguageItem(kv.Key, kv.Value))
             .ToList();
-        LanguagePicker.DisplayMemberPath = "Display";
-        LanguagePicker.SelectedValuePath = "Key";
+        LanguagePicker.DisplayMemberPath = nameof(LanguageItem.Display);
+        LanguagePicker.SelectedValuePath = nameof(LanguageItem.Key);
         LanguagePicker.SelectedValue = LocalizationService.Current.Language;
     }
+
+    private sealed record LanguageItem(string Key, string Display);
 
     private void ApplyNavLanguage()
     {
@@ -264,47 +267,56 @@ public partial class SettingsWindow : Window
 
         try
         {
-            // Step 1: quick ping — check if Ollama server is reachable at all
+            // Step 1: quick ping via OpenAI-compatible /v1/models (works with Ollama, LM Studio, llama.cpp)
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             try
             {
-                var ping = await http.GetAsync($"{endpoint}/api/tags");
+                var ping = await http.GetAsync($"{endpoint}/v1/models");
                 if (!ping.IsSuccessStatusCode)
                 {
-                    ShowOllamaResult(false, $"Ollama responde en {endpoint} pero con error {(int)ping.StatusCode}. Ejecuta: ollama serve");
+                    ShowOllamaResult(false, $"El servidor responde en {endpoint} pero con error {(int)ping.StatusCode}.\n" +
+                        "Comprueba que el servidor esté iniciado y el endpoint sea correcto (p.ej. http://127.0.0.1:11434 para Ollama, http://127.0.0.1:1234 para LM Studio).");
                     return;
                 }
 
-                // Check if the model is listed
-                var tagsJson = await ping.Content.ReadAsStringAsync();
-                if (!tagsJson.Contains(model.Split(':')[0]))
+                // Check if the model is listed in the response
+                var modelsJson = await ping.Content.ReadAsStringAsync();
+                if (!modelsJson.Contains(model.Split(':')[0]))
                 {
-                    ShowOllamaResult(false, $"Ollama está corriendo ✓, pero el modelo '{model}' no está descargado.\nEjecuta: ollama pull {model}");
+                    ShowOllamaResult(false, $"Servidor activo ✓, pero el modelo '{model}' no aparece en la lista.\n" +
+                        "Asegúrate de haber cargado el modelo en LM Studio o ejecuta: ollama pull {model}");
                     return;
                 }
             }
             catch
             {
-                ShowOllamaResult(false, $"No se pudo conectar a {endpoint}.\n¿Ollama está corriendo? Abre una terminal y ejecuta: ollama serve");
+                ShowOllamaResult(false, $"No se pudo conectar a {endpoint}.\n" +
+                    "• Ollama: abre una terminal y ejecuta ollama serve\n" +
+                    "• LM Studio: activa el servidor local desde la pestaña Developer");
                 return;
             }
 
-            // Step 2: inference test — use /api/generate (native, faster than /v1/chat)
-            // send /no_think to disable qwen3 thinking mode, keep response short
+            // Step 2: inference test via OpenAI-compatible /v1/chat/completions
             TestOllamaButton.Content = "Cargando modelo…";
-            using var http2 = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+            // 120s: thinking models (Qwen3, DeepSeek-R1) need extra time for the reasoning phase
+            using var http2 = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 
             var body = JsonSerializer.Serialize(new
             {
                 model,
-                prompt  = "/no_think Responde exactamente: {\"verdict\":\"SAFE\"}",
-                stream  = false,
-                options = new { num_predict = 20, temperature = 0 }
+                stream          = false,
+                max_tokens      = 256,
+                temperature     = 0,
+                enable_thinking = false,   // skip chain-of-thought for thinking models
+                messages        = new[]
+                {
+                    new { role = "user", content = "Reply with exactly: OK" }
+                }
             });
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var response = await http2.PostAsync(
-                $"{endpoint}/api/generate",
+                $"{endpoint}/v1/chat/completions",
                 new StringContent(body, Encoding.UTF8, "application/json"));
             sw.Stop();
 
@@ -316,19 +328,25 @@ public partial class SettingsWindow : Window
 
             var json = await response.Content.ReadAsStringAsync();
             var doc  = JsonDocument.Parse(json);
-            var text = doc.RootElement.TryGetProperty("response", out var r) ? r.GetString() ?? "" : "";
+            var msgEl = doc.RootElement.GetProperty("choices")[0].GetProperty("message");
+
+            // content may be empty for thinking models (reasoning fills the budget)
+            var text = msgEl.TryGetProperty("content", out var c) ? c.GetString() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(text) &&
+                msgEl.TryGetProperty("reasoning_content", out var rc))
+                text = "[Thinking model — reasoning OK]";
 
             ShowOllamaResult(true,
-                $"✓ Ollama conectado · Modelo '{model}' listo\n" +
+                $"✓ Conectado · Modelo '{model}' listo\n" +
                 $"Tiempo de respuesta: {sw.ElapsedMilliseconds} ms\n" +
                 $"Respuesta: {text.Trim()[..Math.Min(text.Trim().Length, 60)]}");
         }
         catch (TaskCanceledException)
         {
             ShowOllamaResult(false,
-                $"Timeout (60s) — el modelo tardó demasiado en responder.\n" +
-                $"qwen3:8b necesita ~8 GB de RAM. Prueba con un modelo más pequeño:\n" +
-                $"ollama pull llama3.2:3b");
+                $"Timeout (120s) — el modelo tardó demasiado en responder.\n" +
+                $"Si usas un modelo grande, asegúrate de que esté cargado en LM Studio.\n" +
+                $"También puedes probar con un modelo más pequeño.");
         }
         catch (Exception ex)
         {
@@ -350,24 +368,53 @@ public partial class SettingsWindow : Window
         OllamaTestResult.Visibility = Visibility.Visible;
     }
 
+    private void SetDefaultBrowser_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "ms-settings:defaultapps?registeredAppUser=VELO",
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Fallback a la pantalla genérica de apps predeterminadas
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "ms-settings:defaultapps",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                DefaultBrowserStatus.Text = $"No se pudo abrir Configuración de Windows: {ex.Message}";
+                DefaultBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
+                DefaultBrowserStatus.Visibility = Visibility.Visible;
+            }
+        }
+    }
+
     private void Cancel_Click(object sender, RoutedEventArgs e) => Close();
 
     private void Nav_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
 
-        // Reset all nav buttons
         NavPrivacidad.Style = (Style)Resources["NavButton"];
         NavDns.Style        = (Style)Resources["NavButton"];
         NavIA.Style         = (Style)Resources["NavButton"];
         NavBusqueda.Style   = (Style)Resources["NavButton"];
         NavVault.Style      = (Style)Resources["NavButton"];
         NavIdioma.Style     = (Style)Resources["NavButton"];
+        NavGeneral.Style    = (Style)Resources["NavButton"];
 
         btn.Style = (Style)Resources["NavButtonActive"];
         _activeNav = btn;
 
-        // Show/hide panels
         var tag = btn.Tag?.ToString();
         PanelPrivacidad.Visibility = tag == "Privacidad" ? Visibility.Visible : Visibility.Collapsed;
         PanelDns.Visibility        = tag == "DNS"        ? Visibility.Visible : Visibility.Collapsed;
@@ -375,5 +422,6 @@ public partial class SettingsWindow : Window
         PanelBusqueda.Visibility   = tag == "Busqueda"   ? Visibility.Visible : Visibility.Collapsed;
         PanelVault.Visibility      = tag == "Vault"      ? Visibility.Visible : Visibility.Collapsed;
         PanelIdioma.Visibility     = tag == "Idioma"     ? Visibility.Visible : Visibility.Collapsed;
+        PanelGeneral.Visibility    = tag == "General"    ? Visibility.Visible : Visibility.Collapsed;
     }
 }

@@ -17,6 +17,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Data", "src\VELO.Data\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Vault", "src\VELO.Vault\VELO.Vault.csproj", "{A1B2C3D4-0007-0000-0000-000000000007}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Agent", "src\VELO.Agent\VELO.Agent.csproj", "{A1B2C3D4-0008-0000-0000-000000000008}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Security.Tests", "tests\VELO.Security.Tests\VELO.Security.Tests.csproj", "{B1C2D3E4-0001-0000-0000-000000000001}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Agent.Tests", "tests\VELO.Agent.Tests\VELO.Agent.Tests.csproj", "{B1C2D3E4-0002-0000-0000-000000000002}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Core.Tests", "tests\VELO.Core.Tests\VELO.Core.Tests.csproj", "{B1C2D3E4-0003-0000-0000-000000000003}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -51,5 +59,21 @@ Global
 		{A1B2C3D4-0007-0000-0000-000000000007}.Debug|x64.Build.0 = Debug|x64
 		{A1B2C3D4-0007-0000-0000-000000000007}.Release|x64.ActiveCfg = Release|x64
 		{A1B2C3D4-0007-0000-0000-000000000007}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-0008-0000-0000-000000000008}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-0008-0000-0000-000000000008}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-0008-0000-0000-000000000008}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-0008-0000-0000-000000000008}.Release|x64.Build.0 = Release|x64
+		{B1C2D3E4-0001-0000-0000-000000000001}.Debug|x64.ActiveCfg = Debug|x64
+		{B1C2D3E4-0001-0000-0000-000000000001}.Debug|x64.Build.0 = Debug|x64
+		{B1C2D3E4-0001-0000-0000-000000000001}.Release|x64.ActiveCfg = Release|x64
+		{B1C2D3E4-0001-0000-0000-000000000001}.Release|x64.Build.0 = Release|x64
+		{B1C2D3E4-0002-0000-0000-000000000002}.Debug|x64.ActiveCfg = Debug|x64
+		{B1C2D3E4-0002-0000-0000-000000000002}.Debug|x64.Build.0 = Debug|x64
+		{B1C2D3E4-0002-0000-0000-000000000002}.Release|x64.ActiveCfg = Release|x64
+		{B1C2D3E4-0002-0000-0000-000000000002}.Release|x64.Build.0 = Release|x64
+		{B1C2D3E4-0003-0000-0000-000000000003}.Debug|x64.ActiveCfg = Debug|x64
+		{B1C2D3E4-0003-0000-0000-000000000003}.Debug|x64.Build.0 = Debug|x64
+		{B1C2D3E4-0003-0000-0000-000000000003}.Release|x64.ActiveCfg = Release|x64
+		{B1C2D3E4-0003-0000-0000-000000000003}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal

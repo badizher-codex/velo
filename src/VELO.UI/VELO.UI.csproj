@@ -14,7 +14,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
+    <ProjectReference Include="..\VELO.Data\VELO.Data.csproj" />
     <ProjectReference Include="..\VELO.Security\VELO.Security.csproj" />
+    <ProjectReference Include="..\VELO.Agent\VELO.Agent.csproj" />
     <ProjectReference Include="..\VELO.DNS\VELO.DNS.csproj" />
     <ProjectReference Include="..\VELO.Vault\VELO.Vault.csproj" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="*" />

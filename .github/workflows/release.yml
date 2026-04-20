@@ -4,17 +4,42 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag a publicar (e.g. v2.0.0)'
+        required: true
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   build:
     runs-on: windows-latest
 
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      installer-name: ${{ steps.version.outputs.installer-name }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ "$TAG" = "main" ] || [ -z "$TAG" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          VERSION="${TAG#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "installer-name=VELO-${TAG}-Setup.exe" >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -23,6 +48,23 @@ jobs:
 
       - name: Restore dependencies
         run: dotnet restore VELO.sln
+
+      - name: Run tests
+        run: dotnet test VELO.sln --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/test-results.trx'
+          retention-days: 14
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          dotnet tool install --global CycloneDX
+          dotnet CycloneDX src/VELO.App/VELO.App.csproj --output sbom/ --filename velo-sbom --json
+          dotnet CycloneDX src/VELO.App/VELO.App.csproj --output sbom/ --filename velo-sbom --xml
 
       - name: Publish (self-contained, win-x64)
         run: >
@@ -55,44 +97,131 @@ jobs:
       - name: Zip portable artifact
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = "${{ steps.version.outputs.tag }}"
+          New-Item -ItemType File -Path publish/VELO/portable.flag -Force | Out-Null
           Compress-Archive -Path publish/VELO/* -DestinationPath "VELO-$tag-win-x64-portable.zip"
 
       - name: Move installer to root
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = "${{ steps.version.outputs.tag }}"
           $version = $tag -replace '^v', ''
-          Move-Item "publish/installer/VELO-v$version-Setup.exe" "VELO-$tag-Setup.exe"
+          $src = Get-ChildItem "installer\Output\*.exe" | Select-Object -First 1
+          Move-Item $src.FullName "VELO-$tag-Setup.exe"
+
+      - name: Compute SHA256 checksums
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $files = @("VELO-$tag-Setup.exe", "VELO-$tag-win-x64-portable.zip")
+          $lines = foreach ($f in $files) {
+            if (Test-Path $f) {
+              $h = (Get-FileHash $f -Algorithm SHA256).Hash
+              "$h  $f"
+            }
+          }
+          $lines | Out-File -FilePath SHA256SUMS.txt -Encoding utf8
+          Write-Host "=== SHA256SUMS ==="
+          Get-Content SHA256SUMS.txt
+
+      - name: Upload release artifacts
+        id: upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: velo-release-${{ steps.version.outputs.version }}
+          path: |
+            VELO-*-Setup.exe
+            VELO-*-portable.zip
+            SHA256SUMS.txt
+            sbom/velo-sbom.json
+            sbom/velo-sbom.xml
+          retention-days: 90
+
+  sign:
+    name: Sign with SignPath (if configured)
+    needs: build
+    runs-on: windows-latest
+    if: ${{ vars.SIGNPATH_ORG_ID != '' }}
+
+    steps:
+      - name: Sign with SignPath Foundation
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORG_ID }}
+          project-slug: velo
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ needs.build.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed/
+
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: velo-signed-${{ needs.build.outputs.version }}
+          path: signed/
+          retention-days: 90
+
+  release:
+    name: Create GitHub Release
+    needs: [build, sign]
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download signed artifacts (preferred)
+        if: needs.sign.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: velo-signed-${{ needs.build.outputs.version }}
+          path: release-files/
+
+      - name: Download unsigned artifacts (fallback)
+        if: needs.sign.result != 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: velo-release-${{ needs.build.outputs.version }}
+          path: release-files/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "VELO ${{ github.ref_name }}"
+          name: "VELO v${{ needs.build.outputs.version }}"
           body: |
-            ## VELO ${{ github.ref_name }}
+            ## VELO v${{ needs.build.outputs.version }}
 
             ### Descargas
 
             | Archivo | Descripción |
             |---|---|
-            | `VELO-${{ github.ref_name }}-Setup.exe` | **Instalador recomendado** — instala en Archivos de programa, acceso directo en escritorio |
-            | `VELO-${{ github.ref_name }}-win-x64-portable.zip` | Versión portable — extrae y ejecuta `VELO.exe` directamente |
+            | `VELO-v${{ needs.build.outputs.version }}-Setup.exe` | **Instalador recomendado** — instala en Archivos de programa, acceso directo en escritorio |
+            | `VELO-v${{ needs.build.outputs.version }}-win-x64-portable.zip` | Versión portable — extrae y ejecuta `VELO.exe` directamente |
+            | `SHA256SUMS.txt` | Hashes SHA256 para verificar integridad |
+            | `velo-sbom.json` / `velo-sbom.xml` | SBOM (Software Bill of Materials) en formato CycloneDX |
 
             ### Requisitos
             - Windows 10 (1803+) o Windows 11 — **solo x64**
-            - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) *(ya incluido en Windows 11 y la mayoría de Windows 10 actualizados)*
+            - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) *(pre-instalado en Windows 11)*
 
-            ### Instalación rápida (portable)
+            ### Verificar integridad
             ```powershell
-            Expand-Archive VELO-${{ github.ref_name }}-win-x64-portable.zip -DestinationPath "$env:LOCALAPPDATA\VELO"
-            Start-Process "$env:LOCALAPPDATA\VELO\VELO.exe"
+            # Verificar SHA256 del instalador
+            (Get-FileHash "VELO-v${{ needs.build.outputs.version }}-Setup.exe" -Algorithm SHA256).Hash
+            # Comparar con el valor en SHA256SUMS.txt
             ```
+
+            ${{ needs.sign.result == 'success' && '✅ **Firmado con Authenticode** (SignPath Foundation).' || '⚠️ Esta release no está firmada con Authenticode (signing no configurado).' }}
 
             ---
             > VELO es software libre bajo la licencia [GNU AGPLv3](https://github.com/${{ github.repository }}/blob/main/LICENSE).
           files: |
-            VELO-${{ github.ref_name }}-Setup.exe
-            VELO-${{ github.ref_name }}-win-x64-portable.zip
+            release-files/VELO-*-Setup.exe
+            release-files/VELO-*-portable.zip
+            release-files/SHA256SUMS.txt
+            release-files/velo-sbom.json
+            release-files/velo-sbom.xml
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          prerelease: ${{ contains(needs.build.outputs.version, '-beta') || contains(needs.build.outputs.version, '-rc') }}

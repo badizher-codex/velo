@@ -1,0 +1,160 @@
+<UserControl x:Class="VELO.UI.Controls.VeloAgentPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="320"
+             MinWidth="280"
+             MaxWidth="480"
+             Visibility="Collapsed"
+             AutomationProperties.Name="VeloAgent — Asistente de privacidad">
+
+    <Border Background="#FF0D0D1A"
+            BorderBrush="#FF2A2A3A"
+            BorderThickness="1,0,0,0">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- Header -->
+                <RowDefinition Height="*"/>      <!-- Message list -->
+                <RowDefinition Height="Auto"/>   <!-- Typing indicator -->
+                <RowDefinition Height="Auto"/>   <!-- Input area -->
+            </Grid.RowDefinitions>
+
+            <!-- ── Header ───────────────────────────────────────────────── -->
+            <Border Grid.Row="0"
+                    Background="#FF111122"
+                    BorderBrush="#FF2A2A3A"
+                    BorderThickness="0,0,0,1"
+                    Padding="12,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="🤖" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <StackPanel>
+                            <TextBlock Text="VeloAgent"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="#FFD0D0E8"/>
+                            <TextBlock x:Name="BackendLabel"
+                                       Text="Sin modelo"
+                                       FontSize="10"
+                                       Foreground="#FF555566"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="ClearButton"
+                                Content="🗑" FontSize="13"
+                                Style="{StaticResource IconButton}"
+                                ToolTip="Limpiar conversación"
+                                Click="Clear_Click"/>
+                        <Button x:Name="CloseButton"
+                                Content="✕" FontSize="13"
+                                Style="{StaticResource IconButton}"
+                                ToolTip="Cerrar panel (Ctrl+Shift+A)"
+                                Click="Close_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ── Message list ──────────────────────────────────────────── -->
+            <ScrollViewer x:Name="MessagesScroll"
+                          Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,4">
+                <StackPanel x:Name="MessagesPanel"
+                            Margin="0,4"
+                            CanHorizontallyScroll="False"/>
+            </ScrollViewer>
+
+            <!-- ── Typing indicator ──────────────────────────────────────── -->
+            <Border x:Name="TypingIndicator"
+                    Grid.Row="2"
+                    Visibility="Collapsed"
+                    Padding="12,6">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="VeloAgent está pensando"
+                               FontSize="11" FontStyle="Italic"
+                               Foreground="#FF555566"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TypingDots"
+                               Text="…"
+                               FontSize="11"
+                               Foreground="#FF00E5FF"
+                               VerticalAlignment="Center"
+                               Margin="2,0,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ── Input area ────────────────────────────────────────────── -->
+            <Border Grid.Row="3"
+                    Background="#FF111122"
+                    BorderBrush="#FF2A2A3A"
+                    BorderThickness="0,1,0,0"
+                    Padding="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Background="#FF1A1A2E"
+                            BorderBrush="#FF3A3A55"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="8,6">
+                        <TextBox x:Name="InputBox"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="#FFD0D0E8"
+                                 CaretBrush="#FF00E5FF"
+                                 FontSize="13"
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="False"
+                                 MaxHeight="80"
+                                 VerticalScrollBarVisibility="Auto"
+                                 KeyDown="Input_KeyDown"
+                                 AutomationProperties.Name="Mensaje para VeloAgent"
+                                 ToolTip="Escribe un mensaje — Enter para enviar"/>
+                    </Border>
+
+                    <Button x:Name="SendButton"
+                            Grid.Column="1"
+                            Content="↑"
+                            FontSize="18"
+                            Width="36" Height="36"
+                            Margin="6,0,0,0"
+                            Background="#FF00E5FF"
+                            Foreground="#FF0D0D1A"
+                            BorderThickness="0"
+                            FontWeight="Bold"
+                            Cursor="Hand"
+                            VerticalAlignment="Bottom"
+                            AutomationProperties.Name="Enviar mensaje"
+                            Click="Send_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="18"
+                                                    Width="{TemplateBinding Width}"
+                                                    Height="{TemplateBinding Height}">
+                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

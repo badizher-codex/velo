@@ -1,0 +1,29 @@
+VERIFICATION
+============
+Verification is intended to assist the Chocolatey moderators and community
+in verifying that this package's contents are trustworthy.
+
+Package:  velo  2.0.0
+Maintainer: badizher-codex
+
+1. Download the official installer directly from the GitHub release page:
+
+       https://github.com/badizher-codex/velo/releases/tag/v2.0.0
+
+   The asset to verify is: VELO-2.0.0-Setup.exe
+
+2. Compute its SHA-256 hash and compare it to the value in chocolateyInstall.ps1:
+
+       PowerShell:  Get-FileHash .\VELO-2.0.0-Setup.exe -Algorithm SHA256
+       certutil:    certutil -hashfile VELO-2.0.0-Setup.exe SHA256
+
+3. Authenticode signature:
+
+       PowerShell:  (Get-AuthenticodeSignature .\VELO-2.0.0-Setup.exe).Status
+       Expected:    Valid
+
+   The signing certificate is issued to "VELO Browser Contributors" via SignPath.io.
+
+4. License:
+   VELO is released under the GNU Affero General Public License v3.0.
+   Full text: https://github.com/badizher-codex/velo/blob/main/LICENSE

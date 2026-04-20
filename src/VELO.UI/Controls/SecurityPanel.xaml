@@ -2,64 +2,71 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Width="Auto"
-             Visibility="Collapsed">
+             Visibility="Collapsed"
+             AutomationProperties.Name="Panel de seguridad VELO">
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>   <!-- Mini tab -->
-            <ColumnDefinition Width="Auto"/>   <!-- Full panel -->
+            <ColumnDefinition Width="Auto"/>  <!-- Chip colapsado -->
+            <ColumnDefinition Width="Auto"/>  <!-- Panel expandido -->
         </Grid.ColumnDefinitions>
 
-        <!-- ── Mini tab (collapsed state) ────────────────────────────── -->
+        <!-- ── Chip colapsado (32×120px) ──────────────────────────────────── -->
         <Border x:Name="MiniTab"
                 Grid.Column="0"
-                Width="26"
+                Width="32"
                 Background="#14142A"
                 BorderBrush="{Binding ElementName=PanelBorder, Path=BorderBrush}"
                 BorderThickness="2,0,0,0"
+                CornerRadius="4,0,0,4"
                 Cursor="Hand"
                 Visibility="Collapsed"
                 MouseLeftButtonDown="MiniTab_Click"
+                AutomationProperties.Name="Abrir panel de seguridad"
+                AutomationProperties.HelpText="Haz clic para ver los detalles de las amenazas detectadas en esta sesión"
                 ToolTip="Ver amenazas detectadas">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                        Margin="0,12">
-                <!-- Badge count -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,12">
+                <!-- Icono del último veredicto -->
+                <TextBlock x:Name="MiniIcon" Text="🔴" FontSize="14"
+                           HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                <!-- Contador de eventos en sesión -->
                 <Border x:Name="MiniBadge"
-                        CornerRadius="8" Width="18" Height="18"
+                        CornerRadius="8" MinWidth="18" Height="18"
                         Background="#FF3D71"
                         HorizontalAlignment="Center"
-                        Margin="0,0,0,6">
+                        Margin="0,0,0,4">
                     <TextBlock x:Name="MiniBadgeCount"
-                               Text="1" FontSize="10" FontWeight="Bold"
+                               Text="0" FontSize="10" FontWeight="Bold"
                                Foreground="White"
                                HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
+                               VerticalAlignment="Center"
+                               Margin="3,0"/>
                 </Border>
-                <!-- Rotated label -->
-                <TextBlock x:Name="MiniLabel"
-                           Text="AMENAZA"
-                           FontSize="9" FontWeight="SemiBold"
-                           Foreground="#FF3D71"
-                           HorizontalAlignment="Center">
-                    <TextBlock.LayoutTransform>
-                        <RotateTransform Angle="90"/>
-                    </TextBlock.LayoutTransform>
-                </TextBlock>
+                <!-- Indicador warn activo -->
+                <TextBlock x:Name="MiniWarnIndicator" Text="⚠️" FontSize="11"
+                           HorizontalAlignment="Center" Margin="0,0,0,4"
+                           Visibility="Collapsed"/>
+                <!-- Icono agente (brilla si está abierto) -->
+                <TextBlock Text="🤖" FontSize="11"
+                           HorizontalAlignment="Center"
+                           Opacity="0.5"/>
             </StackPanel>
         </Border>
 
-        <!-- ── Full panel ─────────────────────────────────────────────── -->
+        <!-- ── Panel expandido ────────────────────────────────────────────── -->
         <Border x:Name="PanelBorder"
                 Grid.Column="1"
-                Width="310"
+                Width="340"
                 Background="{StaticResource BackgroundLightBrush}"
                 BorderBrush="#FF3D71"
-                BorderThickness="2,0,0,0"
-                Padding="14"
+                BorderThickness="3,0,0,0"
+                CornerRadius="0,6,6,0"
+                Padding="16"
                 Visibility="Collapsed">
             <StackPanel>
+
                 <!-- Header -->
-                <Grid Margin="0,0,0,10">
+                <Grid Margin="0,0,0,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -73,78 +80,130 @@
                                FontSize="13" FontWeight="SemiBold"
                                VerticalAlignment="Center"
                                Foreground="#FF3D71"
-                               Text="BLOQUEADO"/>
-                    <!-- Collapse to mini -->
+                               Text="AMENAZA BLOQUEADA"/>
                     <Button Grid.Column="2"
                             Style="{StaticResource IconButton}"
                             Content="⟩" FontSize="13"
                             ToolTip="Minimizar"
+                            AutomationProperties.Name="Minimizar panel de seguridad"
                             Click="CollapseToMini_Click"/>
-                    <!-- Close fully -->
                     <Button Grid.Column="3"
                             Style="{StaticResource IconButton}"
                             Content="✕" FontSize="11"
                             ToolTip="Cerrar"
+                            AutomationProperties.Name="Cerrar panel de seguridad"
                             Click="ClosePanel_Click"/>
                 </Grid>
 
-                <!-- Domain -->
+                <!-- Dominio -->
                 <TextBlock x:Name="DomainLabel"
-                           FontSize="11"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,14"
+                           Text="📍 dominio.ejemplo.com"/>
+
+                <!-- ── Sección: ¿Qué pasó? ──────────────────────────────── -->
+                <TextBlock Text="¿Qué pasó?" FontSize="11" FontWeight="SemiBold"
                            Foreground="{StaticResource TextSecondaryBrush}"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,10"
-                           Text="dominio.ejemplo.com"/>
+                           Margin="0,0,0,4"/>
+                <TextBlock x:Name="WhatHappenedLabel"
+                           FontSize="12" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,12"
+                           Text=""/>
 
-                <!-- Reason -->
-                <TextBlock Text="POR QUÉ:" FontSize="10"
-                           Foreground="{StaticResource TextMutedBrush}"
-                           Margin="0,0,0,3"/>
-                <TextBlock x:Name="ReasonLabel"
+                <!-- ── Sección: ¿Por qué lo bloqueé? ──────────────────── -->
+                <TextBlock Text="¿Por qué lo bloqueé?" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,4"/>
+                <TextBlock x:Name="WhyBlockedLabel"
+                           FontSize="12" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,12"
+                           Text=""/>
+
+                <!-- ── Sección: ¿Qué significa para ti? ───────────────── -->
+                <TextBlock Text="¿Qué significa para ti?" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,4"/>
+                <TextBlock x:Name="WhatItMeansLabel"
+                           FontSize="12" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Margin="0,0,0,8"
+                           Text=""/>
+
+                <!-- Learn more link -->
+                <TextBlock x:Name="LearnMoreLink"
                            FontSize="11"
-                           TextWrapping="Wrap"
+                           Foreground="{StaticResource AccentBlueBrush}"
+                           Cursor="Hand"
+                           Margin="0,0,0,12"
+                           Text="¿Cómo puedo aprender más? ↗"
+                           Visibility="Collapsed"
+                           MouseLeftButtonDown="LearnMore_Click"/>
+
+                <!-- ── Detalles técnicos (colapsados) ──────────────────── -->
+                <Expander x:Name="TechnicalDetails"
+                          Header="Detalles técnicos"
+                          FontSize="11"
+                          Foreground="{StaticResource TextMutedBrush}"
+                          Margin="0,0,0,12"
+                          IsExpanded="False">
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Tipo:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ThreatTypeLabel" Grid.Row="0" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Fuente:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="SourceLabel" Grid.Row="1" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Confianza:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ConfidenceLabel" Grid.Row="2" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Score:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ScoreLabel" Grid.Row="3" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                    </Grid>
+                </Expander>
+
+                <Separator Margin="0,0,0,10"/>
+
+                <!-- ── Falso positivo ──────────────────────────────────── -->
+                <TextBlock x:Name="FalsePositiveLink"
+                           FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Cursor="Hand"
                            Margin="0,0,0,10"
-                           Text="Explicación de la amenaza."/>
+                           Text="✋ ¿Fue un error? Reportar falso positivo"
+                           MouseLeftButtonDown="FalsePositive_Click"
+                           AutomationProperties.Name="Reportar falso positivo"
+                           AutomationProperties.HelpText="Abre un issue pre-llenado en GitHub para reportar que este bloqueo es incorrecto"/>
 
-                <!-- Metadata -->
-                <Grid Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition/>
-                        <RowDefinition/>
-                        <RowDefinition/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Tipo:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
-                    <TextBlock x:Name="ThreatTypeLabel" Grid.Row="0" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Confianza:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
-                    <TextBlock x:Name="ConfidenceLabel" Grid.Row="1" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Fuente:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
-                    <TextBlock x:Name="SourceLabel" Grid.Row="2" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                </Grid>
-
-                <Separator/>
-
-                <!-- Actions -->
-                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <!-- ── Acciones ────────────────────────────────────────── -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                     <Button x:Name="AllowOnceButton"
                             Content="Permitir una vez"
-                            FontSize="11" Padding="8,4" Margin="0,0,6,0"
+                            FontSize="11" Padding="8,5" Margin="0,0,6,0"
+                            AutomationProperties.Name="Permitir este dominio una vez"
                             Click="AllowOnce_Click"/>
                     <Button x:Name="WhitelistButton"
-                            Content="Whitelist"
-                            FontSize="11" Padding="8,4"
+                            Content="Whitelist siempre"
+                            FontSize="11" Padding="8,5"
+                            AutomationProperties.Name="Agregar dominio a whitelist permanente"
                             Click="Whitelist_Click"/>
                 </StackPanel>
 
                 <!-- Auto-close countdown -->
                 <TextBlock x:Name="CountdownLabel"
                            FontSize="9" Foreground="{StaticResource TextMutedBrush}"
-                           HorizontalAlignment="Right"
-                           Margin="0,6,0,0"/>
+                           HorizontalAlignment="Right"/>
+
             </StackPanel>
         </Border>
     </Grid>

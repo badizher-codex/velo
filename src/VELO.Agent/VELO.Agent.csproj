@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
+    <ProjectReference Include="..\VELO.Data\VELO.Data.csproj" />
+    <PackageReference Include="LLamaSharp" Version="0.20.0" />
+    <!-- Native backend: CPU + CUDA — user can remove CUDA if GPU unavailable -->
+    <PackageReference Include="LLamaSharp.Backend.Cpu"  Version="0.20.0" />
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.20.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
+    <PackageReference Include="System.Text.Json" Version="*" />
+  </ItemGroup>
+
+</Project>
