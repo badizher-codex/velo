@@ -25,20 +25,36 @@ jobs:
       - name: Build
         run: dotnet build VELO.sln --configuration Release -p:Platform=x64 --no-restore -v quiet
 
-      - name: Test
-        run: >
-          dotnet test VELO.sln
-          --configuration Release
-          -p:Platform=x64
-          --no-build
-          --logger "trx;LogFileName=test-results.trx"
-          --logger "console;verbosity=normal"
-          --results-directory TestResults
+      - name: Test (capture full output)
+        id: test
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force TestResults | Out-Null
+          $output = dotnet test VELO.sln `
+            --configuration Release `
+            -p:Platform=x64 `
+            --no-build `
+            --logger "trx;LogFileName=test-results.trx" `
+            --logger "console;verbosity=detailed" `
+            --results-directory TestResults 2>&1
+          $output | Tee-Object -FilePath TestResults/stdout.txt
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "=== TRX content ===" -ForegroundColor Red
+            Get-ChildItem TestResults -Filter *.trx | ForEach-Object { Get-Content $_.FullName }
+            exit 1
+          }
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: TestResults/*.trx
+          path: |
+            TestResults/*.trx
+            TestResults/stdout.txt
           retention-days: 14
+
+      - name: Fail if tests failed
+        if: steps.test.outcome == 'failure'
+        run: exit 1
