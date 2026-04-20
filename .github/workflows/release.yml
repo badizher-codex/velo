@@ -47,10 +47,10 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore dependencies
-        run: dotnet restore VELO.sln
+        run: dotnet restore VELO.sln -p:Platform=x64
 
       - name: Run tests
-        run: dotnet test VELO.sln --configuration Release --no-restore --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test VELO.sln --configuration Release -p:Platform=x64 --no-restore --logger "trx;LogFileName=test-results.trx"
 
       - name: Upload test results
         if: always()

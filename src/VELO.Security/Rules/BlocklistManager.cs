@@ -48,7 +48,9 @@ public class BlocklistManager(EventBus eventBus, ILogger<BlocklistManager> logge
         if (!Directory.Exists(bundledPath)) return;
 
         var domains = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in Directory.EnumerateFiles(bundledPath, "*.txt"))
+        foreach (var file in Directory.EnumerateFiles(bundledPath).Where(
+            f => f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) ||
+                 f.EndsWith(".hosts", StringComparison.OrdinalIgnoreCase)))
         {
             await ParseFileAsync(file, domains);
         }

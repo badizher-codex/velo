@@ -54,11 +54,11 @@ public class SafetyScorer(IGoldenList goldenList)
         switch (ctx.TLSStatus)
         {
             case TLSStatus.Valid:
-                score += 15;
+                score += 20;
                 positives.Add("Conexión TLS válida.");
                 break;
             case TLSStatus.SelfSigned:
-                score -= 25;
+                score -= 15;
                 negatives.Add("Certificado auto-firmado (no verificado por autoridad pública).");
                 break;
             case TLSStatus.NoCtLogs:
@@ -66,7 +66,7 @@ public class SafetyScorer(IGoldenList goldenList)
                 negatives.Add("Certificado no encontrado en logs de transparencia (CT).");
                 break;
             case TLSStatus.Error:
-                score -= 20;
+                score -= 15;
                 negatives.Add("Error de TLS desconocido.");
                 break;
         }
