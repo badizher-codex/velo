@@ -30,10 +30,16 @@ jobs:
           dotnet test VELO.sln
           --configuration Release
           -p:Platform=x64
-          --no-build
           --logger "trx;LogFileName=test-results.trx"
-          --logger "console;verbosity=normal"
+          --logger "console;verbosity=detailed"
           --results-directory TestResults
+
+      - name: Dump test results (debug)
+        if: always()
+        shell: pwsh
+        run: |
+          $trx = Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue
+          foreach ($f in $trx) { Write-Host "=== $($f.FullName) ==="; Get-Content $f.FullName }
 
       - name: Upload test results
         if: always()
