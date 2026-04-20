@@ -52,12 +52,11 @@ public static class DataLocation
         }
     }
 
-    /// <summary>Returns a sub-path inside the user-data directory, creating it if needed.</summary>
+    /// <summary>Returns a sub-directory path inside the user-data directory, creating it if needed.</summary>
     public static string SubPath(string relativePath)
     {
         var full = Path.Combine(GetUserDataPath(), relativePath);
-        var dir  = Path.GetDirectoryName(full);
-        if (dir != null) Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(full);
         return full;
     }
 

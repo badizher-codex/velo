@@ -107,8 +107,8 @@ public class DataLocationTests : IDisposable
         {
             // Inject a controlled exe dir so both IsPortable and GetUserDataPath
             // resolve the same base, regardless of AppContext.BaseDirectory.
-            DataLocation.ExeDirOverride = tempDir;
             DataLocation.ResetCache();
+            DataLocation.ExeDirOverride = tempDir;
 
             Assert.False(DataLocation.IsPortable, "No flag yet");
 
