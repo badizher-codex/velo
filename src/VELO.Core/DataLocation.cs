@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace VELO.Core;
 
 /// <summary>
@@ -61,6 +59,5 @@ public static class DataLocation
     internal static void ResetCache() => _cachedPath = null;
 
     private static string GetExeDir() =>
-        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-        ?? AppContext.BaseDirectory;
+        AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 }
