@@ -115,7 +115,12 @@ public class DataLocationTests : IDisposable
     [Fact]
     public void PortableMode_UserDataPath_IsInsideExeDir()
     {
-        var exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+        // Use typeof(DataLocation).Assembly so we resolve the same directory that
+        // DataLocation.GetExeDir() resolves internally (VELO.Core.dll location).
+        // In CI the test runner may load VELO.Core.dll from a different path than
+        // VELO.Core.Tests.dll, so using GetExecutingAssembly() from the test method
+        // would point to a different directory.
+        var exeDir = Path.GetDirectoryName(typeof(DataLocation).Assembly.Location)!;
         var flagPath = Path.Combine(exeDir, "portable.flag");
 
         // Only run if we can write to the exe dir (skipped in read-only CI artifacts)

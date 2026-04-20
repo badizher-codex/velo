@@ -25,34 +25,14 @@ jobs:
       - name: Build
         run: dotnet build VELO.sln --configuration Release -p:Platform=x64 --no-restore -v quiet
 
-      - name: Test — VELO.Security.Tests
+      - name: Test
         run: >
-          dotnet test tests/VELO.Security.Tests/VELO.Security.Tests.csproj
+          dotnet test VELO.sln
           --configuration Release
           -p:Platform=x64
           --no-build
-          --logger "trx;LogFileName=security.trx"
-          --logger "console;verbosity=detailed"
-          --results-directory TestResults
-
-      - name: Test — VELO.Agent.Tests
-        run: >
-          dotnet test tests/VELO.Agent.Tests/VELO.Agent.Tests.csproj
-          --configuration Release
-          -p:Platform=x64
-          --no-build
-          --logger "trx;LogFileName=agent.trx"
-          --logger "console;verbosity=detailed"
-          --results-directory TestResults
-
-      - name: Test — VELO.Core.Tests
-        run: >
-          dotnet test tests/VELO.Core.Tests/VELO.Core.Tests.csproj
-          --configuration Release
-          -p:Platform=x64
-          --no-build
-          --logger "trx;LogFileName=core.trx"
-          --logger "console;verbosity=detailed"
+          --logger "trx;LogFileName=test-results.trx"
+          --logger "console;verbosity=normal"
           --results-directory TestResults
 
       - name: Upload test results
