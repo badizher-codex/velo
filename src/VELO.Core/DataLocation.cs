@@ -17,6 +17,12 @@ public static class DataLocation
     private static string? _cachedPath;
 
     /// <summary>
+    /// Override for the exe directory, used in unit tests only.
+    /// When set, GetExeDir() returns this value instead of AppContext.BaseDirectory.
+    /// </summary>
+    internal static string? ExeDirOverride;
+
+    /// <summary>
     /// Returns the root user-data path. Call once at startup; result is cached.
     /// </summary>
     public static string GetUserDataPath()
@@ -55,9 +61,14 @@ public static class DataLocation
         return full;
     }
 
-    /// <summary>Clears the cached path. Intended for testing only.</summary>
-    internal static void ResetCache() => _cachedPath = null;
+    /// <summary>Clears the cached path and any test override. Intended for testing only.</summary>
+    internal static void ResetCache()
+    {
+        _cachedPath = null;
+        ExeDirOverride = null;
+    }
 
     private static string GetExeDir() =>
-        AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        (ExeDirOverride ?? AppContext.BaseDirectory)
+        .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 }

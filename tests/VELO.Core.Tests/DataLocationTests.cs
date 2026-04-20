@@ -1,4 +1,3 @@
-using System.Reflection;
 using VELO.Core;
 using Xunit;
 
@@ -8,27 +7,18 @@ namespace VELO.Core.Tests;
 /// Tests for DataLocation.
 ///
 /// Note: DataLocation caches the resolved path in a static field.
-/// Each test that calls GetUserDataPath() must reset the cache afterwards
-/// via the internal ResetCache() method to avoid polluting other tests.
+/// Each test calls ResetCache() at the start and relies on Dispose() for cleanup.
 /// </summary>
 public class DataLocationTests : IDisposable
 {
-    // Scratch directory for portable-mode tests
-    private readonly string _tempDir = Path.Combine(Path.GetTempPath(), $"velo-test-{Guid.NewGuid():N}");
-
-    public void Dispose()
-    {
-        DataLocation.ResetCache();
-        if (Directory.Exists(_tempDir))
-            Directory.Delete(_tempDir, recursive: true);
-    }
+    public void Dispose() => DataLocation.ResetCache();
 
     // ── IsPortable — no flag ──────────────────────────────────────────────────
 
     [Fact]
     public void IsPortable_ReturnsFalse_WhenNoFlagExists()
     {
-        // The test assembly runs in the test output dir — no portable.flag there
+        // Default exe dir has no portable.flag in a clean test run
         Assert.False(DataLocation.IsPortable);
     }
 
@@ -99,60 +89,42 @@ public class DataLocationTests : IDisposable
         DataLocation.ResetCache();
         var second = DataLocation.GetUserDataPath();
 
-        // Both should resolve to the same path (same environment)
         Assert.Equal(first, second);
     }
 
-    // ── GetUserDataPath — portable mode (simulated) ───────────────────────────
+    // ── Portable mode — via ExeDirOverride ────────────────────────────────────
     //
-    // We cannot place portable.flag next to the test assembly without
-    // affecting other tests permanently, so we verify the portable path
-    // logic by inspecting what the method WOULD return via the IsPortable
-    // property after manually creating the flag in the exe dir.
-    //
-    // This test is skipped if it cannot write to the test output directory.
+    // Uses ExeDirOverride to inject a controlled temp directory, so this test
+    // is fully isolated from the real exe dir and works in any CI environment.
 
     [Fact]
     public void PortableMode_UserDataPath_IsInsideExeDir()
     {
-        // AppContext.BaseDirectory matches DataLocation.GetExeDir() in all environments:
-        // production (VELO.exe dir) and test runner (test output dir).
-        var exeDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var flagPath = Path.Combine(exeDir, "portable.flag");
-
-        // Only run if we can write to the exe dir (skipped in read-only CI artifacts)
-        if (!CanWriteTo(exeDir)) return;
+        var tempDir = Path.Combine(Path.GetTempPath(), $"velo-portable-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
 
         try
         {
-            File.WriteAllText(flagPath, "");
+            // Inject a controlled exe dir so both IsPortable and GetUserDataPath
+            // resolve the same base, regardless of AppContext.BaseDirectory.
+            DataLocation.ExeDirOverride = tempDir;
             DataLocation.ResetCache();
 
-            Assert.True(DataLocation.IsPortable);
+            Assert.False(DataLocation.IsPortable, "No flag yet");
+
+            File.WriteAllText(Path.Combine(tempDir, "portable.flag"), "");
+
+            Assert.True(DataLocation.IsPortable, "Flag exists → portable");
 
             var path = DataLocation.GetUserDataPath();
-            Assert.StartsWith(exeDir, path, StringComparison.OrdinalIgnoreCase);
+            Assert.StartsWith(tempDir, path, StringComparison.OrdinalIgnoreCase);
             Assert.EndsWith("userdata", path, StringComparison.OrdinalIgnoreCase);
+            Assert.True(Directory.Exists(path));
         }
         finally
         {
-            File.Delete(flagPath);
-            DataLocation.ResetCache();
-        }
-    }
-
-    private static bool CanWriteTo(string dir)
-    {
-        try
-        {
-            var probe = Path.Combine(dir, $".write-probe-{Guid.NewGuid():N}");
-            File.WriteAllText(probe, "");
-            File.Delete(probe);
-            return true;
-        }
-        catch
-        {
-            return false;
+            DataLocation.ResetCache();   // clears ExeDirOverride too
+            Directory.Delete(tempDir, recursive: true);
         }
     }
 }
