@@ -19,6 +19,7 @@ using VELO.Data.Repositories;
 using VELO.Security;
 using VELO.Security.AI;
 using VELO.Security.AI.Models;
+using VELO.Security.GoldenList;
 using VELO.Security.Guards;
 using VELO.Security.Models;
 using VELO.UI.Controls;
@@ -642,10 +643,25 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Store for Security Inspector (keep the worst verdict, or latest if same level)
-        var prev = _tabLastAiVerdict.GetValueOrDefault(tabId);
-        if (prev == null || (int)verdict.Verdict >= (int)prev.Verdict)
-            _tabLastAiVerdict[tabId] = verdict;
+            // Store for Security Inspector — tracker/fingerprinting blocks are already
+            // counted in _tabBlockCounts.Trackers and fed to SafetyScorer via
+            // TrackersBlockedCount (+2 pts each). Storing them as AIVerdict would also
+            // apply a -50 Block penalty, making the shield permanently red on any site
+            // with trackers. Only genuine threats (Malware, Phishing, MitM, etc.) and
+            // AI analysis verdicts should influence AIVerdict.
+            var isTrackerBlock = verdict.ThreatType is
+                ThreatType.KnownTracker or ThreatType.Tracker or ThreatType.Fingerprinting;
+
+            if (!isTrackerBlock)
+            {
+                var prev = _tabLastAiVerdict.GetValueOrDefault(tabId);
+                if (prev == null || (int)verdict.Verdict >= (int)prev.Verdict)
+                    _tabLastAiVerdict[tabId] = verdict;
+
+                // Refresh shield immediately when a real threat arrives
+                if (IsUiDrivingTab(tabId))
+                    RefreshShieldScore(tabId);
+            }
 
         if (!IsUiDrivingTab(tabId)) return;
             if (verdict.Verdict == VerdictType.Safe) return;
@@ -1563,19 +1579,20 @@ public partial class MainWindow : Window
                 _                  => VELO.Security.Models.TLSStatus.Valid,
             };
 
-            var ai     = _tabLastAiVerdict.GetValueOrDefault(tabId);
-            var counts = _tabBlockCounts.GetValueOrDefault(tabId);
+            var ai       = _tabLastAiVerdict.GetValueOrDefault(tabId);
+            var counts   = _tabBlockCounts.GetValueOrDefault(tabId);
+            var isGolden = _services.GetRequiredService<IGoldenList>().IsGolden(uri.Host);
 
             var ctx = new SafetyContext
             {
-                Uri                      = uri,
-                TLSStatus                = tlsSec,
-                AIVerdict                = ai,
-                TrackersBlockedCount     = counts.Trackers,
+                Uri                        = uri,
+                TLSStatus                  = tlsSec,
+                AIVerdict                  = ai,
+                TrackersBlockedCount       = counts.Trackers,
                 FingerprintAttemptsBlocked = 0,
-                IsGoldenList             = false,
-                IsWhitelistedByUser      = false,
-                SessionVerdicts          = [],
+                IsGoldenList               = isGolden,
+                IsWhitelistedByUser        = false,
+                SessionVerdicts            = [],
             };
 
             return _services.GetRequiredService<SafetyScorer>().Compute(ctx);
