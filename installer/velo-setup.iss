@@ -32,6 +32,10 @@ VersionInfoVersion={#AppVersion}.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Privacy Browser Setup
 PrivilegesRequired=admin
+InstallDirRegKey=HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#AppId}_is1,InstallLocation
+CloseApplications=yes
+CloseApplicationsFilter=*.exe
+RestartApplications=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
