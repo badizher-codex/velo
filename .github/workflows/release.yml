@@ -64,7 +64,7 @@ jobs:
         run: |
           dotnet tool install --global CycloneDX
           dotnet CycloneDX src/VELO.App/VELO.App.csproj --output sbom/ --filename velo-sbom --json
-          dotnet CycloneDX src/VELO.App/VELO.App.csproj --output sbom/ --filename velo-sbom --xml
+          dotnet CycloneDX src/VELO.App/VELO.App.csproj --output sbom/ --filename velo-sbom
 
       - name: Publish (self-contained, win-x64)
         run: >
