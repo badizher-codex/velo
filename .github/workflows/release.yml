@@ -103,7 +103,7 @@ jobs:
         run: |
           $tag = "${{ steps.version.outputs.tag }}"
           $version = $tag -replace '^v', ''
-          $src = Get-ChildItem "installer\Output\*.exe" | Select-Object -First 1
+          $src = Get-ChildItem "publish\installer\*.exe" | Select-Object -First 1
           Move-Item $src.FullName "VELO-$tag-Setup.exe"
 
       - name: Compute SHA256 checksums
