@@ -17,6 +17,14 @@
     <Company>VELO Browser</Company>
     <Product>VELO</Product>
     <Description>Privacy Browser for Windows</Description>
+    <!--
+      LLamaSharp.Backend.Cpu ships the same native DLL names (ggml-base.dll,
+      llama.dll, …) under four CPU-variant subdirs (avx/avx2/avx512/noavx).
+      MSBuild flattens them to the same relative path when publishing → NETSDK1152.
+      Suppressing the error lets MSBuild pick one variant (last wins); LLamaSharp
+      selects the correct variant at runtime via its own CPU-feature detection.
+    -->
+    <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
   <!-- Strip WebView2 XML doc files from publish output -->
