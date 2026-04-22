@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — VELO Browser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { fontFamily: { display: ['system-ui','sans-serif'] } } }
+    }
+  </script>
+  <link rel="icon" href="https://raw.githubusercontent.com/badizher-codex/velo/main/src/VELO.App/velo.ico" type="image/x-icon" />
+</head>
+<body class="bg-slate-950 text-slate-300 font-sans antialiased">
+
+  <!-- Navbar -->
+  <nav class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2 font-bold text-white text-lg">
+      <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#6366f1"/><path d="M8 11l8 10 8-10" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      VELO
+    </a>
+    <a href="index.html#download" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-sm transition-all">
+      Download
+    </a>
+  </nav>
+
+  <!-- Content -->
+  <main class="max-w-3xl mx-auto px-6 py-16">
+
+    <div class="mb-12">
+      <h1 class="text-4xl font-bold text-white mb-3">Privacy Policy</h1>
+      <p class="text-slate-400">Last updated: April 2026 &nbsp;·&nbsp; <a href="https://github.com/badizher-codex/velo" class="text-indigo-400 hover:text-indigo-300 transition-colors">VELO Browser</a></p>
+    </div>
+
+    <div class="space-y-10 text-slate-300 leading-relaxed">
+
+      <!-- TL;DR -->
+      <div class="bg-emerald-950/50 border border-emerald-700/40 rounded-2xl p-6">
+        <h2 class="text-lg font-bold text-emerald-400 mb-3 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          TL;DR — The short version
+        </h2>
+        <ul class="space-y-1 text-sm text-emerald-200">
+          <li>✅ VELO collects <strong>zero telemetry</strong> — no usage data, no analytics, no crash reports sent anywhere.</li>
+          <li>✅ All your data (passwords, history, bookmarks) is stored <strong>locally on your device only</strong>.</li>
+          <li>✅ No account required. No cloud. No tracking.</li>
+          <li>✅ VELO is <strong>fully open source</strong> — you can audit every line of code.</li>
+        </ul>
+      </div>
+
+      <!-- 1 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">1. Who we are</h2>
+        <p>VELO Browser is an open-source project maintained by contributors listed on <a href="https://github.com/badizher-codex/velo" class="text-indigo-400 hover:text-indigo-300 transition-colors">GitHub</a>. It is not a company. There is no legal entity collecting your data.</p>
+      </section>
+
+      <!-- 2 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">2. Data VELO does NOT collect</h2>
+        <p class="mb-3">VELO does not collect, transmit, or sell any of the following:</p>
+        <ul class="list-disc list-inside space-y-1 text-slate-400">
+          <li>Browsing history or visited URLs</li>
+          <li>Search queries</li>
+          <li>Passwords or vault contents</li>
+          <li>Installed extensions or settings</li>
+          <li>Device identifiers, IP addresses, or hardware fingerprints</li>
+          <li>Crash reports or diagnostic data</li>
+          <li>Usage statistics or interaction events</li>
+        </ul>
+      </section>
+
+      <!-- 3 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">3. Data stored locally on your device</h2>
+        <p class="mb-3">The following data is saved <strong>only on your computer</strong>, inside <code class="bg-slate-800 px-1.5 py-0.5 rounded text-indigo-300 text-sm">%AppData%\VELO\</code>, and never leaves your device:</p>
+        <div class="overflow-hidden rounded-xl border border-slate-800">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-900 text-slate-400">
+              <tr>
+                <th class="text-left px-4 py-3">Data</th>
+                <th class="text-left px-4 py-3">Location</th>
+                <th class="text-left px-4 py-3">Encrypted</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+              <tr class="bg-slate-950"><td class="px-4 py-3">Browsing history</td><td class="px-4 py-3 text-slate-400">SQLite database</td><td class="px-4 py-3 text-slate-400">No</td></tr>
+              <tr class="bg-slate-950"><td class="px-4 py-3">Bookmarks</td><td class="px-4 py-3 text-slate-400">SQLite database</td><td class="px-4 py-3 text-slate-400">No</td></tr>
+              <tr class="bg-slate-950"><td class="px-4 py-3">Saved passwords (Vault)</td><td class="px-4 py-3 text-slate-400">SQLite + AES-256</td><td class="px-4 py-3 text-emerald-400 font-semibold">Yes — AES-256</td></tr>
+              <tr class="bg-slate-950"><td class="px-4 py-3">Settings &amp; preferences</td><td class="px-4 py-3 text-slate-400">JSON file</td><td class="px-4 py-3 text-slate-400">No</td></tr>
+              <tr class="bg-slate-950"><td class="px-4 py-3">WebView2 cache &amp; cookies</td><td class="px-4 py-3 text-slate-400">WebView2 profile</td><td class="px-4 py-3 text-slate-400">No</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">4. Network connections VELO makes</h2>
+        <p class="mb-4">VELO makes the following outbound network connections on your behalf:</p>
+
+        <div class="space-y-4">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 class="font-semibold text-white mb-1">DNS-over-HTTPS (DoH)</h3>
+            <p class="text-sm text-slate-400">When DoH is enabled, DNS queries are sent to the provider you configure (default: Cloudflare <code class="bg-slate-800 px-1 rounded text-indigo-300">1.1.1.1</code> or Quad9). Your chosen provider's privacy policy applies. You can disable DoH or change the provider in Settings → Network.</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 class="font-semibold text-white mb-1">Blocklist updates</h3>
+            <p class="text-sm text-slate-400">VELO periodically downloads updated tracker blocklists from <strong>EasyPrivacy</strong> (<a href="https://easylist.to" class="text-indigo-400 hover:text-indigo-300">easylist.to</a>). Only a GET request is made — no personal data is sent.</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 class="font-semibold text-white mb-1">AI Assistant (VeloAgent)</h3>
+            <p class="text-sm text-slate-400">VeloAgent runs <strong>entirely locally</strong> using Ollama or LM Studio. No data is sent to any cloud AI service unless you explicitly configure a remote endpoint in Settings → AI. When using a local model, all inference happens on your machine.</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 class="font-semibold text-white mb-1">WebView2 Runtime (Microsoft)</h3>
+            <p class="text-sm text-slate-400">VELO uses Microsoft Edge WebView2 to render web pages. WebView2 may make its own connections (SmartScreen checks, Edge update pings) governed by <a href="https://privacy.microsoft.com" class="text-indigo-400 hover:text-indigo-300">Microsoft's privacy policy</a>. You can review WebView2 network settings in the browser settings.</p>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 class="font-semibold text-white mb-1">Normal web browsing</h3>
+            <p class="text-sm text-slate-400">When you visit websites, those sites receive your IP address and standard HTTP headers — exactly as with any browser. VELO actively blocks trackers and injects fingerprint noise to reduce your digital footprint.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">5. Authenticode code signing</h2>
+        <p>VELO release binaries are signed using <a href="https://signpath.org" class="text-indigo-400 hover:text-indigo-300 transition-colors">SignPath Foundation</a>, a free code-signing service for open-source projects. This signing process does not transmit any user data — it only proves the binary was built from the official source code.</p>
+      </section>
+
+      <!-- 6 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">6. Children's privacy</h2>
+        <p>VELO does not knowingly collect any information from anyone, including children under 13. Since no data is collected at all, there is nothing to disclose.</p>
+      </section>
+
+      <!-- 7 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">7. Changes to this policy</h2>
+        <p>If this policy changes, the updated version will be committed to the <a href="https://github.com/badizher-codex/velo" class="text-indigo-400 hover:text-indigo-300 transition-colors">GitHub repository</a> and this page will be updated with a new date. You can review the full history of changes on GitHub.</p>
+      </section>
+
+      <!-- 8 -->
+      <section>
+        <h2 class="text-2xl font-bold text-white mb-4">8. Contact</h2>
+        <p>Questions about this policy? Open an issue on <a href="https://github.com/badizher-codex/velo/issues" class="text-indigo-400 hover:text-indigo-300 transition-colors">GitHub</a> or email <a href="mailto:badizher@gmail.com" class="text-indigo-400 hover:text-indigo-300 transition-colors">badizher@gmail.com</a>.</p>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 mt-20 py-8 text-center text-sm text-slate-500">
+    <p>© 2026 VELO Browser Contributors &nbsp;·&nbsp;
+      <a href="index.html" class="hover:text-slate-300 transition-colors">Home</a> &nbsp;·&nbsp;
+      <a href="https://github.com/badizher-codex/velo/blob/main/LICENSE" class="hover:text-slate-300 transition-colors">AGPL-3.0 License</a> &nbsp;·&nbsp;
+      <a href="https://github.com/badizher-codex/velo" class="hover:text-slate-300 transition-colors">GitHub</a>
+    </p>
+  </footer>
+
+</body>
+</html>
