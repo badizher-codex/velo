@@ -13,7 +13,7 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/issues
 AppUpdatesURL={#AppURL}/releases
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName={code:GetInstallDir|{autopf}\{#AppName}}
 DefaultGroupName={#AppName}
 AllowNoIcons=yes
 LicenseFile=..\LICENSE
@@ -32,7 +32,6 @@ VersionInfoVersion={#AppVersion}.0
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Privacy Browser Setup
 PrivilegesRequired=admin
-InstallDirRegKey=HKLM,SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#AppId}_is1,InstallLocation
 CloseApplications=yes
 CloseApplicationsFilter=*.exe
 RestartApplications=yes
@@ -100,9 +99,21 @@ Type: filesandordirs; Name: "{userappdata}\VELO\WebView2"
 
 [Code]
 const
-  WEBVIEW2_KEY = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
-  WEBVIEW2_URL = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+  WEBVIEW2_KEY  = 'SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
+  WEBVIEW2_URL  = 'https://go.microsoft.com/fwlink/p/?LinkId=2124703';
+  UNINSTALL_KEY = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{B4D1E2F3-8A5C-4E6D-9F7B-2C3D4E5F6A7B}_is1';
   CRLF = #13#10;
+
+{ If a previous installation exists, reuse its install location. }
+function GetInstallDir(Default: String): String;
+var
+  Path: String;
+begin
+  if RegQueryStringValue(HKLM, UNINSTALL_KEY, 'InstallLocation', Path) and (Path <> '') then
+    Result := Path
+  else
+    Result := Default;
+end;
 
 function WebView2Installed: Boolean;
 var
