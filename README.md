@@ -1,6 +1,6 @@
-<img src="docs/velo-banner.png" alt="VELO Browser" width="100%"/>
-
 # VELO — Privacy Browser for Windows
+
+**[🌐 Website](https://badizher-codex.github.io/velo) · [⬇️ Download](https://github.com/badizher-codex/velo/releases/latest)**
 
 > A privacy-first Windows browser built with C# / .NET 8, WPF and Microsoft WebView2.  
 > No telemetry. No tracking. Local AI threat detection.
