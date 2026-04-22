@@ -94,8 +94,10 @@ Root: HKLM; Subkey: "SOFTWARE\Clients\StartMenuInternet\VELO\DefaultIcon"; Value
 Root: HKLM; Subkey: "SOFTWARE\Clients\StartMenuInternet\VELO\shell\open\command"; ValueType: string; ValueData: """{app}\{#AppExeName}"""
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{userappdata}\VELO\Cache"
-Type: filesandordirs; Name: "{userappdata}\VELO\WebView2"
+; WebView2 profile (cookies, browser cache) — safe to remove on uninstall
+; User data (vault, history, bookmarks) in {localappdata}\VELO\ is intentionally
+; left on disk so it survives a reinstall.
+Type: filesandordirs; Name: "{localappdata}\VELO\Profile"
 
 [Code]
 const
