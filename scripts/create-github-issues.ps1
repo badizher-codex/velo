@@ -47,7 +47,7 @@ VELO should check for new releases automatically and notify the user.
 - [ ] SHA256 verified before offering install
 - [ ] Silent on startup, only show banner if update available
 '@
-New-Issue "feat: auto-update — silent background update checker" $b1 @("enhancement","v2.1")
+New-Issue "feat: auto-update - silent background update checker" $b1 @("enhancement","v2.1")
 
 # ── 2 ────────────────────────────────────────────────────────────────────────
 $b2 = @'
@@ -116,7 +116,7 @@ Allow users to group related tabs with a color label so the sidebar stays organi
 - [ ] Each group has a user-chosen color and optional name
 - [ ] Groups persist across sessions
 '@
-New-Issue "feat: tab groups — color-coded clusters in the sidebar" $b5 @("enhancement","v2.1")
+New-Issue "feat: tab groups - color-coded clusters in the sidebar" $b5 @("enhancement","v2.1")
 
 # ── 6 ────────────────────────────────────────────────────────────────────────
 $b6 = @'
@@ -133,7 +133,7 @@ VELO should restore the previous session (all open tabs) after a crash or when t
 - [ ] All tabs restored in correct order
 - [ ] User can choose restore behavior in Settings > Startup
 '@
-New-Issue "feat: session restore — reopen tabs after crash or restart" $b6 @("enhancement","v2.1")
+New-Issue "feat: session restore - reopen tabs after crash or restart" $b6 @("enhancement","v2.1")
 
 # ── 7 ────────────────────────────────────────────────────────────────────────
 $b7 = @'
@@ -146,7 +146,7 @@ Currently the DoH provider is limited to a preset list. Power users should be ab
 - [ ] Tests the endpoint with a sample query and shows latency
 - [ ] Falls back to system DNS if custom endpoint fails
 '@
-New-Issue "feat: custom DoH provider — free-text resolver URL in Settings" $b7 @("enhancement","v2.1")
+New-Issue "feat: custom DoH provider - free-text resolver URL in Settings" $b7 @("enhancement","v2.1")
 
 # ── 8 ────────────────────────────────────────────────────────────────────────
 $b8 = @'
@@ -266,7 +266,7 @@ Add a Save to reading list action that saves page content locally for offline re
 - [ ] Pages readable offline (HTML snapshot or reader-mode extraction)
 - [ ] Reading list persists across restarts
 '@
-New-Issue "feat: reading list — save pages to read later (offline)" $b15 @("enhancement","backlog")
+New-Issue "feat: reading list - save pages to read later (offline)" $b15 @("enhancement","backlog")
 
 Write-Host ""
-Write-Host "All done! View issues at https://github.com/$Repo/issues" -ForegroundColor Cyan
+Write-Host "All done! View issues at https://github.com/badizher-codex/velo/issues" -ForegroundColor Cyan
