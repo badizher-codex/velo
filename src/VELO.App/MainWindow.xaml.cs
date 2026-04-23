@@ -187,24 +187,7 @@ public partial class MainWindow : Window
         _webRtcMode       = await _settings.GetAsync(SettingKeys.WebRtcMode, "Relay");
 
         // Set AI status indicator — ping Ollama in background, update dot when result arrives
-        var aiMode    = await _settings.GetAsync(SettingKeys.AiMode, "Offline");
-        var aiModel   = await _settings.GetAsync(SettingKeys.AiClaudeModel, "");
-        var aiEndpoint = await _settings.GetAsync(SettingKeys.AiCustomEndpoint, "http://localhost:11434");
-
-        if (aiMode is "Custom" or "Ollama")
-        {
-            UrlBarControl.SetAiStatus(UrlBar.AiStatus.Connecting, aiModel);
-            _ = Task.Run(async () =>
-            {
-                var ready = await PingOllamaAsync(aiEndpoint, aiModel);
-                Dispatcher.Invoke(() => UrlBarControl.SetAiStatus(
-                    ready ? UrlBar.AiStatus.Ready : UrlBar.AiStatus.Error, aiModel));
-            });
-        }
-        else if (aiMode == "Claude")
-            UrlBarControl.SetAiStatus(UrlBar.AiStatus.Ready, "Claude API");
-        else
-            UrlBarControl.SetAiStatus(UrlBar.AiStatus.Offline);
+        await RefreshAiStatusAsync();
 
         // Restore persisted workspaces (replaces the in-memory Default seed)
         await RestoreWorkspacesAsync();
@@ -718,6 +701,7 @@ public partial class MainWindow : Window
             var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
             await bootstrapper.ConfigureAIAdapterAsync();
             await bootstrapper.ConfigureAgentAdaptersAsync();
+            await RefreshAiStatusAsync();
         };
 
         var itemVault = new MenuItem { Header = loc.T("menu.vault") };
@@ -1016,6 +1000,28 @@ public partial class MainWindow : Window
         var source = PresentationSource.FromVisual(this);
         if (source?.CompositionTarget == null) return new Point(raw.X, raw.Y);
         return source.CompositionTarget.TransformFromDevice.Transform(new Point(raw.X, raw.Y));
+    }
+
+    private async Task RefreshAiStatusAsync()
+    {
+        var aiMode     = await _settings.GetAsync(SettingKeys.AiMode, "Offline");
+        var aiModel    = await _settings.GetAsync(SettingKeys.AiClaudeModel, "");
+        var aiEndpoint = await _settings.GetAsync(SettingKeys.AiCustomEndpoint, "http://localhost:11434");
+
+        if (aiMode is "Custom" or "Ollama")
+        {
+            UrlBarControl.SetAiStatus(UrlBar.AiStatus.Connecting, aiModel);
+            _ = Task.Run(async () =>
+            {
+                var ready = await PingOllamaAsync(aiEndpoint, aiModel);
+                Dispatcher.Invoke(() => UrlBarControl.SetAiStatus(
+                    ready ? UrlBar.AiStatus.Ready : UrlBar.AiStatus.Error, aiModel));
+            });
+        }
+        else if (aiMode == "Claude")
+            UrlBarControl.SetAiStatus(UrlBar.AiStatus.Ready, "Claude API");
+        else
+            UrlBarControl.SetAiStatus(UrlBar.AiStatus.Offline);
     }
 
     private static async Task<bool> PingOllamaAsync(string endpoint, string model)
@@ -1375,6 +1381,7 @@ public partial class MainWindow : Window
                     var bs = _services.GetRequiredService<AppBootstrapper>();
                     await bs.ConfigureAIAdapterAsync();
                     await bs.ConfigureAgentAdaptersAsync();
+                    await RefreshAiStatusAsync();
                 }) },
         new() { Kind = CommandResultKind.Command, Icon = "🕒", Title = "Historial",
                 Badge = "comando", Tag = (Action)(() => OpenHistory()) },

@@ -73,6 +73,22 @@
 
                                     <!-- Buttons -->
                                     <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <!-- Open/run file button — shown when completed -->
+                                        <Button Content="▶" FontSize="11" Padding="6"
+                                                ToolTip="Abrir / ejecutar archivo"
+                                                Click="OpenFile_Click"
+                                                Tag="{Binding FilePath}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding State}" Value="Completed">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
                                         <!-- Open folder button — shown when completed -->
                                         <Button Content="📂" FontSize="13" Padding="6"
                                                 ToolTip="Abrir carpeta"

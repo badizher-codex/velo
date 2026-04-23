@@ -42,6 +42,12 @@ public partial class DownloadsWindow : Window
             : $"{total} {fileWord}";
     }
 
+    private void OpenFile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string path && File.Exists(path))
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+    }
+
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string path && File.Exists(path))

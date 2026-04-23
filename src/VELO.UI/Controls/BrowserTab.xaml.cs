@@ -1063,6 +1063,8 @@ public partial class BrowserTab : UserControl
                     Location:          new System.Windows.Point(e.Location.X, e.Location.Y));
 
                 var enrichedMenu = _contextMenuBuilder.Build(ctx);
+                enrichedMenu.PlacementTarget = WebView;
+                enrichedMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
                 enrichedMenu.IsOpen = true;
                 deferral.Complete();
                 return;
@@ -1077,7 +1079,10 @@ public partial class BrowserTab : UserControl
                 Padding           = new Thickness(0, 4, 0, 4),
                 HasDropShadow     = true,
                 StaysOpen         = false,
-                UseLayoutRounding = true
+                UseLayoutRounding = true,
+                // PlacementTarget is required so WPF can attach the popup to the visual tree
+                PlacementTarget   = WebView,
+                Placement         = System.Windows.Controls.Primitives.PlacementMode.MousePoint
             };
 
             // Map WebView2 menu items to styled WPF items
