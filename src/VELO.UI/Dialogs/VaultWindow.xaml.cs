@@ -38,10 +38,38 @@ public partial class VaultWindow : Window
     private void ApplyLanguage()
     {
         var L = LocalizationService.Current;
-        Title = L.T("title.vault");
+        // Unlock screen
+        Title               = L.T("title.vault");
         UnlockSubtitle.Text = L.T("vault.unlock.subtitle");
         MasterLabel.Text    = L.T("vault.master.label");
         UnlockBtn.Content   = L.T("vault.unlock.btn");
+        // Main vault list
+        AddBtn.Content      = L.T("vault.add");
+        LockBtn.Content     = L.T("vault.lock");
+        // Edit form labels
+        SiteLabel.Text             = L.T("vault.form.site");
+        UrlLabel.Text              = L.T("vault.form.url");
+        UsernameLabel.Text         = L.T("vault.form.username");
+        PasswordLabel.Text         = L.T("vault.form.password");
+        NotesLabel.Text            = L.T("vault.form.notes");
+        GeneratorTitleLabel.Text   = L.T("vault.form.generator");
+        LengthTitleLabel.Text      = L.T("vault.form.length");
+        GenUppercase.Content       = L.T("vault.form.uppercase");
+        GenNumbers.Content         = L.T("vault.form.numbers");
+        GenSymbols.Content         = L.T("vault.form.symbols");
+        // Edit form buttons
+        BackBtn.Content            = L.T("vault.form.back");
+        GenerateBtn.Content        = L.T("vault.form.generate");
+        TogglePasswordBtn.ToolTip  = L.T("vault.form.toggle");
+        RegenerateBtn.Content      = L.T("vault.form.regenerate");
+        DeleteBtn.Content          = L.T("vault.form.delete");
+        CancelBtn.Content          = L.T("vault.form.cancel");
+        SaveBtn.Content            = L.T("vault.form.save");
+        // Required field error message (also update visible ones)
+        var req = L.T("vault.form.required");
+        SiteError.Text     = req;
+        UsernameError.Text = req;
+        PasswordError.Text = req;
     }
 
     // ── Unlock ────────────────────────────────────────────────────────────
@@ -210,7 +238,8 @@ public partial class VaultWindow : Window
         _editingEntry = entry;
         ResetFieldErrors();
 
-        EditTitle.Text        = entry == null ? "Nueva entrada" : "Editar entrada";
+        var L = LocalizationService.Current;
+        EditTitle.Text        = entry == null ? L.T("vault.form.new") : L.T("vault.form.edit");
         EditSiteName.Text     = entry?.SiteName ?? "";
         EditUrl.Text          = entry?.Url      ?? "";
         EditUsername.Text     = entry?.Username ?? "";

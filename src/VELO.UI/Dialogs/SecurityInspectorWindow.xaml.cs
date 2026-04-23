@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
+using VELO.Core.Localization;
 using VELO.Security.Models;
 
 namespace VELO.UI.Dialogs;
@@ -47,6 +48,24 @@ public partial class SecurityInspectorWindow : Window
     public SecurityInspectorWindow()
     {
         InitializeComponent();
+        ApplyLanguage();
+        LocalizationService.Current.LanguageChanged += ApplyLanguage;
+        Closed += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
+    }
+
+    private void ApplyLanguage()
+    {
+        var L = LocalizationService.Current;
+        TlsSectionTitle.Text          = L.T("inspector.section.tls");
+        BlocksSectionTitle.Text       = L.T("inspector.section.blocks");
+        AiSectionTitle.Text           = L.T("inspector.section.ai");
+        FpSectionTitle.Text           = L.T("inspector.section.fingerprint");
+        ScoreSectionTitle.Text        = L.T("inspector.section.score");
+        DevToolsButton.Content        = L.T("inspector.btn.devtools");
+        ExportButton.Content          = L.T("inspector.btn.export");
+        RescanButton.Content          = L.T("inspector.btn.rescan");
+        // Re-render panels if data is available
+        if (_data != null) Refresh(_data);
     }
 
     // ── Public API ────────────────────────────────────────────────────────
@@ -62,7 +81,7 @@ public partial class SecurityInspectorWindow : Window
         // Header
         DomainText.Text    = data.Domain;
         UrlText.Text       = data.Url;
-        TimestampText.Text = $"Actualizado: {data.AnalyzedAt.ToLocalTime():HH:mm:ss}";
+        TimestampText.Text = $"{LocalizationService.Current.T("inspector.updated")} {data.AnalyzedAt.ToLocalTime():HH:mm:ss}";
 
         // Shield badge
         var (badgeBg, badgeBorder, levelFg) = ShieldColors(data.ShieldLevel);
@@ -93,53 +112,58 @@ public partial class SecurityInspectorWindow : Window
 
     private void PopulateTls(SecurityInspectorData d)
     {
+        var L = LocalizationService.Current;
         TlsPanel.Children.Clear();
-        AddRow(TlsPanel, d.TlsStatusIcon, "Estado TLS", d.TlsStatusLabel);
-        AddRow(TlsPanel, "ℹ️", "Indicador de URL", d.TlsStatusLabel == "Seguro (HTTPS)" ? "Candado cerrado 🔒" : "Advertencia ⚠️");
+        AddRow(TlsPanel, d.TlsStatusIcon, L.T("inspector.tls.status"), d.TlsStatusLabel);
+        var isSecure = d.Url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        AddRow(TlsPanel, "ℹ️", L.T("inspector.tls.indicator"), isSecure ? L.T("inspector.tls.lock") : L.T("inspector.tls.warning"));
     }
 
     private void PopulateBlocks(SecurityInspectorData d)
     {
+        var L = LocalizationService.Current;
         BlocksPanel.Children.Clear();
-        AddRow(BlocksPanel, d.TrackersBlocked > 0 ? "🚫" : "✅", "Rastreadores bloqueados",
-               d.TrackersBlocked == 0 ? "Ninguno detectado" : d.TrackersBlocked.ToString());
-        AddRow(BlocksPanel, d.ScriptsBlocked > 0 ? "🚫" : "✅", "Scripts sospechosos",
-               d.ScriptsBlocked == 0 ? "Ninguno" : d.ScriptsBlocked.ToString());
-        AddRow(BlocksPanel, d.MalwareBlocked > 0 ? "🔴" : "✅", "Malware / phishing",
-               d.MalwareBlocked == 0 ? "No detectado" : d.MalwareBlocked.ToString());
+        AddRow(BlocksPanel, d.TrackersBlocked > 0 ? "🚫" : "✅", L.T("inspector.blocks.trackers"),
+               d.TrackersBlocked == 0 ? L.T("inspector.blocks.none") : d.TrackersBlocked.ToString());
+        AddRow(BlocksPanel, d.ScriptsBlocked > 0 ? "🚫" : "✅", L.T("inspector.blocks.scripts"),
+               d.ScriptsBlocked == 0 ? L.T("inspector.blocks.nonescript") : d.ScriptsBlocked.ToString());
+        AddRow(BlocksPanel, d.MalwareBlocked > 0 ? "🔴" : "✅", L.T("inspector.blocks.malware"),
+               d.MalwareBlocked == 0 ? L.T("inspector.blocks.nomalware") : d.MalwareBlocked.ToString());
     }
 
     private void PopulateAi(SecurityInspectorData d)
     {
+        var L = LocalizationService.Current;
         AiPanel.Children.Clear();
         if (d.AiVerdictLabel == "Sin análisis")
         {
-            AddRow(AiPanel, "⏳", "Estado", "Sin análisis disponible para esta sesión");
+            AddRow(AiPanel, "⏳", L.T("inspector.ai.status.label"), L.T("inspector.ai.noanalysis"));
             return;
         }
-        AddRow(AiPanel, d.AiVerdictIcon, "Veredicto", d.AiVerdictLabel);
+        AddRow(AiPanel, d.AiVerdictIcon, L.T("inspector.ai.verdict"), d.AiVerdictLabel);
         if (d.AiConfidence > 0)
-            AddRow(AiPanel, "📊", "Confianza", $"{d.AiConfidence}%");
+            AddRow(AiPanel, "📊", L.T("inspector.ai.confidence"), $"{d.AiConfidence}%");
         if (!string.IsNullOrEmpty(d.AiEngine))
-            AddRow(AiPanel, "🤖", "Motor", d.AiEngine);
+            AddRow(AiPanel, "🤖", L.T("inspector.ai.engine"), d.AiEngine);
         if (!string.IsNullOrEmpty(d.AiReason))
-            AddRow(AiPanel, "📝", "Razón", d.AiReason, wrap: true);
+            AddRow(AiPanel, "📝", L.T("inspector.ai.reason"), d.AiReason, wrap: true);
     }
 
     private void PopulateFingerprint(SecurityInspectorData d)
     {
+        var L = LocalizationService.Current;
         FingerprintPanel.Children.Clear();
         if (d.FingerprintActive)
         {
-            AddRow(FingerprintPanel, "✅", "Estado",   $"Activa — Nivel: {d.FingerprintLevel}");
-            AddRow(FingerprintPanel, "✅", "Canvas",   "Ruido aleatorio inyectado");
-            AddRow(FingerprintPanel, "✅", "WebGL",    "Renderer falso activo");
-            AddRow(FingerprintPanel, "✅", "AudioCtx", "Ruido en AudioContext");
-            AddRow(FingerprintPanel, "✅", "WebRTC",   "IPs locales ocultas");
+            AddRow(FingerprintPanel, "✅", L.T("inspector.fp.status"),   $"{L.T("inspector.fp.active")} {d.FingerprintLevel}");
+            AddRow(FingerprintPanel, "✅", "Canvas",                      L.T("inspector.fp.canvas.value"));
+            AddRow(FingerprintPanel, "✅", "WebGL",                       L.T("inspector.fp.webgl.value"));
+            AddRow(FingerprintPanel, "✅", "AudioCtx",                    L.T("inspector.fp.audio.value"));
+            AddRow(FingerprintPanel, "✅", "WebRTC",                      L.T("inspector.fp.webrtc.value"));
         }
         else
         {
-            AddRow(FingerprintPanel, "⚠️", "Estado", "Desactivada en Configuración");
+            AddRow(FingerprintPanel, "⚠️", L.T("inspector.fp.status"), L.T("inspector.fp.inactive"));
         }
     }
 
@@ -216,14 +240,18 @@ public partial class SecurityInspectorWindow : Window
         _                     => "⏳",
     };
 
-    private static string ShieldLabel(SafetyLevel level) => level switch
+    private static string ShieldLabel(SafetyLevel level)
     {
-        SafetyLevel.Gold      => "Excelente (Gold)",
-        SafetyLevel.Green     => "Seguro (Verde)",
-        SafetyLevel.Yellow    => "Precaución (Amarillo)",
-        SafetyLevel.Red       => "Peligro (Rojo)",
-        _                     => "Analizando…",
-    };
+        var L = LocalizationService.Current;
+        return level switch
+        {
+            SafetyLevel.Gold      => L.T("inspector.shield.gold"),
+            SafetyLevel.Green     => L.T("inspector.shield.green"),
+            SafetyLevel.Yellow    => L.T("inspector.shield.yellow"),
+            SafetyLevel.Red       => L.T("inspector.shield.red"),
+            _                     => L.T("inspector.shield.analyzing"),
+        };
+    }
 
     private static SolidColorBrush Brush(string hex)
         => new((Color)ColorConverter.ConvertFromString(hex));
@@ -237,12 +265,13 @@ public partial class SecurityInspectorWindow : Window
     {
         if (sender is Button btn)
         {
+            var L        = LocalizationService.Current;
             var original = btn.Content;
             btn.IsEnabled = false;
-            btn.Content   = "⏳ Escaneando…";
+            btn.Content   = L.T("inspector.btn.scanning");
             ForceScanRequested?.Invoke();
             await Task.Delay(800);
-            btn.Content   = "✓ Actualizado";
+            btn.Content   = L.T("inspector.btn.updated");
             await Task.Delay(1200);
             btn.Content   = original;
             btn.IsEnabled = true;
@@ -259,7 +288,7 @@ public partial class SecurityInspectorWindow : Window
 
         var dialog = new SaveFileDialog
         {
-            Title            = "Exportar análisis de seguridad",
+            Title            = LocalizationService.Current.T("inspector.export.title"),
             Filter           = "JSON (*.json)|*.json",
             FileName         = $"velo-security-{_data.Domain}-{DateTime.Now:yyyyMMdd-HHmmss}.json",
             DefaultExt       = ".json",

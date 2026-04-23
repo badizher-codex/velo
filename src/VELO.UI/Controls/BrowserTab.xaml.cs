@@ -241,7 +241,14 @@ public partial class BrowserTab : UserControl
         WebView.CoreWebView2.Navigate(url);
     }
 
-    private static string BuildAboutPage() => """
+    private static string BuildAboutPage()
+    {
+        var version = System.Reflection.Assembly
+            .GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "?";
+        return BuildAboutPageTemplate().Replace("VELO_VERSION_PLACEHOLDER", version);
+    }
+
+    private static string BuildAboutPageTemplate() => """
         <!DOCTYPE html>
         <html lang="es">
         <head>
@@ -350,7 +357,7 @@ public partial class BrowserTab : UserControl
             <div id="shield-fallback" style="width:80px;height:80px;margin:0 auto 16px;background:linear-gradient(135deg,#00e5ff22,#7c4dff22);border:2px solid #00e5ff44;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:36px">🛡</div>
             <div class="logo">VELO</div>
             <div class="tagline">Privacy Browser · Windows</div>
-            <div class="version-badge">Versión 1.0.0</div>
+            <div class="version-badge">vVELO_VERSION_PLACEHOLDER</div>
             <div class="feature-grid">
               <div class="feature-item"><span class="icon">🧬</span>Fingerprint Guard</div>
               <div class="feature-item"><span class="icon">🚫</span>Tracker Blocker</div>

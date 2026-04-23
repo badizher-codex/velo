@@ -44,13 +44,13 @@ public partial class TabSidebar : UserControl
         Math.Max(SystemParameters.MinimumHorizontalDragDistance,
                  SystemParameters.MinimumVerticalDragDistance);
 
-    private static readonly (string Id, string Label, string Color)[] Containers =
+    private static readonly (string Id, string Color)[] ContainerDefs =
     [
-        ("none",     "Sin container", "#808080"),
-        ("personal", "Personal",      "#00E5FF"),
-        ("work",     "Trabajo",       "#7FFF5F"),
-        ("banking",  "Banca",         "#FF3D71"),
-        ("shopping", "Compras",       "#FFB300"),
+        ("none",     "#808080"),
+        ("personal", "#00E5FF"),
+        ("work",     "#7FFF5F"),
+        ("banking",  "#FF3D71"),
+        ("shopping", "#FFB300"),
     ];
 
     /// <summary>Number of workspaces currently registered (used for name/color cycling).</summary>
@@ -277,12 +277,13 @@ public partial class TabSidebar : UserControl
         if (sender is not Border border || border.Tag is not string tabId) return;
 
         var menu = new ContextMenu();
+        var L    = LocalizationService.Current;
 
         // ── Container section ──────────────────────────────────────────
-        var containerHeader = new MenuItem { Header = "Asignar container", IsEnabled = false };
+        var containerHeader = new MenuItem { Header = L.T("sidebar.container.assign"), IsEnabled = false };
         menu.Items.Add(containerHeader);
 
-        foreach (var (id, label, color) in Containers)
+        foreach (var (id, color) in ContainerDefs)
         {
             Color c;
             try   { c = (Color)ColorConverter.ConvertFromString(color); }
@@ -295,6 +296,7 @@ public partial class TabSidebar : UserControl
                 Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             };
+            var label = L.T($"sidebar.container.{id}");
             var text  = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
             var panel = new StackPanel { Orientation = Orientation.Horizontal };
             panel.Children.Add(dot);
@@ -310,7 +312,7 @@ public partial class TabSidebar : UserControl
         if (_workspaces.Count > 1)
         {
             menu.Items.Add(new Separator());
-            var wsHeader = new MenuItem { Header = "Mover a workspace", IsEnabled = false };
+            var wsHeader = new MenuItem { Header = L.T("sidebar.container.moveto"), IsEnabled = false };
             menu.Items.Add(wsHeader);
 
             foreach (var ws in _workspaces.Where(w => w.Id != _activeWorkspaceId))

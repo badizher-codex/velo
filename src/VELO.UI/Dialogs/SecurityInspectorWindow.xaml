@@ -119,7 +119,7 @@
                 <!-- TLS / Certificado -->
                 <Border Style="{StaticResource SectionBorder}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="TLS / CERTIFICADO"/>
+                        <TextBlock x:Name="TlsSectionTitle" Style="{StaticResource SectionTitle}" Text="TLS / CERTIFICADO"/>
                         <StackPanel x:Name="TlsPanel"/>
                     </StackPanel>
                 </Border>
@@ -127,7 +127,7 @@
                 <!-- Bloqueos en esta sesión -->
                 <Border Style="{StaticResource SectionBorder}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="BLOQUEOS EN ESTA SESIÓN"/>
+                        <TextBlock x:Name="BlocksSectionTitle" Style="{StaticResource SectionTitle}" Text="BLOQUEOS EN ESTA SESIÓN"/>
                         <StackPanel x:Name="BlocksPanel"/>
                     </StackPanel>
                 </Border>
@@ -135,7 +135,7 @@
                 <!-- Análisis IA -->
                 <Border Style="{StaticResource SectionBorder}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="ANÁLISIS DE INTELIGENCIA ARTIFICIAL"/>
+                        <TextBlock x:Name="AiSectionTitle" Style="{StaticResource SectionTitle}" Text="ANÁLISIS DE INTELIGENCIA ARTIFICIAL"/>
                         <StackPanel x:Name="AiPanel"/>
                     </StackPanel>
                 </Border>
@@ -143,7 +143,7 @@
                 <!-- Protección de huella digital -->
                 <Border Style="{StaticResource SectionBorder}">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="PROTECCIÓN DE HUELLA DIGITAL"/>
+                        <TextBlock x:Name="FpSectionTitle" Style="{StaticResource SectionTitle}" Text="PROTECCIÓN DE HUELLA DIGITAL"/>
                         <StackPanel x:Name="FingerprintPanel"/>
                     </StackPanel>
                 </Border>
@@ -151,7 +151,7 @@
                 <!-- Motivos del score -->
                 <Border x:Name="ReasonsSection" Style="{StaticResource SectionBorder}" Visibility="Collapsed">
                     <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="DETALLES DEL SHIELD SCORE"/>
+                        <TextBlock x:Name="ScoreSectionTitle" Style="{StaticResource SectionTitle}" Text="DETALLES DEL SHIELD SCORE"/>
                         <StackPanel x:Name="ReasonsPanel"/>
                     </StackPanel>
                 </Border>
