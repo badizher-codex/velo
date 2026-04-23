@@ -208,6 +208,7 @@ public partial class VaultWindow : Window
     private void OpenEditor(PasswordEntry? entry)
     {
         _editingEntry = entry;
+        ResetFieldErrors();
 
         EditTitle.Text        = entry == null ? "Nueva entrada" : "Editar entrada";
         EditSiteName.Text     = entry?.SiteName ?? "";
@@ -223,15 +224,43 @@ public partial class VaultWindow : Window
         UpdateStrengthBar();
     }
 
+    // ── Field validation helpers ──────────────────────────────────────────
+
+    private static readonly SolidColorBrush _errorBrush = new(Color.FromRgb(0xEE, 0x55, 0x55));
+
+    private void SetFieldError(TextBox field, TextBlock label)
+    {
+        field.BorderBrush = _errorBrush;
+        label.Visibility  = Visibility.Visible;
+    }
+
+    private void ClearFieldError(TextBox field, TextBlock label)
+    {
+        field.ClearValue(TextBox.BorderBrushProperty);
+        label.Visibility = Visibility.Collapsed;
+    }
+
+    private void RequiredField_Changed(object sender, TextChangedEventArgs e)
+    {
+        if (sender == EditSiteName)   ClearFieldError(EditSiteName,  SiteError);
+        if (sender == EditUsername)   ClearFieldError(EditUsername,   UsernameError);
+        if (sender == EditPassword)   ClearFieldError(EditPassword,   PasswordError);
+    }
+
+    private void ResetFieldErrors()
+    {
+        ClearFieldError(EditSiteName,  SiteError);
+        ClearFieldError(EditUsername,  UsernameError);
+        ClearFieldError(EditPassword,  PasswordError);
+    }
+
     private async void SaveEntry_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(EditSiteName.Text) ||
-            string.IsNullOrWhiteSpace(EditUsername.Text) ||
-            string.IsNullOrWhiteSpace(EditPassword.Text))
-        {
-            ShowStatus("Sitio, usuario y contraseña son obligatorios.");
-            return;
-        }
+        var valid = true;
+        if (string.IsNullOrWhiteSpace(EditSiteName.Text))  { SetFieldError(EditSiteName, SiteError);      valid = false; }
+        if (string.IsNullOrWhiteSpace(EditUsername.Text))  { SetFieldError(EditUsername,  UsernameError);  valid = false; }
+        if (string.IsNullOrWhiteSpace(EditPassword.Text))  { SetFieldError(EditPassword,  PasswordError);  valid = false; }
+        if (!valid) return;
 
         var entry = new PasswordEntry
         {

@@ -43,8 +43,12 @@
                 <ItemsControl x:Name="TabList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <!-- Tab row -->
+                            <!-- Tab row: outer Border carries the per-tab accent tint (local
+                                 value so it is never overridden by style triggers); the inner
+                                 Border overlays a semi-transparent dark wash for active/hover
+                                 states so the tint still bleeds through subtly. -->
                             <Border x:Name="TabRow"
+                                    Background="{Binding SubtleAccentColor, Converter={StaticResource StringToBrush}}"
                                     MinHeight="38"
                                     BorderThickness="3,0,0,0"
                                     BorderBrush="{Binding ContainerColor, Converter={StaticResource StringToBrush}}"
@@ -54,19 +58,21 @@
                                     MouseMove="Tab_MouseMove"
                                     MouseRightButtonDown="Tab_RightClick"
                                     Tag="{Binding Id}">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="Transparent"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="Background" Value="#FF1A1A2E"/>
-                                            </DataTrigger>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="#FF14142A"/>
-                                            </Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
+                                <!-- Active / hover overlay — semi-transparent so accent shows through -->
+                                <Border>
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                    <Setter Property="Background" Value="#D91A1A2E"/>
+                                                </DataTrigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#99141425"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
 
                                 <Grid Margin="10,6,6,6">
                                     <Grid.ColumnDefinitions>
@@ -122,6 +128,7 @@
                                             Tag="{Binding Id}"
                                             Click="CloseTab_Click"/>
                                 </Grid>
+                                </Border>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

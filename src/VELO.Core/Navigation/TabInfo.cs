@@ -32,6 +32,7 @@ public class TabInfo : INotifyPropertyChanged
         {
             Set(ref _containerId, value);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ContainerColor)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SubtleAccentColor)));
         }
     }
 
@@ -43,6 +44,37 @@ public class TabInfo : INotifyPropertyChanged
         "shopping" => "#FFB300",
         _          => "Transparent"
     };
+
+    // Eight muted accent tints — used when no container is assigned.
+    // Format: #AARRGGBB (10 % opacity = 0x1A).
+    private static readonly string[] _accentPalette =
+    [
+        "#1A4A7FC1", // cornflower blue
+        "#1A3DA87A", // emerald
+        "#1A9B59E8", // violet
+        "#1AF5A623", // amber
+        "#1AE55353", // rose
+        "#1A0EA5E8", // sky blue
+        "#1AEC4899", // pink
+        "#1A5DA35D", // sage green
+    ];
+
+    /// <summary>
+    /// Returns a subtle ARGB tint for the tab row background.
+    /// Container tabs reuse their container colour at 10 % opacity; all
+    /// others cycle through a palette keyed by the tab's immutable Id.
+    /// </summary>
+    public string SubtleAccentColor
+    {
+        get
+        {
+            if (_containerId != "none")
+                return $"#1A{ContainerColor.TrimStart('#')}";
+
+            var idx = Math.Abs(Id.GetHashCode()) % _accentPalette.Length;
+            return _accentPalette[idx];
+        }
+    }
 
     private bool _isActive;
     public bool IsActive { get => _isActive; set => Set(ref _isActive, value); }
