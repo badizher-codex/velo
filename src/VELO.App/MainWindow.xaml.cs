@@ -137,6 +137,11 @@ public partial class MainWindow : Window
         {
             // Pre-load already-captured threat types so capture logic is O(1)
             var mdex = _services.GetRequiredService<MalwaredexRepository>();
+
+            // Remove any false-positive Malwaredex entries for trusted CDN/hosting domains
+            // (e.g. github.com flagged by AWS S3 pre-signed URL params in previous builds)
+            await mdex.PurgeFalsePositivesAsync(VELO.Security.Guards.RequestGuard.TrustedHosts);
+
             _capturedThreatTypes = await mdex.GetCapturedTypesAsync();
 
             try { await OnLoadedAsync(); }

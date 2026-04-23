@@ -17,6 +17,35 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
         @"\.(gif|png)\?.*utm_|/beacon\?|/pixel\?|/track\?|1x1\.gif|/log\?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Trusted hosting / CDN domains — skip AI and suspicious-params checks entirely.
+    // These domains use long AWS S3 pre-signed URLs that would otherwise trigger false positives.
+    // Also exposed publicly so MalwaredexRepository can purge historical false-positive entries.
+    public static readonly HashSet<string> TrustedHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // GitHub and its asset CDN
+        "github.com", "www.github.com",
+        "githubusercontent.com", "objects.githubusercontent.com",
+        "codeload.github.com", "github-releases.githubusercontent.com",
+        "raw.githubusercontent.com", "avatars.githubusercontent.com",
+        // Microsoft / NuGet
+        "microsoft.com", "www.microsoft.com", "nuget.org", "api.nuget.org",
+        // Package registries
+        "npmjs.com", "registry.npmjs.org", "pypi.org", "files.pythonhosted.org",
+        // Generic trusted CDNs
+        "cloudflare.com", "cdn.cloudflare.com",
+        "fastly.net", "akamai.net", "akamaized.net",
+    };
+
+    // AWS S3 / CDN signing parameter names — long by design, never a sign of exfiltration
+    private static readonly HashSet<string> _signingParamNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "X-Amz-Signature", "X-Amz-Credential", "X-Amz-Security-Token",
+        "X-Amz-Algorithm", "X-Amz-Date", "X-Amz-Expires",
+        "X-Amz-SignedHeaders", "X-Goog-Signature", "X-Goog-Credential",
+        "Signature", "Policy", "Key-Pair-Id", "token", "access_token",
+        "response-content-disposition", "response-content-type",
+    };
+
     // TLDs commonly abused for phishing/malware (free or unregulated)
     private static readonly HashSet<string> _suspiciousTlds = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -43,6 +72,11 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
 
         // 1. User whitelist
         if (_userWhitelist.Contains(host))
+            return SecurityVerdict.Allow();
+
+        // 1b. Trusted CDN / hosting domains — skip AI and suspicious-param checks entirely.
+        //     These domains use AWS S3 pre-signed URLs with long params by design.
+        if (TrustedHosts.Contains(host) || TrustedHosts.Contains(GetRootDomain(host)))
             return SecurityVerdict.Allow();
 
         // 2. Blocklist (O(1))
@@ -139,12 +173,23 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
         var query = System.Web.HttpUtility.ParseQueryString(url.Query);
         foreach (string? key in query.Keys)
         {
+            // Skip well-known CDN / cloud-storage signing parameters — always long by design
+            if (key is not null && _signingParamNames.Contains(key)) continue;
+
             var value = query[key] ?? "";
             if (value.Length > 50 && IsBase64(value)) return true;
             if (Regex.IsMatch(value, @"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", RegexOptions.IgnoreCase)) return true;
-            if (value.Length > 100) return true;
+            // Raise threshold: 200 chars to reduce false positives on legitimate long params
+            if (value.Length > 200) return true;
         }
         return false;
+    }
+
+    /// <summary>Returns the registrable root domain (e.g. "githubusercontent.com" from "objects.githubusercontent.com").</summary>
+    private static string GetRootDomain(string host)
+    {
+        var parts = host.Split('.');
+        return parts.Length >= 2 ? $"{parts[^2]}.{parts[^1]}" : host;
     }
 
     private static bool IsBase64(string s)
