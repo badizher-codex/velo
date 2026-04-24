@@ -15,6 +15,26 @@ public class GoldenListService(ILogger<GoldenListService> logger) : IGoldenList
     public int Count => _domains.Count;
     public DateTime LastUpdated { get; private set; } = DateTime.MinValue;
 
+    /// <summary>
+    /// True if the blocklist hasn't refreshed in >7 days. Shield accuracy may
+    /// be reduced; consumers should surface this to the user.
+    /// </summary>
+    public bool IsStale => LastUpdated != DateTime.MinValue &&
+                           DateTime.UtcNow - LastUpdated > TimeSpan.FromDays(7);
+
+    /// <summary>Human-readable age (e.g. "3 days ago"); empty if never updated.</summary>
+    public string StalenessDescription
+    {
+        get
+        {
+            if (LastUpdated == DateTime.MinValue) return "";
+            var age = DateTime.UtcNow - LastUpdated;
+            if (age.TotalDays >= 1) return $"{(int)age.TotalDays}d ago";
+            if (age.TotalHours >= 1) return $"{(int)age.TotalHours}h ago";
+            return "recently";
+        }
+    }
+
     public async Task LoadAsync(string resourcesPath)
     {
         var path = Path.Combine(resourcesPath, "blocklists", "golden_list.json");

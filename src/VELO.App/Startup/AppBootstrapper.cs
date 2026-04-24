@@ -9,6 +9,7 @@ using VELO.Data.Models;
 using VELO.Data.Repositories;
 using VELO.Security.AI;
 using VELO.Security.AI.Adapters;
+using VELO.Security.GoldenList;
 using VELO.Security.Rules;
 using VELO.Security.AI.Models;
 
@@ -64,8 +65,21 @@ public class AppBootstrapper(IServiceProvider services)
                 if (lastUpdateDate == null || DateTime.UtcNow - lastUpdateDate > TimeSpan.FromDays(7))
                     await blocklist.UpdateAsync(lastUpdateDate);
             }
-            catch { /* Silencioso — blocklists opcionales */ }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Blocklist update failed on startup — continuing with cached list");
+            }
         });
+
+        // Warn if the GoldenList is older than 7 days — this means the remote CDN
+        // update has been failing silently and Shield Score accuracy is reduced.
+        var goldenList = _services.GetRequiredService<GoldenListService>();
+        if (goldenList.IsStale)
+        {
+            _logger.LogWarning(
+                "GoldenList is stale ({Age}). Shield accuracy may be reduced. Check network / remote CDN.",
+                goldenList.StalenessDescription);
+        }
 
         _logger.LogInformation("Bootstrapping complete");
     }

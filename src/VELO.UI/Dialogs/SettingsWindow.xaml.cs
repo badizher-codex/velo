@@ -110,6 +110,7 @@ public partial class SettingsWindow : Window
         // History / clear on exit
         HistoryCheck.IsChecked    = await _settings.GetBoolAsync(SettingKeys.HistoryEnabled, true);
         ClearOnExitCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.ClearOnExit, false);
+        AutoUpdateCheck.IsChecked  = await _settings.GetBoolAsync("updates.auto_check", false);
 
         // DNS
         var dns = await _settings.GetAsync(SettingKeys.DnsProvider, "Quad9");
@@ -178,6 +179,7 @@ public partial class SettingsWindow : Window
 
         await _settings.SetBoolAsync(SettingKeys.HistoryEnabled, HistoryCheck.IsChecked == true);
         await _settings.SetBoolAsync(SettingKeys.ClearOnExit, ClearOnExitCheck.IsChecked == true);
+        await _settings.SetBoolAsync("updates.auto_check", AutoUpdateCheck.IsChecked == true);
 
         // DNS
         var dns = DnsCloudflare.IsChecked == true ? "Cloudflare"

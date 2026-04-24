@@ -77,7 +77,10 @@ public partial class BrowserTab : UserControl
             WebView.CoreWebView2.Settings.AreDevToolsEnabled = true;
             WebView.CoreWebView2.OpenDevToolsWindow();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] DevTools open failed: {ex.Message}");
+        }
     }
 
     public void SetContainer(string containerId)
@@ -178,7 +181,10 @@ public partial class BrowserTab : UserControl
                 await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(bridge + "\n" + pgScript);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] PasteGuard inject failed: {ex.Message}");
+        }
 
         // Glance modal — hover-link preview
         try
@@ -187,7 +193,10 @@ public partial class BrowserTab : UserControl
             if (glanceScript != null)
                 await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(glanceScript);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Glance inject failed: {ex.Message}");
+        }
 
         // Banking container — inject strict fingerprint spoofing + no-referrer
         if (_isBankingContainer)
@@ -197,7 +206,10 @@ public partial class BrowserTab : UserControl
                 await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
                     BankingContainerPolicy.FingerprintScript);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] Banking FP inject failed: {ex.Message}");
+            }
         }
 
         // Hooks
@@ -372,6 +384,12 @@ public partial class BrowserTab : UserControl
               <div class="feature-item"><span class="icon">👾</span>Malwaredex</div>
             </div>
             <hr class="divider"/>
+            <div style="padding:10px 12px;margin:0 0 16px 0;background:#2a1a00;border-left:3px solid #ffb300;color:#ffb300;font-size:11px;line-height:1.5;text-align:left;border-radius:4px">
+              <strong>⚠ Build no firmado</strong><br/>
+              Este binario no tiene firma Authenticode. Windows SmartScreen mostrará una advertencia.
+              Verifica la integridad con el hash SHA256 publicado en la página de Releases:
+              <a href="https://github.com/badizher-codex/velo/releases" target="_blank">github.com/badizher-codex/velo/releases</a>
+            </div>
             <div class="meta">
               Construido con C# · .NET 8 · WPF · Microsoft WebView2<br/>
               <a href="https://github.com/badizher-codex/velo" target="_blank">github.com/badizher-codex/velo</a><br/>
@@ -866,7 +884,10 @@ public partial class BrowserTab : UserControl
                     break;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] WebMessage handler failed: {ex.Message}");
+        }
     }
 
     private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)

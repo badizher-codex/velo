@@ -177,6 +177,17 @@
                                        FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
                         </StackPanel>
                     </CheckBox>
+
+                    <Separator Margin="0,16,0,16"/>
+
+                    <CheckBox x:Name="AutoUpdateCheck">
+                        <StackPanel>
+                            <TextBlock Text="Buscar actualizaciones automáticamente" FontWeight="SemiBold"/>
+                            <TextBlock Text="VELO consultará GitHub cada 24h. Desactivado por defecto — la única conexión saliente que hace VELO sin tu acción."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
 
                 <!-- ── DNS ── -->

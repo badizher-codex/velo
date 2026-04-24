@@ -201,10 +201,18 @@ public partial class MainWindow : Window
         // Restore persisted workspaces (replaces the in-memory Default seed)
         await RestoreWorkspacesAsync();
 
-        // Start background update checker — fires event on update available
-        var updater = _services.GetRequiredService<UpdateChecker>();
-        updater.UpdateAvailable += info => Dispatcher.Invoke(() => ShowUpdateToast(info));
-        updater.StartBackgroundCheck();
+        // Start background update checker only if the user opted in.
+        // Privacy-first: default OFF. The only network call VELO makes "on its own"
+        // is this one, and it must be explicit user choice. Setting key:
+        // "updates.auto_check" — toggled from Settings → Privacy.
+        var settings = _services.GetRequiredService<SettingsRepository>();
+        var autoCheck = await settings.GetBoolAsync("updates.auto_check", defaultValue: false);
+        if (autoCheck)
+        {
+            var updater = _services.GetRequiredService<UpdateChecker>();
+            updater.UpdateAvailable += info => Dispatcher.Invoke(() => ShowUpdateToast(info));
+            updater.StartBackgroundCheck();
+        }
 
         // Create initial tab (uses URL injected for tear-off windows, otherwise newtab)
         _tabManager.CreateTab(_initialUrl);
@@ -1341,7 +1349,10 @@ public partial class MainWindow : Window
                 });
             }
         }
-        catch { /* best-effort */ }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "CommandBar: bookmark search failed (showing remaining sources)");
+        }
 
         // ── History ────────────────────────────────────────────────────────
         try
@@ -1367,7 +1378,10 @@ public partial class MainWindow : Window
                 });
             }
         }
-        catch { /* best-effort */ }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "CommandBar: history search failed (showing remaining sources)");
+        }
 
         // ── Built-in commands ─────────────────────────────────────────────
         var commands = BuiltInCommands();
