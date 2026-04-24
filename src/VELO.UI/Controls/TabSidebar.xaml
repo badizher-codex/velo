@@ -14,14 +14,34 @@
             BorderThickness="0,0,1,0">
         <Grid>
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>   <!-- Top new-tab button -->
                 <RowDefinition Height="Auto"/>   <!-- Workspace strip -->
                 <RowDefinition Height="*"/>      <!-- Tab list -->
                 <RowDefinition Height="Auto"/>   <!-- Bottom actions -->
             </Grid.RowDefinitions>
 
+            <!-- ── Top new-tab button (shortcut so users don't need to scroll) ── -->
+            <Border Grid.Row="0"
+                    Background="#FF111122"
+                    BorderBrush="#FF2A2A3A"
+                    BorderThickness="0,0,0,1"
+                    Padding="6,6">
+                <Button x:Name="TopNewTabBtn"
+                        Content="+ Nueva pestaña"
+                        FontSize="12"
+                        Padding="8,6"
+                        HorizontalAlignment="Stretch"
+                        Background="Transparent"
+                        Foreground="#FF8080A0"
+                        BorderThickness="0"
+                        Cursor="Hand"
+                        Click="NewTab_Click"
+                        ToolTip="Nueva pestaña (Ctrl+T)"/>
+            </Border>
+
             <!-- ── Workspace strip ──────────────────────────────────────── -->
             <Border x:Name="WorkspaceStripBorder"
-                    Grid.Row="0"
+                    Grid.Row="1"
                     Background="#FF111122"
                     BorderBrush="#FF2A2A3A"
                     BorderThickness="0,0,0,1"
@@ -36,7 +56,7 @@
 
             <!-- ── Tab list ─────────────────────────────────────────────── -->
             <ScrollViewer x:Name="TabListScroller"
-                          Grid.Row="1"
+                          Grid.Row="2"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Padding="0,4,0,4">
@@ -136,7 +156,7 @@
             </ScrollViewer>
 
             <!-- ── Bottom actions ────────────────────────────────────────── -->
-            <Border Grid.Row="2"
+            <Border Grid.Row="3"
                     Background="#FF111122"
                     BorderBrush="#FF2A2A3A"
                     BorderThickness="0,1,0,0"

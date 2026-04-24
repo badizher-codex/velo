@@ -128,7 +128,10 @@ public partial class BrowserTab : UserControl
         // Zero-telemetry settings
         WebView.CoreWebView2.Settings.IsBuiltInErrorPageEnabled = false;
         WebView.CoreWebView2.Settings.IsWebMessageEnabled = true; // required for PasteGuard bridge
-        WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+        // NOTE: AreDefaultContextMenusEnabled must stay TRUE for ContextMenuRequested to fire.
+        // Our handler (OnContextMenuRequested) sets e.Handled = true to suppress the native menu
+        // and show the custom WPF dark-themed one instead. Setting this to false disables the event.
+        WebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
         WebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
         WebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
         WebView.CoreWebView2.Settings.IsPasswordAutosaveEnabled = false;

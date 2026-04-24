@@ -83,6 +83,8 @@ public partial class TabSidebar : UserControl
         var L = LocalizationService.Current;
         NewTabBtn.Content         = _isCollapsed ? "+" : L.T("sidebar.newtab");
         NewTabBtn.ToolTip         = L.T("sidebar.newtab.tooltip");
+        TopNewTabBtn.Content      = _isCollapsed ? "+" : L.T("sidebar.newtab");
+        TopNewTabBtn.ToolTip      = L.T("sidebar.newtab.tooltip");
         SplitBtn.ToolTip          = L.T("sidebar.split.tooltip");
         AddWorkspaceBtn.ToolTip   = L.T("sidebar.workspace.tooltip");
         CollapseBtn.ToolTip       = _isCollapsed ? L.T("sidebar.expand.tooltip") : L.T("sidebar.collapse.tooltip");

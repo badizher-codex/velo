@@ -49,6 +49,10 @@ public partial class MainWindow : Window
     private string _webRtcMode       = "Relay";
     private readonly Dictionary<string, BrowserTab> _browserTabs = [];
     private readonly HashSet<string> _navigatedTabs = [];
+    // Remembers the last active tab per workspace so switching workspaces
+    // restores focus to where the user was (Arc-like UX), instead of always
+    // jumping to the topmost tab.
+    private readonly Dictionary<string, string> _lastActiveTabPerWorkspace = [];
     // Per-tab block counters — reset on each new navigation
     private readonly Dictionary<string, (int Blocked, int Trackers, int Malware)> _tabBlockCounts = [];
     // Per-tab flag: a new Malwaredex monster was captured during this navigation
@@ -381,6 +385,12 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(async () =>
         {
             if (!_browserTabs.TryGetValue(e.TabId, out var browserTab)) return;
+
+            // Remember this as the last-active tab of its workspace so switching
+            // workspaces later restores focus here.
+            var activatedTab = _tabManager.GetTab(e.TabId);
+            if (activatedTab != null)
+                _lastActiveTabPerWorkspace[activatedTab.WorkspaceId] = e.TabId;
 
             // ── Split-mode path ───────────────────────────────────────────
             if (_isSplitMode)
@@ -861,7 +871,22 @@ public partial class MainWindow : Window
 
     private void TabSidebar_WorkspaceSelected(object? sender, string workspaceId)
     {
-        // Activate the first tab in the chosen workspace, or create a new one.
+        // Arc-like UX: restore the tab the user was last viewing in this workspace
+        // instead of jumping to the topmost one. Fallback chain:
+        //   1) remembered last-active tab (still exists and still in this workspace)
+        //   2) first tab of the workspace
+        //   3) create a new tab in this workspace
+        if (_lastActiveTabPerWorkspace.TryGetValue(workspaceId, out var rememberedId))
+        {
+            var remembered = _tabManager.GetTab(rememberedId);
+            if (remembered != null && remembered.WorkspaceId == workspaceId)
+            {
+                _tabManager.ActivateTab(rememberedId);
+                return;
+            }
+            _lastActiveTabPerWorkspace.Remove(workspaceId); // stale
+        }
+
         var firstTab = _tabManager.Tabs.FirstOrDefault(t => t.WorkspaceId == workspaceId);
         if (firstTab != null)
             _tabManager.ActivateTab(firstTab.Id);
@@ -1798,6 +1823,16 @@ public partial class MainWindow : Window
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
         await _navController.ClearDataOnExitAsync();
-        Application.Current.Shutdown();
+
+        // Only shut down the whole app if this is the last MainWindow.
+        // With tear-off we may have several MainWindow instances alive; closing
+        // a torn-off window must leave the others running (App.xaml uses
+        // ShutdownMode="OnExplicitShutdown", so we decide explicitly).
+        var remaining = Application.Current.Windows
+            .OfType<MainWindow>()
+            .Count(w => !ReferenceEquals(w, this));
+
+        if (remaining == 0)
+            Application.Current.Shutdown();
     }
 }
