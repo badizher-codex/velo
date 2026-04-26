@@ -19,10 +19,26 @@ public class TabInfo : INotifyPropertyChanged
     public DateTime CreatedAt { get; } = DateTime.UtcNow;
 
     private string _url = "velo://newtab";
-    public string Url { get => _url; set => Set(ref _url, value); }
+    public string Url
+    {
+        get => _url;
+        set
+        {
+            Set(ref _url, value);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Initial)));
+        }
+    }
 
     private string _title = LocalizationService.Current.T("newtab.title");
-    public string Title { get => _title; set => Set(ref _title, value); }
+    public string Title
+    {
+        get => _title;
+        set
+        {
+            Set(ref _title, value);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Initial)));
+        }
+    }
 
     private string _containerId = "none";
     public string ContainerId
@@ -92,4 +108,30 @@ public class TabInfo : INotifyPropertyChanged
 
     private string _workspaceId = "default";
     public string WorkspaceId { get => _workspaceId; set => Set(ref _workspaceId, value); }
+
+    /// <summary>
+    /// v2.0.5 — Single-character glyph used by the collapsed sidebar.
+    /// Prefers the first letter of the title; falls back to the host's first
+    /// letter, then to '•'. Always uppercase.
+    /// </summary>
+    public string Initial
+    {
+        get
+        {
+            var src = _title;
+            if (string.IsNullOrWhiteSpace(src) || src == LocalizationService.Current.T("newtab.title"))
+            {
+                if (Uri.TryCreate(_url, UriKind.Absolute, out var u) && !string.IsNullOrEmpty(u.Host))
+                    src = u.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+                        ? u.Host[4..] : u.Host;
+            }
+            if (string.IsNullOrWhiteSpace(src)) return "•";
+            foreach (var ch in src)
+            {
+                if (char.IsLetterOrDigit(ch))
+                    return char.ToUpperInvariant(ch).ToString();
+            }
+            return "•";
+        }
+    }
 }

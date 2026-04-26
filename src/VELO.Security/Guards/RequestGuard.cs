@@ -62,6 +62,34 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
         "account", "verify", "update", "confirm"
     ];
 
+    // v2.0.5 — Extensions that almost always indicate a file download.
+    // RequestGuard skips heuristic blocking for these so that DownloadGuard
+    // (which sees the actual response mimetype) gets the final say. Without
+    // this bypass, any URL on a "suspicious" host that happens to point at an
+    // installer / archive / 3D-print model is killed before WebView2 can fire
+    // DownloadStarting — which is how Bambu Studio updates and MakerWorld STL
+    // downloads were getting silently dropped.
+    private static readonly HashSet<string> _downloadExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".exe", ".msi", ".msix", ".appx", ".dmg", ".pkg", ".deb", ".rpm",
+        ".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".xz", ".tgz",
+        ".iso", ".img",
+        ".stl", ".3mf", ".obj", ".step", ".stp", ".gcode", ".bgcode",
+        ".pdf", ".epub", ".mobi",
+        ".mp3", ".mp4", ".m4a", ".mkv", ".webm", ".avi", ".mov", ".flac", ".wav",
+        ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".apk", ".ipa", ".jar"
+    };
+
+    private static bool LooksLikeDownload(Uri url)
+    {
+        var path = url.AbsolutePath;
+        var dotIdx = path.LastIndexOf('.');
+        if (dotIdx <= 0 || dotIdx == path.Length - 1) return false;
+        var ext = path[dotIdx..];
+        return _downloadExtensions.Contains(ext);
+    }
+
     public SecurityVerdict Evaluate(string uri, string? referrer, string resourceType)
     {
         Uri? url;
@@ -73,6 +101,14 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
         // 1. User whitelist
         if (_userWhitelist.Contains(host))
             return SecurityVerdict.Allow();
+
+        // 1a (v2.0.5). Document-type navigation that resolves to a binary download.
+        //              Let it through so DownloadGuard can decide on real content-type.
+        if (resourceType == "Document" && LooksLikeDownload(url))
+        {
+            _logger.LogDebug("RequestGuard bypass: download extension detected → {Uri}", uri);
+            return SecurityVerdict.Allow();
+        }
 
         // 1b. Trusted CDN / hosting domains — skip AI and suspicious-param checks entirely.
         //     These domains use AWS S3 pre-signed URLs with long params by design.

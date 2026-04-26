@@ -54,6 +54,57 @@
                 </ScrollViewer>
             </Border>
 
+            <!-- ── Collapsed tab list (v2.0.5) ─────────────────────────────
+                 Shown only when the sidebar is compacted. Renders 28×28 squares
+                 with the first letter of each tab's title, tinted by the tab's
+                 container colour (or its accent palette tone). Active tab gets
+                 a brighter ring. -->
+            <ScrollViewer x:Name="CollapsedTabListScroller"
+                          Grid.Row="2"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Padding="0,4,0,4"
+                          Visibility="Collapsed">
+                <ItemsControl x:Name="CollapsedTabList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border MinHeight="32"
+                                    MinWidth="32"
+                                    Margin="6,3"
+                                    CornerRadius="6"
+                                    BorderThickness="2"
+                                    Cursor="Hand"
+                                    Background="{Binding SubtleAccentColor, Converter={StaticResource StringToBrush}}"
+                                    Tag="{Binding Id}"
+                                    MouseLeftButtonDown="Tab_Click"
+                                    MouseRightButtonDown="Tab_RightClick"
+                                    ToolTip="{Binding Title}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderBrush" Value="#FF2A2A3A"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                <Setter Property="BorderBrush" Value="#FF00E5FF"/>
+                                                <Setter Property="Background" Value="#FF1A1A2E"/>
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="BorderBrush" Value="#FF7080A0"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding Initial}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           Foreground="#FFD0D0E8"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"/>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
             <!-- ── Tab list ─────────────────────────────────────────────── -->
             <ScrollViewer x:Name="TabListScroller"
                           Grid.Row="2"

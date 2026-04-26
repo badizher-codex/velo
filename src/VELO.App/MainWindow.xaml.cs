@@ -1832,11 +1832,56 @@ public partial class MainWindow : Window
         _ = ActiveBrowserTab()?.FindClearAsync();
     }
 
+    /// <summary>
+    /// v2.0.5 — Public entry point used by SingleInstanceManager when another
+    /// VELO process is launched with a URL (e.g. an external program opens a
+    /// link, or Bambu Studio launches its update download). Opens the URL in
+    /// a new tab and brings the window to the foreground.
+    /// </summary>
+    public void OpenUrlInNewTab(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+
+        Dispatcher.Invoke(() =>
+        {
+            try
+            {
+                _tabManager.CreateTab(url);
+
+                if (WindowState == WindowState.Minimized)
+                    WindowState = WindowState.Normal;
+                Activate();
+                Topmost = true;   // force to front…
+                Topmost = false;  // …without keeping it pinned
+                Focus();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] OpenUrlInNewTab failed: {ex.Message}");
+            }
+        });
+    }
+
     // ── Window closing ───────────────────────────────────────────────────
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
         await _navController.ClearDataOnExitAsync();
+
+        // v2.0.5 — Stop every WebView2 in this window BEFORE the window closes.
+        // Without this, tear-off windows leak audio/video because their
+        // CoreWebView2 child processes survive until GC. CloseTab() mutes,
+        // navigates to about:blank and disposes the WebView control, which
+        // terminates the underlying browser process for that tab.
+        foreach (var bt in _browserTabs.Values.ToList())
+        {
+            try { bt.CloseTab(); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] Window_Closing CloseTab failed: {ex.Message}");
+            }
+        }
+        _browserTabs.Clear();
 
         // Only shut down the whole app if this is the last MainWindow.
         // With tear-off we may have several MainWindow instances alive; closing

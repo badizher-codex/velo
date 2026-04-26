@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Text.Json;
@@ -47,6 +48,90 @@ public partial class BrowserTab : UserControl
     // Popup burst: tracks timestamps of recent new-window requests per tab
     private readonly Queue<DateTime> _popupTimes = new();
     private static readonly TimeSpan PopupBurstWindow = TimeSpan.FromSeconds(3);
+
+    // v2.0.5 — External URI schemes (custom protocols) are handed off to the OS
+    // via ShellExecute. Web schemes are handled inside the browser; everything
+    // else (bambustudioopen, obsidian, vscode, zoommtg, mailto, magnet, tel, …)
+    // is launched by Windows' registered protocol handler.
+    private static readonly HashSet<string> _webSchemes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "http", "https", "file", "about", "data", "blob", "javascript",
+        "view-source", "chrome", "edge", "ws", "wss", "velo"
+    };
+
+    // Per-session memory of "always allow" decisions for unknown external schemes.
+    // Reset on app restart by design — privacy over convenience for unfamiliar protocols.
+    private static readonly HashSet<string> _allowedExternalSchemes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Pre-approved well-known protocols — silently launched without prompt
+        "mailto", "tel", "sms", "magnet",
+        "bambustudioopen", "bambustudio",
+        "obsidian", "vscode", "vscode-insiders",
+        "zoommtg", "zoomus", "msteams", "slack", "discord",
+        "spotify", "steam", "ftp", "sftp", "ssh"
+    };
+
+    private static bool IsExternalScheme(string uri)
+    {
+        if (string.IsNullOrWhiteSpace(uri)) return false;
+        var colonIdx = uri.IndexOf(':');
+        if (colonIdx <= 0) return false;
+        var scheme = uri[..colonIdx];
+        return !_webSchemes.Contains(scheme);
+    }
+
+    private static string GetScheme(string uri)
+    {
+        var colonIdx = uri.IndexOf(':');
+        return colonIdx > 0 ? uri[..colonIdx].ToLowerInvariant() : "";
+    }
+
+    /// <summary>
+    /// Hands an external-protocol URI off to the OS via ShellExecute, with a
+    /// confirmation prompt for unknown schemes. Returns true if launched.
+    /// </summary>
+    private bool TryLaunchExternalUri(string uri)
+    {
+        var scheme = GetScheme(uri);
+        if (string.IsNullOrEmpty(scheme)) return false;
+
+        bool allowed = _allowedExternalSchemes.Contains(scheme);
+
+        if (!allowed)
+        {
+            // Prompt for unknown schemes — user can grant per-session.
+            var msg = $"Una página quiere abrir una aplicación externa con el protocolo:\n\n" +
+                      $"    {scheme}://\n\n" +
+                      $"URI completo: {(uri.Length > 200 ? uri[..200] + "…" : uri)}\n\n" +
+                      $"¿Permitir? (Esta decisión se recuerda hasta que cierres VELO.)";
+            var result = MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                msg, "VELO — Protocolo externo",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return false;
+
+            _allowedExternalSchemes.Add(scheme);
+            allowed = true;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName        = uri,
+                UseShellExecute = true
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] External URI launch failed ({scheme}): {ex.Message}");
+            MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
+                $"No se pudo abrir el protocolo '{scheme}://'.\n\n" +
+                $"Posiblemente la aplicación no está instalada o no está registrada para este protocolo.",
+                "VELO — Protocolo externo", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+    }
 
     // Fase 2: enriched context menu (optional — falls back to WebView2 default if null)
     private ContextMenuBuilder? _contextMenuBuilder;
@@ -223,6 +308,23 @@ public partial class BrowserTab : UserControl
         WebView.CoreWebView2.ContextMenuRequested       += OnContextMenuRequested;
         WebView.CoreWebView2.ServerCertificateErrorDetected += OnServerCertificateError;
         WebView.CoreWebView2.WebMessageReceived             += OnWebMessageReceived;
+
+        // v2.0.5 — Custom-protocol launch (bambustudioopen://, obsidian://, …).
+        // Without this handler WebView2 falls back to its built-in confirmation
+        // dialog AND, in our case, our NewWindowRequested intercept fires for
+        // <a target="_blank" href="custom://..."> which would otherwise drop
+        // the URI on the floor. Suppressing the default dialog and using our
+        // own consistent prompt keeps the UX coherent.
+        try
+        {
+            WebView.CoreWebView2.LaunchingExternalUriScheme += OnLaunchingExternalUriScheme;
+        }
+        catch (Exception ex)
+        {
+            // Older WebView2 runtimes (<1.0.1185) don't expose this event.
+            // Custom protocols still work via NewWindowRequested fallback.
+            System.Diagnostics.Trace.WriteLine($"[VELO] LaunchingExternalUriScheme not available: {ex.Message}");
+        }
 
         _webViewInitialized = true;
     }
@@ -456,11 +558,42 @@ public partial class BrowserTab : UserControl
         await WebView.CoreWebView2.ExecuteScriptAsync("window.getSelection().removeAllRanges()");
     }
 
-    /// <summary>Stops all media before the tab is removed from the visual tree.</summary>
+    /// <summary>
+    /// Stops all media and releases the WebView2 process handles before the tab
+    /// is removed. Without an explicit Dispose() the underlying browser process
+    /// keeps running (and audio/video keeps playing) until the host window is GC'd.
+    /// </summary>
     public void CloseTab()
     {
         if (!_webViewInitialized) return;
-        try { WebView.CoreWebView2?.Navigate("about:blank"); } catch { }
+
+        try
+        {
+            if (WebView.CoreWebView2 != null)
+            {
+                // Mute first so even latency in dispose doesn't leak audio
+                WebView.CoreWebView2.IsMuted = true;
+                WebView.CoreWebView2.Stop();
+                WebView.CoreWebView2.Navigate("about:blank");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] CloseTab navigate-blank failed: {ex.Message}");
+        }
+
+        try
+        {
+            // Releases the underlying CoreWebView2 — terminates the WebView2
+            // child process for this tab and stops any active media playback.
+            WebView.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] CloseTab WebView dispose failed: {ex.Message}");
+        }
+
+        _webViewInitialized = false;
     }
 
     public void AllowOnce(string domain) => _allowedOnce.Add(domain.ToLowerInvariant());
@@ -917,11 +1050,41 @@ public partial class BrowserTab : UserControl
         => Dispatcher.Invoke(() =>
             TitleChanged?.Invoke(this, WebView.CoreWebView2.DocumentTitle));
 
+    private void OnLaunchingExternalUriScheme(object? sender, CoreWebView2LaunchingExternalUriSchemeEventArgs e)
+    {
+        // Suppress WebView2's default permission dialog — we show our own.
+        e.Cancel = true;
+        var uri = e.Uri ?? "";
+        Dispatcher.Invoke(() => TryLaunchExternalUri(uri));
+    }
+
     private void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
     {
         e.Handled = true; // always suppress native window
 
         var targetUri = e.Uri ?? "";
+
+        // ── Rule 0 (v2.0.5): external custom protocols (bambustudioopen://, …) ─
+        //    Hand directly to the OS instead of trying to load as a tab.
+        //    Without this, MakerWorld → Bambu Studio handoff silently fails
+        //    because WebView2 cannot navigate non-web schemes inside a tab.
+        if (IsExternalScheme(targetUri))
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (TryLaunchExternalUri(targetUri))
+                {
+                    SecurityVerdictReceived?.Invoke(this, new AIVerdict
+                    {
+                        Verdict    = VerdictType.Safe,
+                        Reason     = $"Aplicación externa abierta vía '{GetScheme(targetUri)}://'",
+                        Source     = "ExternalProtocol",
+                        Confidence = 100
+                    });
+                }
+            });
+            return;
+        }
 
         // ── Rule 1: script-initiated popup — never allow ──────────────────
         if (!e.IsUserInitiated)

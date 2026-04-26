@@ -70,7 +70,8 @@ public partial class TabSidebar : UserControl
     public TabSidebar()
     {
         InitializeComponent();
-        TabList.ItemsSource = _visibleTabs;
+        TabList.ItemsSource          = _visibleTabs;
+        CollapsedTabList.ItemsSource = _visibleTabs;
         ApplyLanguage();
         LocalizationService.Current.LanguageChanged += ApplyLanguage;
         Unloaded += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
@@ -352,11 +353,13 @@ public partial class TabSidebar : UserControl
 
         Width = _isCollapsed ? CollapsedWidth : ExpandedWidth;
 
-        // Show/hide sections
-        WorkspaceStripBorder.Visibility = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        TabListScroller.Visibility      = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        SplitBtn.Visibility             = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        AddWorkspaceBtn.Visibility      = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        // Show/hide sections — workspace strip + bottom action buttons hide;
+        // the tab list swaps to its compact icon-only variant (v2.0.5).
+        WorkspaceStripBorder.Visibility       = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        TabListScroller.Visibility            = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        CollapsedTabListScroller.Visibility   = _isCollapsed ? Visibility.Visible    : Visibility.Collapsed;
+        SplitBtn.Visibility                   = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+        AddWorkspaceBtn.Visibility            = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
 
         // Arrow flips direction
         CollapseBtn.Content = _isCollapsed ? "▶" : "◀";
