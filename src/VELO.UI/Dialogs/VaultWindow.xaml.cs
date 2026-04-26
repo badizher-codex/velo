@@ -113,7 +113,7 @@ public partial class VaultWindow : Window
     {
         _allEntries = await _vault.GetAllAsync();
         RenderList(_allEntries);
-        EntryCount.Text = $"({_allEntries.Count} entradas)";
+        EntryCount.Text = string.Format(LocalizationService.Current.T("vault.entries.count"), _allEntries.Count);
     }
 
     private void RenderList(IEnumerable<PasswordEntry> entries)
@@ -304,22 +304,25 @@ public partial class VaultWindow : Window
 
         await _vault.SaveAsync(entry);
         await ShowVaultAsync();
-        ShowStatus(_editingEntry == null ? "✓ Entrada guardada" : "✓ Entrada actualizada");
+        var L = LocalizationService.Current;
+        ShowStatus(_editingEntry == null ? L.T("vault.saved") : L.T("vault.updated"));
     }
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
         if (_editingEntry == null) return;
+        var L = LocalizationService.Current;
 
         var confirm = MessageBox.Show(
-            $"¿Eliminar la entrada de {_editingEntry.SiteName}?",
-            "VELO — Confirmar", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            string.Format(L.T("vault.delete.confirm"), _editingEntry.SiteName),
+            L.T("vault.delete.confirm.title"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
         if (confirm != MessageBoxResult.Yes) return;
 
         await _vault.DeleteAsync(_editingEntry.Id);
         await ShowVaultAsync();
-        ShowStatus("✓ Entrada eliminada");
+        ShowStatus(L.T("vault.deleted"));
     }
 
     private void BackToList_Click(object sender, RoutedEventArgs e)

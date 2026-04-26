@@ -100,12 +100,11 @@ public partial class BrowserTab : UserControl
         if (!allowed)
         {
             // Prompt for unknown schemes — user can grant per-session.
-            var msg = $"Una página quiere abrir una aplicación externa con el protocolo:\n\n" +
-                      $"    {scheme}://\n\n" +
-                      $"URI completo: {(uri.Length > 200 ? uri[..200] + "…" : uri)}\n\n" +
-                      $"¿Permitir? (Esta decisión se recuerda hasta que cierres VELO.)";
+            var L = LocalizationService.Current;
+            var trimmedUri = uri.Length > 200 ? uri[..200] + "…" : uri;
+            var msg = string.Format(L.T("ext.protocol.prompt"), scheme, trimmedUri);
             var result = MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
-                msg, "VELO — Protocolo externo",
+                msg, L.T("ext.protocol.title"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result != MessageBoxResult.Yes) return false;
 
@@ -125,10 +124,10 @@ public partial class BrowserTab : UserControl
         catch (Exception ex)
         {
             System.Diagnostics.Trace.WriteLine($"[VELO] External URI launch failed ({scheme}): {ex.Message}");
+            var L = LocalizationService.Current;
             MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
-                $"No se pudo abrir el protocolo '{scheme}://'.\n\n" +
-                $"Posiblemente la aplicación no está instalada o no está registrada para este protocolo.",
-                "VELO — Protocolo externo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                string.Format(L.T("ext.protocol.fail"), scheme),
+                L.T("ext.protocol.title"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return false;
         }
     }

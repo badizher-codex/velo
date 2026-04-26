@@ -42,61 +42,58 @@
 
             <!-- Step 1: AI Mode -->
             <StackPanel x:Name="Step1" Visibility="Visible">
-                <TextBlock Text="Elige cómo VELO analiza amenazas"
+                <TextBlock x:Name="Step1Title" Text="Elige cómo VELO analiza amenazas"
                            FontSize="17" FontWeight="SemiBold" Margin="0,0,0,20"/>
 
                 <RadioButton x:Name="RadioOffline" GroupName="AIMode"
                              IsChecked="True" Margin="0,0,0,16">
                     <StackPanel>
-                        <TextBlock Text="Offline (Recomendado)" FontWeight="SemiBold"/>
-                        <TextBlock Text="100% local. Sin API key. Seguro para uso diario."
+                        <TextBlock x:Name="OfflineTitle" Text="Offline (Recomendado)" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="OfflineDesc" Text="100% local. Sin API key. Seguro para uso diario."
                                    FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
 
                 <RadioButton x:Name="RadioClaude" GroupName="AIMode" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="Claude (Mejor detección)" FontWeight="SemiBold"/>
-                        <TextBlock Text="Requiere API key de Anthropic. Análisis más profundo."
+                        <TextBlock x:Name="ClaudeTitle" Text="Claude (Mejor detección)" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="ClaudeDesc" Text="Requiere API key de Anthropic. Análisis más profundo."
                                    FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
 
                 <TextBox x:Name="ApiKeyField"
                          Margin="20,0,0,16"
-                         
                          IsEnabled="False"/>
 
                 <RadioButton x:Name="RadioCustom" GroupName="AIMode" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="LLM Personalizado" FontWeight="SemiBold"/>
-                        <TextBlock Text="Ollama u otro endpoint compatible."
+                        <TextBlock x:Name="CustomTitle" Text="LLM Personalizado" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="CustomDesc" Text="Ollama u otro endpoint compatible."
                                    FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
 
                 <TextBox x:Name="CustomEndpointField"
                          Margin="20,0,0,4"
-                         
                          IsEnabled="False"/>
                 <TextBox x:Name="CustomModelField"
                          Margin="20,4,0,0"
-                         
                          IsEnabled="False"/>
             </StackPanel>
 
             <!-- Step 2: DNS -->
             <StackPanel x:Name="Step2" Visibility="Collapsed">
-                <TextBlock Text="DNS Privado"
+                <TextBlock x:Name="Step2Title" Text="DNS Privado"
                            FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock Text="Tu ISP puede ver qué sitios visitas con DNS normal. VELO usa DNS encriptado (DoH)."
+                <TextBlock x:Name="Step2Intro" Text="Tu ISP puede ver qué sitios visitas con DNS normal. VELO usa DNS encriptado (DoH)."
                            FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                 <RadioButton x:Name="DnsQuad9" GroupName="DNS" IsChecked="True" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="Quad9 (Recomendado)" FontWeight="SemiBold"/>
-                        <TextBlock Text="Sin logs · Bloquea malware · Suiza"
+                        <TextBlock x:Name="Quad9Title" Text="Quad9 (Recomendado)" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="Quad9Desc" Text="Sin logs · Bloquea malware · Suiza"
                                    FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
@@ -107,43 +104,42 @@
                     <TextBlock Text="NextDNS"/>
                 </RadioButton>
                 <RadioButton x:Name="DnsCustom" GroupName="DNS" Margin="0,0,0,8">
-                    <TextBlock Text="Personalizado"/>
+                    <TextBlock x:Name="DnsCustomLabel" Text="Personalizado"/>
                 </RadioButton>
                 <TextBox x:Name="DnsCustomUrl"
                          Margin="20,0,0,0"
-                         
                          IsEnabled="False"/>
             </StackPanel>
 
             <!-- Step 3: Fingerprint -->
             <StackPanel x:Name="Step3" Visibility="Collapsed">
-                <TextBlock Text="Protección de Identidad"
+                <TextBlock x:Name="Step3Title" Text="Protección de Identidad"
                            FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock Text="Los sitios pueden identificarte sin cookies usando tu 'huella digital' del navegador."
+                <TextBlock x:Name="Step3Intro" Text="Los sitios pueden identificarte sin cookies usando tu 'huella digital' del navegador."
                            FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
-                <TextBlock Text="VELO ya tiene activada:" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock Text="✓ Protección Canvas" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
-                <TextBlock Text="✓ Spoof de hardware" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
-                <TextBlock Text="✓ Rotación de User Agent" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
-                <TextBlock Text="✓ Protección WebRTC" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
+                <TextBlock x:Name="AlreadyOn" Text="VELO ya tiene activada:" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <TextBlock x:Name="ProtCanvas"   Text="✓ Protección Canvas" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtHardware" Text="✓ Spoof de hardware" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtUa"       Text="✓ Rotación de User Agent" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtWebrtc"   Text="✓ Protección WebRTC" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
 
-                <TextBlock Text="Nivel: AGRESIVO (óptimo)" FontWeight="SemiBold"
+                <TextBlock x:Name="LevelLine" Text="Nivel: AGRESIVO (óptimo)" FontWeight="SemiBold"
                            Foreground="{StaticResource AccentBlueBrush}" Margin="0,16,0,0"/>
-                <TextBlock Text="Puedes cambiarlo en Settings en cualquier momento."
+                <TextBlock x:Name="ChangeableLine" Text="Puedes cambiarlo en Settings en cualquier momento."
                            FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4"/>
             </StackPanel>
 
             <!-- Step 4: Master Password -->
             <StackPanel x:Name="Step4" Visibility="Collapsed">
-                <TextBlock Text="Password Vault"
+                <TextBlock x:Name="Step4Title" Text="Password Vault"
                            FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock Text="VELO incluye un gestor de contraseñas encriptado. Elige una master password para protegerlo."
+                <TextBlock x:Name="Step4Intro" Text="VELO incluye un gestor de contraseñas encriptado. Elige una master password para protegerlo."
                            FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
-                <TextBlock Text="Master password (mínimo 8 caracteres):" Margin="0,0,0,6"/>
+                <TextBlock x:Name="MasterLabel" Text="Master password (mínimo 8 caracteres):" Margin="0,0,0,6"/>
                 <PasswordBox x:Name="MasterPasswordField" Margin="0,0,0,12"
                              Padding="8,6"
                              Background="{StaticResource BackgroundLightBrush}"
@@ -151,7 +147,7 @@
                              BorderBrush="{StaticResource BorderBrush}"
                              BorderThickness="1"/>
 
-                <TextBlock Text="Confirmar password:" Margin="0,0,0,6"/>
+                <TextBlock x:Name="ConfirmLabel" Text="Confirmar password:" Margin="0,0,0,6"/>
                 <PasswordBox x:Name="ConfirmPasswordField"
                              Padding="8,6"
                              Background="{StaticResource BackgroundLightBrush}"

@@ -67,14 +67,104 @@ public partial class SettingsWindow : Window
     private void ApplyNavLanguage()
     {
         var L = LocalizationService.Current;
+        // Window + nav rail
+        Title                 = L.T("title.settings");
         NavPrivacidad.Content = L.T("nav.privacy");
+        NavDns.Content        = L.T("nav.dns");
         NavIA.Content         = L.T("nav.ai");
         NavBusqueda.Content   = L.T("nav.search");
+        NavVault.Content      = L.T("nav.vault");
         NavIdioma.Content     = L.T("nav.language");
-        LangTitle.Text        = L.T("lang.title");
-        LangSubtitle.Text     = L.T("lang.subtitle");
-        LangChooseLabel.Text  = L.T("lang.choose");
-        Title                 = L.T("title.settings");
+        NavGeneral.Content    = L.T("nav.general");
+
+        // Privacy panel
+        PrivacyTitle.Text     = L.T("settings.privacy.title");
+        SecModeTitle.Text     = L.T("settings.security.label");
+        SecNormalTitle.Text   = L.T("settings.secmode.normal");
+        SecNormalDesc.Text    = L.T("settings.secmode.normal.desc");
+        SecParanoidTitle.Text = L.T("settings.secmode.paranoid");
+        SecParanoidDesc.Text  = L.T("settings.secmode.paranoid.desc");
+        SecBunkerTitle.Text   = L.T("settings.secmode.bunker");
+        SecBunkerDesc.Text    = L.T("settings.secmode.bunker.desc");
+        FpTitle.Text          = L.T("settings.fp.title");
+        FpAggressiveTitle.Text= L.T("settings.fp.aggressive");
+        FpAggressiveDesc.Text = L.T("settings.fp.aggressive.desc");
+        FpBalancedTitle.Text  = L.T("settings.fp.balanced");
+        FpBalancedDesc.Text   = L.T("settings.fp.balanced.desc");
+        FpOffLabel.Text       = L.T("settings.fp.off");
+        WrtcTitle.Text        = L.T("settings.webrtc.title");
+        WrtcRelayTitle.Text   = L.T("settings.webrtc.relay");
+        WrtcRelayDesc.Text    = L.T("settings.webrtc.relay.desc");
+        WrtcDisabledTitle.Text= L.T("settings.webrtc.disabled");
+        WrtcDisabledDesc.Text = L.T("settings.webrtc.disabled.desc");
+        WrtcOffLabel.Text     = L.T("settings.webrtc.off");
+        HistorySaveTitle.Text = L.T("settings.history.save");
+        HistorySaveDesc.Text  = L.T("settings.history.save.desc");
+        HistoryClearTitle.Text= L.T("settings.history.clear");
+        HistoryClearDesc.Text = L.T("settings.history.clear.desc");
+        AutoUpdateTitle.Text  = L.T("settings.update.auto");
+        AutoUpdateDesc.Text   = L.T("settings.update.auto.desc");
+
+        // DNS panel
+        DnsTitle.Text         = L.T("settings.dns.title");
+        DnsIntro.Text         = L.T("settings.dns.intro");
+        DnsQuad9Title.Text    = L.T("settings.dns.quad9");
+        DnsQuad9Desc.Text     = L.T("settings.dns.quad9.desc");
+        DnsCloudflareDesc.Text= L.T("settings.dns.cloudflare.desc");
+        DnsNextDnsDesc.Text   = L.T("settings.dns.nextdns.desc");
+        DnsCustomLabel.Text   = L.T("settings.dns.custom");
+        DnsUrlLabel.Text      = L.T("settings.dns.url");
+
+        // AI panel
+        AiTitle.Text          = L.T("settings.ai.title");
+        AiIntro.Text          = L.T("settings.ai.intro");
+        AiOfflineTitle.Text   = L.T("settings.ai.offline");
+        AiOfflineDesc.Text    = L.T("settings.ai.offline.desc");
+        AiClaudeTitle.Text    = L.T("settings.ai.claude");
+        AiClaudeDesc.Text     = L.T("settings.ai.claude.desc");
+        AiApiKeyLabel.Text    = L.T("settings.ai.apikey");
+        AiCustomTitle.Text    = L.T("settings.ai.custom");
+        AiCustomDesc.Text     = L.T("settings.ai.custom.desc");
+        AiEndpointLabel.Text  = L.T("settings.ai.endpoint");
+        AiModelLabel.Text     = L.T("settings.ai.model");
+        TestOllamaButton.Content = L.T("settings.ai.test");
+
+        // Search panel
+        SearchTitle.Text       = L.T("settings.search.title");
+        SearchDdgTitle.Text    = L.T("settings.search.ddg");
+        SearchDdgDesc.Text     = L.T("settings.search.ddg.desc");
+        SearchBraveDesc.Text   = L.T("settings.search.brave.desc");
+        SearchSearxDesc.Text   = L.T("settings.search.searx.desc");
+        SearchCustomLabel.Text = L.T("settings.dns.custom");
+        SearchUrlHint.Text     = L.T("settings.search.url_hint");
+
+        // Vault panel
+        VaultPanelTitle.Text   = L.T("onboarding.s4.title");
+        VaultIntro.Text        = L.T("settings.vault.intro");
+        AutoLockLabel.Text     = L.T("settings.vault.autolock");
+        AutoLock5.Content      = L.T("settings.vault.5m");
+        AutoLock10.Content     = L.T("settings.vault.10m");
+        AutoLock15.Content     = L.T("settings.vault.15m");
+        AutoLock30.Content     = L.T("settings.vault.30m");
+        AutoLock60.Content     = L.T("settings.vault.1h");
+        AutoLockNever.Content  = L.T("settings.vault.never");
+        ChangePassTitle.Text   = L.T("settings.vault.changepass");
+        NewPassLabel.Text      = L.T("settings.vault.newpass");
+        ConfirmPassLabel.Text  = L.T("settings.vault.confirm");
+        ChangePassBtn.Content  = L.T("settings.vault.changebtn");
+
+        // General panel
+        GeneralTitle.Text         = L.T("settings.general.title");
+        DefBrowserTitle.Text      = L.T("settings.defbrowser.title");
+        DefBrowserHelp.Text       = L.T("settings.defbrowser.help");
+        SetDefaultBrowserButton.Content = L.T("settings.defbrowser.btn");
+
+        // Language panel + bottom bar
+        LangTitle.Text         = L.T("lang.title");
+        LangSubtitle.Text      = L.T("lang.subtitle");
+        LangChooseLabel.Text   = L.T("lang.choose");
+        CancelButton.Content   = L.T("settings.cancel");
+        SaveButton.Content     = L.T("settings.save");
     }
 
     private bool _langPickerLoaded;
@@ -216,7 +306,7 @@ public partial class SettingsWindow : Window
         if (AutoLockCombo.SelectedItem is ComboBoxItem lockItem && lockItem.Tag != null)
             await _settings.SetIntAsync(SettingKeys.VaultAutoLockMinutes, int.Parse(lockItem.Tag.ToString()!));
 
-        StatusText.Text = "✓ Guardado";
+        StatusText.Text = LocalizationService.Current.T("settings.saved");
         await Task.Delay(1500);
         StatusText.Text = "";
     }
@@ -225,15 +315,16 @@ public partial class SettingsWindow : Window
     {
         var pwd     = NewMasterPwd.Password;
         var confirm = ConfirmMasterPwd.Password;
+        var L       = LocalizationService.Current;
 
         if (pwd.Length < 8)
         {
-            ShowVaultError("Mínimo 8 caracteres.");
+            ShowVaultError(L.T("settings.vault.min8"));
             return;
         }
         if (pwd != confirm)
         {
-            ShowVaultError("Las passwords no coinciden.");
+            ShowVaultError(L.T("settings.vault.mismatch"));
             return;
         }
 
@@ -241,7 +332,7 @@ public partial class SettingsWindow : Window
         await _vault.InitializeAsync(pwd);
         NewMasterPwd.Clear();
         ConfirmMasterPwd.Clear();
-        StatusText.Text = "✓ Master password actualizada";
+        StatusText.Text = L.T("settings.vault.updated");
         await Task.Delay(2000);
         StatusText.Text = "";
     }
@@ -256,15 +347,16 @@ public partial class SettingsWindow : Window
     {
         var endpoint = CustomEndpointField.Text.TrimEnd('/');
         var model    = CustomModelField.Text.Trim();
+        var L        = LocalizationService.Current;
 
         if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(model))
         {
-            ShowOllamaResult(false, "Completa el endpoint y el modelo antes de probar.");
+            ShowOllamaResult(false, L.T("settings.ai.fill_first"));
             return;
         }
 
         TestOllamaButton.IsEnabled  = false;
-        TestOllamaButton.Content    = "Probando…";
+        TestOllamaButton.Content    = L.T("settings.ai.testing");
         OllamaTestResult.Visibility = Visibility.Collapsed;
 
         try
@@ -276,8 +368,7 @@ public partial class SettingsWindow : Window
                 var ping = await http.GetAsync($"{endpoint}/v1/models");
                 if (!ping.IsSuccessStatusCode)
                 {
-                    ShowOllamaResult(false, $"El servidor responde en {endpoint} pero con error {(int)ping.StatusCode}.\n" +
-                        "Comprueba que el servidor esté iniciado y el endpoint sea correcto (p.ej. http://127.0.0.1:11434 para Ollama, http://127.0.0.1:1234 para LM Studio).");
+                    ShowOllamaResult(false, string.Format(L.T("settings.ai.server_error"), endpoint, (int)ping.StatusCode));
                     return;
                 }
 
@@ -285,21 +376,18 @@ public partial class SettingsWindow : Window
                 var modelsJson = await ping.Content.ReadAsStringAsync();
                 if (!modelsJson.Contains(model.Split(':')[0]))
                 {
-                    ShowOllamaResult(false, $"Servidor activo ✓, pero el modelo '{model}' no aparece en la lista.\n" +
-                        "Asegúrate de haber cargado el modelo en LM Studio o ejecuta: ollama pull {model}");
+                    ShowOllamaResult(false, string.Format(L.T("settings.ai.model_missing"), model));
                     return;
                 }
             }
             catch
             {
-                ShowOllamaResult(false, $"No se pudo conectar a {endpoint}.\n" +
-                    "• Ollama: abre una terminal y ejecuta ollama serve\n" +
-                    "• LM Studio: activa el servidor local desde la pestaña Developer");
+                ShowOllamaResult(false, string.Format(L.T("settings.ai.cant_connect"), endpoint));
                 return;
             }
 
             // Step 2: inference test via OpenAI-compatible /v1/chat/completions
-            TestOllamaButton.Content = "Cargando modelo…";
+            TestOllamaButton.Content = L.T("settings.ai.loading_model");
             // 120s: thinking models (Qwen3, DeepSeek-R1) need extra time for the reasoning phase
             using var http2 = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 
@@ -324,7 +412,7 @@ public partial class SettingsWindow : Window
 
             if (!response.IsSuccessStatusCode)
             {
-                ShowOllamaResult(false, $"Error HTTP {(int)response.StatusCode} al generar respuesta con '{model}'.");
+                ShowOllamaResult(false, string.Format(L.T("settings.ai.http_error"), (int)response.StatusCode, model));
                 return;
             }
 
@@ -338,26 +426,22 @@ public partial class SettingsWindow : Window
                 msgEl.TryGetProperty("reasoning_content", out var rc))
                 text = "[Thinking model — reasoning OK]";
 
-            ShowOllamaResult(true,
-                $"✓ Conectado · Modelo '{model}' listo\n" +
-                $"Tiempo de respuesta: {sw.ElapsedMilliseconds} ms\n" +
-                $"Respuesta: {text.Trim()[..Math.Min(text.Trim().Length, 60)]}");
+            ShowOllamaResult(true, string.Format(L.T("settings.ai.success"),
+                model, sw.ElapsedMilliseconds,
+                text.Trim()[..Math.Min(text.Trim().Length, 60)]));
         }
         catch (TaskCanceledException)
         {
-            ShowOllamaResult(false,
-                $"Timeout (120s) — el modelo tardó demasiado en responder.\n" +
-                $"Si usas un modelo grande, asegúrate de que esté cargado en LM Studio.\n" +
-                $"También puedes probar con un modelo más pequeño.");
+            ShowOllamaResult(false, L.T("settings.ai.timeout"));
         }
         catch (Exception ex)
         {
-            ShowOllamaResult(false, $"Error inesperado: {ex.Message}");
+            ShowOllamaResult(false, string.Format(L.T("settings.ai.unexpected"), ex.Message));
         }
         finally
         {
             TestOllamaButton.IsEnabled = true;
-            TestOllamaButton.Content   = "Probar conexión";
+            TestOllamaButton.Content   = L.T("settings.ai.test");
         }
     }
 
@@ -393,7 +477,7 @@ public partial class SettingsWindow : Window
             }
             catch (Exception ex)
             {
-                DefaultBrowserStatus.Text = $"No se pudo abrir Configuración de Windows: {ex.Message}";
+                DefaultBrowserStatus.Text = string.Format(LocalizationService.Current.T("settings.defbrowser.openerr"), ex.Message);
                 DefaultBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
                 DefaultBrowserStatus.Visibility = Visibility.Visible;
             }

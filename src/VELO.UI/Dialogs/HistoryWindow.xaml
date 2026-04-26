@@ -10,6 +10,7 @@
 
     <Window.Resources>
         <conv:ZeroToCollapsedConverter x:Key="ZeroToCollapsed"/>
+        <conv:LocalizeKeyConverter x:Key="L"/>
     </Window.Resources>
 
     <Grid Margin="20">
@@ -87,24 +88,24 @@
                                                 Visibility="{Binding BlockedCount, Converter={StaticResource ZeroToCollapsed}}">
                                             <Border.Background>#33FF3D71</Border.Background>
                                             <TextBlock FontSize="10" Foreground="#FF3D71">
-                                                <Run Text="{Binding BlockedCount}"/><Run Text=" bloqueados"/>
+                                                <Run Text="{Binding BlockedCount}"/><Run Text=" "/><Run Text="{Binding Source='history.badge.blocked', Converter={StaticResource L}}"/>
                                             </TextBlock>
                                         </Border>
                                         <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
                                                 Visibility="{Binding TrackerCount, Converter={StaticResource ZeroToCollapsed}}">
                                             <Border.Background>#33FFB300</Border.Background>
                                             <TextBlock FontSize="10" Foreground="#FFB300">
-                                                <Run Text="{Binding TrackerCount}"/><Run Text=" rastreadores"/>
+                                                <Run Text="{Binding TrackerCount}"/><Run Text=" "/><Run Text="{Binding Source='history.badge.trackers', Converter={StaticResource L}}"/>
                                             </TextBlock>
                                         </Border>
                                         <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
                                                 Visibility="{Binding MalwareCount, Converter={StaticResource ZeroToCollapsed}}">
                                             <Border.Background>#44FF0000</Border.Background>
                                             <TextBlock FontSize="10" Foreground="#FF6B6B">
-                                                <Run Text="{Binding MalwareCount}"/><Run Text=" malware"/>
+                                                <Run Text="{Binding MalwareCount}"/><Run Text=" "/><Run Text="{Binding Source='history.badge.malware', Converter={StaticResource L}}"/>
                                             </TextBlock>
                                         </Border>
-                                        <TextBlock Text="✓ Sin amenazas"
+                                        <TextBlock Text="{Binding Source='history.no_threats', Converter={StaticResource L}}"
                                                    FontSize="10" Foreground="#4CAF50"
                                                    VerticalAlignment="Center">
                                             <TextBlock.Style>

@@ -89,6 +89,7 @@ public partial class TabSidebar : UserControl
         SplitBtn.ToolTip          = L.T("sidebar.split.tooltip");
         AddWorkspaceBtn.ToolTip   = L.T("sidebar.workspace.tooltip");
         CollapseBtn.ToolTip       = _isCollapsed ? L.T("sidebar.expand.tooltip") : L.T("sidebar.collapse.tooltip");
+        System.Windows.Automation.AutomationProperties.SetName(SidebarRoot, L.T("sidebar.aria"));
     }
 
     // ── Workspace management ──────────────────────────────────────────────

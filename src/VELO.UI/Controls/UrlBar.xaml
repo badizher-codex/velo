@@ -93,8 +93,7 @@
                                 Style="{StaticResource IconButton}"
                                 FontSize="11" Padding="6,4"
                                 Visibility="Collapsed"
-                                Click="ZoomReset_Click"
-                                ToolTip="Restablecer zoom (Ctrl+0)"/>
+                                Click="ZoomReset_Click"/>
 
                         <Button x:Name="ReaderModeButton" Grid.Column="3"
                                 Style="{StaticResource IconButton}"

@@ -137,6 +137,11 @@ public partial class MainWindow : Window
 
         // (Ctrl+Shift+A is handled in OnPreviewKeyDown)
 
+        // v2.0.5.3 — Localise the find bar + react to runtime language changes
+        ApplyFindBarLanguage();
+        VELO.Core.Localization.LocalizationService.Current.LanguageChanged += ApplyFindBarLanguage;
+        Closed += (_, _) => VELO.Core.Localization.LocalizationService.Current.LanguageChanged -= ApplyFindBarLanguage;
+
         Loaded += async (_, _) =>
         {
             // Pre-load already-captured threat types so capture logic is O(1)
@@ -1818,7 +1823,7 @@ public partial class MainWindow : Window
         }
 
         var found = await bt.FindAsync(text, backwards);
-        FindStatusText.Text = found ? "" : "No encontrado";
+        FindStatusText.Text = found ? "" : VELO.Core.Localization.LocalizationService.Current.T("find.notfound");
         FindStatusText.Foreground = found
             ? System.Windows.Media.Brushes.Transparent
             : System.Windows.Media.Brushes.OrangeRed;
@@ -1830,6 +1835,19 @@ public partial class MainWindow : Window
         FindTextBox.Text = "";
         FindStatusText.Text = "";
         _ = ActiveBrowserTab()?.FindClearAsync();
+    }
+
+    /// <summary>
+    /// v2.0.5.3 — Localises the find-bar tooltips/labels. Wired to
+    /// LocalizationService.LanguageChanged in the constructor.
+    /// </summary>
+    private void ApplyFindBarLanguage()
+    {
+        var L = VELO.Core.Localization.LocalizationService.Current;
+        FindLabel.Text             = L.T("find.label");
+        FindPrevButton.ToolTip     = L.T("find.prev");
+        FindNextButton.ToolTip     = L.T("find.next");
+        FindCloseButton.ToolTip    = L.T("find.close");
     }
 
     /// <summary>

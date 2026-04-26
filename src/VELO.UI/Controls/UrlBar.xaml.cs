@@ -37,13 +37,14 @@ public partial class UrlBar : UserControl
     private void ApplyLanguage()
     {
         var L = LocalizationService.Current;
-        BackButton.ToolTip      = L.T("nav.back");
-        ForwardButton.ToolTip   = L.T("nav.forward");
-        ReloadButton.ToolTip    = L.T("nav.reload");
-        BookmarkButton.ToolTip  = L.T("nav.bookmark");
+        BackButton.ToolTip       = L.T("nav.back");
+        ForwardButton.ToolTip    = L.T("nav.forward");
+        ReloadButton.ToolTip     = _isLoading ? L.T("urlbar.stop") : L.T("nav.reload");
+        BookmarkButton.ToolTip   = _isBookmarked ? L.T("urlbar.bookmark.remove") : L.T("urlbar.bookmark.add");
         ReaderModeButton.ToolTip = L.T("nav.reader");
-        MenuButton.ToolTip      = L.T("nav.menu");
-        TlsIndicator.ToolTip    = L.T("nav.secure");
+        MenuButton.ToolTip       = L.T("nav.menu");
+        TlsIndicator.ToolTip     = L.T("nav.secure");
+        ZoomIndicator.ToolTip    = L.T("urlbar.zoom.reset");
     }
 
     public void FocusUrlBar()
@@ -61,8 +62,9 @@ public partial class UrlBar : UserControl
     public void SetLoading(bool loading)
     {
         _isLoading = loading;
+        var L = LocalizationService.Current;
         ReloadButton.Content = loading ? "✕" : "↻";
-        ReloadButton.ToolTip = loading ? "Detener" : "Recargar";
+        ReloadButton.ToolTip = loading ? L.T("urlbar.stop") : L.T("nav.reload");
 
         if (loading)
         {
@@ -102,12 +104,13 @@ public partial class UrlBar : UserControl
 
     public void SetAiStatus(AiStatus status, string modelName = "")
     {
+        var L = LocalizationService.Current;
         var (dot, label, tooltip, color) = status switch
         {
-            AiStatus.Ready       => ("#00E676", "IA", $"IA activa · {modelName}\nAnalizando amenazas en tiempo real", Color.FromRgb(0x00, 0xE6, 0x76)),
-            AiStatus.Connecting  => ("#FFB300", "IA", "IA conectando…",                                              Color.FromRgb(0xFF, 0xB3, 0x00)),
-            AiStatus.Error       => ("#F44336", "IA", $"IA no disponible · {modelName}\nRevisa que Ollama esté corriendo: ollama serve", Color.FromRgb(0xF4, 0x43, 0x36)),
-            _                    => ("#555566", "IA", "IA offline · Análisis heurístico local activo",               Color.FromRgb(0x55, 0x55, 0x66)),
+            AiStatus.Ready       => ("#00E676", "IA", string.Format(L.T("urlbar.ai.ready"), modelName), Color.FromRgb(0x00, 0xE6, 0x76)),
+            AiStatus.Connecting  => ("#FFB300", "IA", L.T("urlbar.ai.connecting"),                      Color.FromRgb(0xFF, 0xB3, 0x00)),
+            AiStatus.Error       => ("#F44336", "IA", string.Format(L.T("urlbar.ai.error"), modelName), Color.FromRgb(0xF4, 0x43, 0x36)),
+            _                    => ("#555566", "IA", L.T("urlbar.ai.offline"),                         Color.FromRgb(0x55, 0x55, 0x66)),
         };
 
         AiDot.Fill         = new SolidColorBrush(color);
@@ -215,7 +218,8 @@ public partial class UrlBar : UserControl
         BookmarkButton.Foreground = bookmarked
             ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB300"))
             : (Brush)FindResource("TextMutedBrush");
-        BookmarkButton.ToolTip = bookmarked ? "Eliminar marcador" : "Guardar marcador";
+        var L = LocalizationService.Current;
+        BookmarkButton.ToolTip = bookmarked ? L.T("urlbar.bookmark.remove") : L.T("urlbar.bookmark.add");
     }
 }
 
