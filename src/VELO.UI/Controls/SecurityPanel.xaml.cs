@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using VELO.Core.Localization;
 using VELO.Security;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
@@ -43,9 +44,54 @@ public partial class SecurityPanel : UserControl
         _countdownTimer.Tick += (_, _) =>
         {
             _secondsLeft--;
-            CountdownLabel.Text = _secondsLeft > 0 ? $"Cerrando en {_secondsLeft}s…" : "";
+            CountdownLabel.Text = _secondsLeft > 0
+                ? string.Format(LocalizationService.Current.T("security.countdown"), _secondsLeft)
+                : "";
         };
+
+        ApplyLanguage();
+        LocalizationService.Current.LanguageChanged += ApplyLanguage;
+        Unloaded += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
     }
+
+    /// <summary>
+    /// v2.0.5.2 — Pulls every static label from <see cref="LocalizationService"/>
+    /// so a language change in Settings updates the panel live. The dynamic
+    /// strings (WhatHappenedLabel/WhyBlockedLabel/WhatItMeansLabel) come from
+    /// <see cref="ExplanationGenerator"/> using the active language.
+    /// </summary>
+    private void ApplyLanguage()
+    {
+        var L = LocalizationService.Current;
+
+        WhatHappenedHeader.Text = L.T("security.what_happened");
+        WhyBlockedHeader.Text   = L.T("security.why_blocked");
+        WhatItMeansHeader.Text  = L.T("security.what_means");
+        LearnMoreLink.Text      = L.T("security.learn_more");
+
+        TechnicalDetails.Header = L.T("security.tech_details");
+        TypeHeader.Text         = L.T("security.label.type");
+        SourceHeader.Text       = L.T("security.label.source");
+        ConfidenceHeader.Text   = L.T("security.label.confidence");
+        ScoreHeader.Text        = L.T("security.label.score");
+
+        FalsePositiveLink.Text  = L.T("security.false_positive");
+        AllowOnceButton.Content = L.T("security.allow_once");
+        WhitelistButton.Content = L.T("security.whitelist");
+
+        MinimizeButton.ToolTip  = L.T("security.minimize");
+        CloseButton.ToolTip     = L.T("security.close");
+
+        // Re-apply the verdict label if currently shown (preserves color via brush).
+        if (VerdictLabel.Tag is VerdictType v) VerdictLabel.Text = VerdictLabelFor(v);
+    }
+
+    private static string VerdictLabelFor(VerdictType v) => v switch
+    {
+        VerdictType.Block => LocalizationService.Current.T("security.verdict.block"),
+        VerdictType.Warn  => LocalizationService.Current.T("security.verdict.warn"),
+        _                 => LocalizationService.Current.T("security.verdict.safe"),
+    };
 
     // ── Show (primary entry point — same signature as v1 + overload) ─────────
 
@@ -81,8 +127,8 @@ public partial class SecurityPanel : UserControl
         _sessionThreatCount++;
         if (verdict.Verdict == VerdictType.Warn) _hasActiveWarn = true;
 
-        // Generate v2 explanation
-        var explanation = _explanationGenerator.Generate(verdict);
+        // Generate v2 explanation in the active UI language
+        var explanation = _explanationGenerator.Generate(verdict, LocalizationService.Current.Language);
         _currentLearnMoreUrl = explanation.LearnMoreUrl ?? "";
 
         // Build false-positive GitHub URL (no personal data)
@@ -91,7 +137,7 @@ public partial class SecurityPanel : UserControl
         // Populate UI
         DomainLabel.Text      = $"📍 {domain}";
         WhatHappenedLabel.Text = similarCount > 5
-            ? $"🔴 {similarCount} eventos similares bloqueados de {domain} en los últimos 30 segundos."
+            ? string.Format(LocalizationService.Current.T("security.events_grouped"), similarCount, domain)
             : explanation.WhatHappened;
         WhyBlockedLabel.Text  = explanation.WhyBlocked;
         WhatItMeansLabel.Text = explanation.WhatItMeans;
@@ -120,7 +166,7 @@ public partial class SecurityPanel : UserControl
         _collapseTimer.Stop();
         _countdownTimer.Stop();
         _secondsLeft = 6;
-        CountdownLabel.Text = $"Cerrando en {_secondsLeft}s…";
+        CountdownLabel.Text = string.Format(LocalizationService.Current.T("security.countdown"), _secondsLeft);
         _collapseTimer.Start();
         _countdownTimer.Start();
     }
@@ -148,11 +194,11 @@ public partial class SecurityPanel : UserControl
 
     private void ApplyVerdictStyle(VerdictType verdict)
     {
-        var (borderHex, icon, labelText) = verdict switch
+        var (borderHex, icon) = verdict switch
         {
-            VerdictType.Block => ("#E53E3E", "🔴", "AMENAZA BLOQUEADA"),
-            VerdictType.Warn  => ("#F0B429", "⚠️", "ADVERTENCIA"),
-            _                 => ("#2EB54F", "✅", "SEGURO"),
+            VerdictType.Block => ("#E53E3E", "🔴"),
+            VerdictType.Warn  => ("#F0B429", "⚠️"),
+            _                 => ("#2EB54F", "✅"),
         };
 
         var color = (Color)ColorConverter.ConvertFromString(borderHex);
@@ -160,8 +206,9 @@ public partial class SecurityPanel : UserControl
 
         PanelBorder.BorderBrush = brush;
         VerdictIcon.Text        = icon;
-        VerdictLabel.Text       = labelText;
+        VerdictLabel.Text       = VerdictLabelFor(verdict);
         VerdictLabel.Foreground = brush;
+        VerdictLabel.Tag        = verdict; // remembered so ApplyLanguage can re-localize
     }
 
     private void UpdateChip()

@@ -81,13 +81,13 @@
                                VerticalAlignment="Center"
                                Foreground="#FF3D71"
                                Text="AMENAZA BLOQUEADA"/>
-                    <Button Grid.Column="2"
+                    <Button x:Name="MinimizeButton" Grid.Column="2"
                             Style="{StaticResource IconButton}"
                             Content="⟩" FontSize="13"
                             ToolTip="Minimizar"
                             AutomationProperties.Name="Minimizar panel de seguridad"
                             Click="CollapseToMini_Click"/>
-                    <Button Grid.Column="3"
+                    <Button x:Name="CloseButton" Grid.Column="3"
                             Style="{StaticResource IconButton}"
                             Content="✕" FontSize="11"
                             ToolTip="Cerrar"
@@ -104,7 +104,7 @@
                            Text="📍 dominio.ejemplo.com"/>
 
                 <!-- ── Sección: ¿Qué pasó? ──────────────────────────────── -->
-                <TextBlock Text="¿Qué pasó?" FontSize="11" FontWeight="SemiBold"
+                <TextBlock x:Name="WhatHappenedHeader" Text="¿Qué pasó?" FontSize="11" FontWeight="SemiBold"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,0,0,4"/>
                 <TextBlock x:Name="WhatHappenedLabel"
@@ -114,7 +114,7 @@
                            Text=""/>
 
                 <!-- ── Sección: ¿Por qué lo bloqueé? ──────────────────── -->
-                <TextBlock Text="¿Por qué lo bloqueé?" FontSize="11" FontWeight="SemiBold"
+                <TextBlock x:Name="WhyBlockedHeader" Text="¿Por qué lo bloqueé?" FontSize="11" FontWeight="SemiBold"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,0,0,4"/>
                 <TextBlock x:Name="WhyBlockedLabel"
@@ -124,7 +124,7 @@
                            Text=""/>
 
                 <!-- ── Sección: ¿Qué significa para ti? ───────────────── -->
-                <TextBlock Text="¿Qué significa para ti?" FontSize="11" FontWeight="SemiBold"
+                <TextBlock x:Name="WhatItMeansHeader" Text="¿Qué significa para ti?" FontSize="11" FontWeight="SemiBold"
                            Foreground="{StaticResource TextSecondaryBrush}"
                            Margin="0,0,0,4"/>
                 <TextBlock x:Name="WhatItMeansLabel"
@@ -161,14 +161,14 @@
                             <RowDefinition/>
                             <RowDefinition/>
                         </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Tipo:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
-                        <TextBlock x:Name="ThreatTypeLabel" Grid.Row="0" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Fuente:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
-                        <TextBlock x:Name="SourceLabel" Grid.Row="1" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Confianza:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
-                        <TextBlock x:Name="ConfidenceLabel" Grid.Row="2" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Score:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
-                        <TextBlock x:Name="ScoreLabel" Grid.Row="3" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                        <TextBlock x:Name="TypeHeader"       Grid.Row="0" Grid.Column="0" Text="Tipo:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ThreatTypeLabel"   Grid.Row="0" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                        <TextBlock x:Name="SourceHeader"     Grid.Row="1" Grid.Column="0" Text="Fuente:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="SourceLabel"       Grid.Row="1" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                        <TextBlock x:Name="ConfidenceHeader" Grid.Row="2" Grid.Column="0" Text="Confianza:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ConfidenceLabel"   Grid.Row="2" Grid.Column="1" FontSize="10" Margin="8,2"/>
+                        <TextBlock x:Name="ScoreHeader"       Grid.Row="3" Grid.Column="0" Text="Score:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ScoreLabel"        Grid.Row="3" Grid.Column="1" FontSize="10" Margin="8,2"/>
                     </Grid>
                 </Expander>
 

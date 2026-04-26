@@ -102,7 +102,12 @@ public class ExplanationGenerator
     private static SecurityExplanation Build(ExplanationTemplates.Template t,
         string language, Dictionary<string, string> vars)
     {
-        bool isEs = !language.StartsWith("en", StringComparison.OrdinalIgnoreCase);
+        // v2.0.5.2 — Only Spanish gets the _es templates. Every other language
+        // (en/pt/fr/de/zh/ru/ja/…) falls back to English, which is universally
+        // more useful than seeing Spanish text in a French/German/Japanese UI.
+        // Per-language translations of all 14 templates × 3 fields land in
+        // Phase 3; this at least stops mis-routing immediately.
+        bool isEs = language.StartsWith("es", StringComparison.OrdinalIgnoreCase);
 
         var what  = isEs ? t.WhatHappened_es : t.WhatHappened_en;
         var why   = isEs ? t.WhyBlocked_es   : t.WhyBlocked_en;
@@ -121,7 +126,7 @@ public class ExplanationGenerator
 
     private static string InferBigTech(string? source)
     {
-        if (source is null) return "el rastreador";
+        if (source is null) return "the tracker";
         var s = source.ToLowerInvariant();
         if (s.Contains("google") || s.Contains("doubleclick") || s.Contains("gstatic") || s.Contains("googleapis"))
             return "Google";
@@ -135,6 +140,6 @@ public class ExplanationGenerator
             return "X/Twitter";
         if (s.Contains("tiktok") || s.Contains("bytedance"))
             return "TikTok";
-        return "el rastreador";
+        return "the tracker";
     }
 }
