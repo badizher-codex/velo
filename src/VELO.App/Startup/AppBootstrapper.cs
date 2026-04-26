@@ -29,6 +29,22 @@ public class AppBootstrapper(IServiceProvider services)
         var db = _services.GetRequiredService<VeloDatabase>();
         await db.InitializeAsync();
 
+        // 1b (v2.0.5.1). One-shot heal pass on the Malwaredex table — older
+        // builds could insert duplicate (ThreatType, SubType) rows under load,
+        // and the Malwaredex window threw an ArgumentException on those.
+        // Collapses duplicates into a single row, summing TotalSeen.
+        try
+        {
+            var malwaredex = _services.GetRequiredService<MalwaredexRepository>();
+            var removed = await malwaredex.DeduplicateAsync();
+            if (removed > 0)
+                _logger.LogInformation("Malwaredex: deduped {Count} legacy duplicate row(s)", removed);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Malwaredex dedupe pass failed — non-fatal");
+        }
+
         // 2. Blocklists — try AppData cache first (fast), then bundled fallback
         var blocklist = _services.GetRequiredService<BlocklistManager>();
         await blocklist.LoadCachedAsync();
