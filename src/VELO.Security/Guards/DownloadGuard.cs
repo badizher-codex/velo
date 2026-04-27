@@ -98,6 +98,21 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
             return DownloadVerdict.Allow();
         }
 
+        // ── Rule 0b (v2.0.5.6): downloads from RequestGuard's TrustedHosts ─
+        //   "Trusted" means we trust this CDN/hosting domain to serve binaries.
+        //   Cross-origin Rule 2 was killing legitimate releases hosted on a
+        //   different GitHub host than the project landing page (e.g. project
+        //   page on *.github.io → installer on github.com or
+        //   objects.githubusercontent.com). Allowing trusted CDNs unconditionally
+        //   matches the user's intent without re-introducing drive-by risk.
+        if (!string.IsNullOrEmpty(dlHost)
+            && (RequestGuard.TrustedHosts.Contains(dlHost)
+             || RequestGuard.TrustedHosts.Contains(GetEtldPlusOne(dlHost))))
+        {
+            _logger.LogInformation("Download from TrustedHosts allowed: {File} from {Host}", fileName, dlHost);
+            return DownloadVerdict.Allow();
+        }
+
         var L = LocalizationService.Current;
 
         // ── Rule 1: burst attack ─────────────────────────────────────────
