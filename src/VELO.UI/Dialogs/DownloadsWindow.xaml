@@ -94,7 +94,12 @@
                                                 </Style>
                                             </Button.Style>
                                         </Button>
-                                        <!-- Open folder button — shown when completed -->
+                                        <!-- Open folder button — shown for any non-progress state.
+                                             v2.0.5.9: Was Completed-only, but Windows Defender /
+                                             SmartScreen often leaves .exe downloads in Interrupted
+                                             state even after the file lands on disk. Showing the
+                                             folder button for Interrupted/Cancelled/Completed lets
+                                             the user always navigate to where the file went. -->
                                         <Button Content="📂" FontSize="13" Padding="6"
                                                 ToolTip="{Binding Source='downloads.folder', Converter={StaticResource L}}"
                                                 Click="OpenFolder_Click"
@@ -103,7 +108,7 @@
                                                 <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding State}" Value="Completed">
+                                                        <DataTrigger Binding="{Binding IsInProgress}" Value="False">
                                                             <Setter Property="Visibility" Value="Visible"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
