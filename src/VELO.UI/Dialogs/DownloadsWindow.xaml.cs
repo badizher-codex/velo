@@ -50,8 +50,22 @@ public partial class DownloadsWindow : Window
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.Tag is string path && File.Exists(path))
+        // v2.0.5.11 — Three-tier fallback so the button never feels broken:
+        //   1) File on disk → /select highlights it in Explorer
+        //   2) File missing but parent dir exists → open the parent dir
+        //      (covers "still downloading" and "AV moved/quarantined the file")
+        //   3) Neither → silently no-op
+        if (sender is not Button btn || btn.Tag is not string path || string.IsNullOrEmpty(path)) return;
+
+        if (File.Exists(path))
+        {
             Process.Start("explorer.exe", $"/select,\"{path}\"");
+            return;
+        }
+
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+            Process.Start("explorer.exe", $"\"{dir}\"");
     }
 
     private void Remove_Click(object sender, RoutedEventArgs e)

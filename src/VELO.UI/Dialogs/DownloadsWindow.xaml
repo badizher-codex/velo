@@ -94,27 +94,18 @@
                                                 </Style>
                                             </Button.Style>
                                         </Button>
-                                        <!-- Open folder button — shown for any non-progress state.
-                                             v2.0.5.9: Was Completed-only, but Windows Defender /
-                                             SmartScreen often leaves .exe downloads in Interrupted
-                                             state even after the file lands on disk. Showing the
-                                             folder button for Interrupted/Cancelled/Completed lets
-                                             the user always navigate to where the file went. -->
+                                        <!-- Open folder button — always visible.
+                                             v2.0.5.11: removed the State/IsInProgress gate.
+                                             Matches Chrome/Edge behaviour: even while a file is
+                                             downloading the user can preview where it will land.
+                                             OpenFolder_Click handles non-existent paths by opening
+                                             the parent directory instead, so it never silently
+                                             does nothing when clicked early. -->
                                         <Button Content="📂" FontSize="13" Padding="6"
+                                                Style="{StaticResource IconButton}"
                                                 ToolTip="{Binding Source='downloads.folder', Converter={StaticResource L}}"
                                                 Click="OpenFolder_Click"
-                                                Tag="{Binding FilePath}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsInProgress}" Value="False">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
+                                                Tag="{Binding FilePath}"/>
                                         <!-- Remove button — shown when not in progress -->
                                         <Button Content="✕" FontSize="10" Padding="6"
                                                 ToolTip="{Binding Source='downloads.remove', Converter={StaticResource L}}"
