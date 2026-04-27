@@ -211,18 +211,19 @@ public partial class NewTabPage : UserControl
     {
         _lastStats = (trackers, blocked, sites);
 
+        var L = LocalizationService.Current;
         if (trackers == 0 && blocked == 0)
         {
-            StatsText.Text = LocalizationService.Current.T("newtab.stats.empty");
+            StatsText.Text = L.T("newtab.stats.empty");
             return;
         }
 
         var parts = new List<string>();
-        if (trackers > 0) parts.Add($"{trackers} rastreadores bloqueados");
-        if (blocked > 0 && blocked != trackers) parts.Add($"{blocked} requests bloqueados");
-        if (sites > 0) parts.Add($"{sites} sitios visitados");
+        if (trackers > 0)                       parts.Add(string.Format(L.T("newtab.stats.trackers"), trackers));
+        if (blocked > 0 && blocked != trackers) parts.Add(string.Format(L.T("newtab.stats.requests"), blocked));
+        if (sites > 0)                          parts.Add(string.Format(L.T("newtab.stats.sites"),    sites));
 
-        StatsText.Text = string.Join(" · ", parts) + " en total";
+        StatsText.Text = string.Join(" · ", parts) + L.T("newtab.stats.total");
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────

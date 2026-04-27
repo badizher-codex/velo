@@ -344,7 +344,7 @@ public partial class BrowserTab : UserControl
             ShowWebView();
             WebView.CoreWebView2.NavigateToString(BuildAboutPage());
             UrlChanged?.Invoke(this, "velo://about");
-            TitleChanged?.Invoke(this, "Acerca de VELO");
+            TitleChanged?.Invoke(this, LocalizationService.Current.T("about.title"));
             return;
         }
 
@@ -367,7 +367,18 @@ public partial class BrowserTab : UserControl
         var version = v == null
             ? "?"
             : v.Revision > 0 ? v.ToString(4) : v.ToString(3);
-        return BuildAboutPageTemplate().Replace("VELO_VERSION_PLACEHOLDER", version);
+
+        // v2.0.5.10 — Localise the inline copy that lives inside the HTML
+        // template. Title, unsigned-build banner and "Built with…" footer
+        // resolve from LocalizationService so the about page matches the
+        // active UI language instead of staying in Spanish forever.
+        var L = LocalizationService.Current;
+        return BuildAboutPageTemplate()
+            .Replace("VELO_VERSION_PLACEHOLDER",       version)
+            .Replace("VELO_TITLE_PLACEHOLDER",         L.T("about.title"))
+            .Replace("VELO_UNSIGNED_HEADER_PLACEHOLDER", L.T("about.unsigned.header"))
+            .Replace("VELO_UNSIGNED_BODY_PLACEHOLDER",   L.T("about.unsigned.body"))
+            .Replace("VELO_BUILTWITH_PLACEHOLDER",       L.T("about.builtwith"));
     }
 
     private static string BuildAboutPageTemplate() => """
@@ -375,7 +386,7 @@ public partial class BrowserTab : UserControl
         <html lang="es">
         <head>
         <meta charset="utf-8"/>
-        <title>Acerca de VELO</title>
+        <title>VELO_TITLE_PLACEHOLDER</title>
         <style>
           * { margin:0; padding:0; box-sizing:border-box; }
           body {
@@ -492,13 +503,12 @@ public partial class BrowserTab : UserControl
             </div>
             <hr class="divider"/>
             <div style="padding:10px 12px;margin:0 0 16px 0;background:#2a1a00;border-left:3px solid #ffb300;color:#ffb300;font-size:11px;line-height:1.5;text-align:left;border-radius:4px">
-              <strong>⚠ Build no firmado</strong><br/>
-              Este binario no tiene firma Authenticode. Windows SmartScreen mostrará una advertencia.
-              Verifica la integridad con el hash SHA256 publicado en la página de Releases:
+              <strong>VELO_UNSIGNED_HEADER_PLACEHOLDER</strong><br/>
+              VELO_UNSIGNED_BODY_PLACEHOLDER
               <a href="https://github.com/badizher-codex/velo/releases" target="_blank">github.com/badizher-codex/velo/releases</a>
             </div>
             <div class="meta">
-              Construido con C# · .NET 8 · WPF · Microsoft WebView2<br/>
+              VELO_BUILTWITH_PLACEHOLDER<br/>
               <a href="https://github.com/badizher-codex/velo" target="_blank">github.com/badizher-codex/velo</a><br/>
               <br/>
               © 2026 VELO Browser Contributors · GNU AGPLv3
