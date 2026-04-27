@@ -134,13 +134,25 @@ public partial class SecurityPanel : UserControl
         // Build false-positive GitHub URL (no personal data)
         _currentFalsePositiveUrl = BuildFalsePositiveUrl(domain, verdict);
 
+        // v2.0.5.5 — DownloadGuard already writes a precise, user-facing reason
+        // (cross-origin exec, burst attack, dangerous-extension warning…). Using
+        // the generic Malware template was misleading — it cited "VELO's Malwaredex
+        // database" when the real block came from a cross-origin heuristic. When
+        // the source is DownloadGuard, surface the verdict's own Reason instead.
+        bool useVerdictReason = verdict.Source == "DownloadGuard"
+                                && !string.IsNullOrWhiteSpace(verdict.Reason);
+
         // Populate UI
-        DomainLabel.Text      = $"📍 {domain}";
+        DomainLabel.Text       = $"📍 {domain}";
         WhatHappenedLabel.Text = similarCount > 5
             ? string.Format(LocalizationService.Current.T("security.events_grouped"), similarCount, domain)
-            : explanation.WhatHappened;
-        WhyBlockedLabel.Text  = explanation.WhyBlocked;
-        WhatItMeansLabel.Text = explanation.WhatItMeans;
+            : useVerdictReason ? verdict.Reason : explanation.WhatHappened;
+        WhyBlockedLabel.Text   = useVerdictReason ? "" : explanation.WhyBlocked;
+        WhatItMeansLabel.Text  = useVerdictReason ? "" : explanation.WhatItMeans;
+        WhyBlockedHeader.Visibility   = useVerdictReason ? Visibility.Collapsed : Visibility.Visible;
+        WhyBlockedLabel.Visibility    = useVerdictReason ? Visibility.Collapsed : Visibility.Visible;
+        WhatItMeansHeader.Visibility  = useVerdictReason ? Visibility.Collapsed : Visibility.Visible;
+        WhatItMeansLabel.Visibility   = useVerdictReason ? Visibility.Collapsed : Visibility.Visible;
 
         LearnMoreLink.Visibility  = string.IsNullOrEmpty(_currentLearnMoreUrl)
             ? Visibility.Collapsed : Visibility.Visible;

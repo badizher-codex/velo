@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using VELO.Core.Localization;
 using VELO.Security.AI.Models;
 
 namespace VELO.Security.Guards;
@@ -97,14 +98,15 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
             return DownloadVerdict.Allow();
         }
 
+        var L = LocalizationService.Current;
+
         // ── Rule 1: burst attack ─────────────────────────────────────────
         if (isBurst)
         {
             _logger.LogWarning("BURST download blocked: tab={Tab} file={File} from={Page}",
                 tabId, fileName, pageUrl);
             return DownloadVerdict.Block(
-                $"Descarga bloqueada: múltiples descargas automáticas detectadas (ataque drive-by). " +
-                $"El sitio intentó descargar '{fileName}' sin tu permiso.",
+                string.Format(L.T("download.block.burst"), fileName),
                 ThreatType.Malware);
         }
 
@@ -114,8 +116,7 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
             _logger.LogWarning("Cross-origin exec blocked: {File} from {DownloadUrl} on page {Page}",
                 fileName, downloadUrl, pageUrl);
             return DownloadVerdict.Block(
-                $"Descarga bloqueada: '{fileName}' es un ejecutable descargado desde un dominio diferente al de la página. " +
-                $"Este patrón es característico de malware drive-by.",
+                string.Format(L.T("download.block.crossorigin"), fileName),
                 ThreatType.Malware);
         }
 
@@ -124,8 +125,7 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
         {
             _logger.LogInformation("Dangerous ext warning: {File}", fileName);
             return DownloadVerdict.Warn(
-                $"'{fileName}' es un archivo ejecutable. " +
-                $"Asegúrate de que confías en este sitio antes de abrirlo.",
+                string.Format(L.T("download.warn.dangerous"), fileName),
                 ThreatType.Malware);
         }
 
@@ -178,6 +178,18 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
     {
         try
         {
+            // v2.0.5.5 — A download with no real parent page is, by definition, NOT
+            // a drive-by attack. This happens when an external program (e.g. Bambu
+            // Studio's update window) launches VELO directly with a download URL,
+            // or when the user pastes a download URL into a fresh tab. Treat it as
+            // same-origin so Rule 2 (cross-origin executable) doesn't fire — the
+            // file still gets the dangerous-extension warning via Rule 3.
+            if (string.IsNullOrWhiteSpace(pageUrl)
+                || pageUrl.StartsWith("about:", StringComparison.OrdinalIgnoreCase)
+                || pageUrl.StartsWith("velo://", StringComparison.OrdinalIgnoreCase)
+                || pageUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                return false;
+
             if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var dlUri)) return false;
             if (!Uri.TryCreate(pageUrl,     UriKind.Absolute, out var pgUri)) return false;
 
