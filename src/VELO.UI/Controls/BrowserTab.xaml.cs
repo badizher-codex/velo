@@ -359,8 +359,14 @@ public partial class BrowserTab : UserControl
 
     private static string BuildAboutPage()
     {
-        var version = System.Reflection.Assembly
-            .GetEntryAssembly()?.GetName().Version?.ToString(3) ?? "?";
+        // v2.0.5.8 — Show 4-component version when the revision is non-zero
+        // (e.g. 2.0.5.7 hotfixes), otherwise the conventional 3-component
+        // form (2.0.4 not 2.0.4.0). Previously ToString(3) silently dropped
+        // the hotfix counter, so v2.0.5.7 looked like v2.0.5 in About.
+        var v = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
+        var version = v == null
+            ? "?"
+            : v.Revision > 0 ? v.ToString(4) : v.ToString(3);
         return BuildAboutPageTemplate().Replace("VELO_VERSION_PLACEHOLDER", version);
     }
 
