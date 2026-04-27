@@ -22,8 +22,9 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
     // Also exposed publicly so MalwaredexRepository can purge historical false-positive entries.
     public static readonly HashSet<string> TrustedHosts = new(StringComparer.OrdinalIgnoreCase)
     {
-        // GitHub and its asset CDN
-        "github.com", "www.github.com",
+        // GitHub and its asset CDN — also covers any *.github.io project page
+        // because TrustedHosts is checked against the eTLD+1 (GetRootDomain).
+        "github.com", "www.github.com", "github.io",
         "githubusercontent.com", "objects.githubusercontent.com",
         "codeload.github.com", "github-releases.githubusercontent.com",
         "raw.githubusercontent.com", "avatars.githubusercontent.com",

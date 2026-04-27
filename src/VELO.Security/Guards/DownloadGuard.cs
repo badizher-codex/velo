@@ -48,6 +48,21 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
     // Burst window: >1 download within this timespan = burst
     private static readonly TimeSpan BurstWindow = TimeSpan.FromSeconds(3);
 
+    // v2.0.5.4 — Per-session "Allow once" + "Whitelist always" exception sets.
+    // Populated by SecurityPanel actions so user overrides actually unblock the
+    // download (previously AllowOnce only affected sub-resource blocking via
+    // RequestGuard, not WebView2 download-starting evaluation).
+    private static readonly HashSet<string> _allowedOnceHosts = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> _whitelistedHosts = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>One-shot allow for the next download from <paramref name="host"/>.</summary>
+    public static void AllowOnce(string host)
+        => _allowedOnceHosts.Add(host.ToLowerInvariant());
+
+    /// <summary>Permanent (per-process) whitelist for downloads from <paramref name="host"/>.</summary>
+    public static void Whitelist(string host)
+        => _whitelistedHosts.Add(host.ToLowerInvariant());
+
     // ── Public API ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -65,6 +80,22 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
         var isSafe       = _safeExts.Contains(ext) && !isDangerous;
         var isBurst      = RecordAndCheckBurst(tabId);
         var isCrossOrigin = IsCrossOrigin(downloadUrl, pageUrl);
+
+        // ── Rule 0 (v2.0.5.4): user override — checked before everything else ─
+        var dlHost = SafeHost(downloadUrl);
+        var pgHost = SafeHost(pageUrl);
+        bool userAllowed =
+            (!string.IsNullOrEmpty(dlHost) && (_whitelistedHosts.Contains(dlHost) || _allowedOnceHosts.Contains(dlHost))) ||
+            (!string.IsNullOrEmpty(pgHost) && (_whitelistedHosts.Contains(pgHost) || _allowedOnceHosts.Contains(pgHost)));
+
+        if (userAllowed)
+        {
+            // Consume the one-shot if it matched
+            _allowedOnceHosts.Remove(dlHost);
+            _allowedOnceHosts.Remove(pgHost);
+            _logger.LogInformation("Download allowed by user override: {File} from {Url}", fileName, downloadUrl);
+            return DownloadVerdict.Allow();
+        }
 
         // ── Rule 1: burst attack ─────────────────────────────────────────
         if (isBurst)
@@ -171,6 +202,13 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
 
     private static string NormalizeHost(string host)
         => host.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? host[4..] : host;
+
+    /// <summary>Returns the lowercased host of <paramref name="url"/> or empty on failure.</summary>
+    private static string SafeHost(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return "";
+        return Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host.ToLowerInvariant() : "";
+    }
 
     /// <summary>Extracts the last two labels of a hostname (simplified eTLD+1).</summary>
     private static string GetEtldPlusOne(string host)

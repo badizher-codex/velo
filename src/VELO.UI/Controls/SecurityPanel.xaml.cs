@@ -281,6 +281,9 @@ public partial class SecurityPanel : UserControl
 
     private void AllowOnce_Click(object sender, RoutedEventArgs e)
     {
+        // v2.0.5.4 — Plumb the override into BOTH guards. Previously only
+        // RequestGuard saw it, so downloads continued to hit DownloadGuard.Block.
+        DownloadGuard.AllowOnce(_currentDomain);
         AllowOnceRequested?.Invoke(this, _currentDomain);
         Hide();
     }
@@ -288,6 +291,7 @@ public partial class SecurityPanel : UserControl
     private void Whitelist_Click(object sender, RoutedEventArgs e)
     {
         RequestGuard.AddToWhitelist(_currentDomain);
+        DownloadGuard.Whitelist(_currentDomain);
         WhitelistRequested?.Invoke(this, _currentDomain);
         Hide();
     }

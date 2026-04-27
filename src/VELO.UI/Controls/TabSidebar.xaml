@@ -117,18 +117,35 @@
                             <!-- Tab row: outer Border carries the per-tab accent tint (local
                                  value so it is never overridden by style triggers); the inner
                                  Border overlays a semi-transparent dark wash for active/hover
-                                 states so the tint still bleeds through subtly. -->
+                                 states so the tint still bleeds through subtly.
+                                 v2.0.5.4 — When the tab is active the outer Border switches to
+                                 a 2 px cyan ring on all sides so the active row is unmistakable
+                                 in the expanded sidebar (mirrors the collapsed-mode treatment). -->
                             <Border x:Name="TabRow"
                                     Background="{Binding SubtleAccentColor, Converter={StaticResource StringToBrush}}"
                                     MinHeight="38"
-                                    BorderThickness="3,0,0,0"
-                                    BorderBrush="{Binding ContainerColor, Converter={StaticResource StringToBrush}}"
                                     Cursor="Hand"
                                     Margin="0,1"
                                     MouseLeftButtonDown="Tab_Click"
                                     MouseMove="Tab_MouseMove"
                                     MouseRightButtonDown="Tab_RightClick"
                                     Tag="{Binding Id}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <!-- Default: 3px container colour stripe on the left -->
+                                        <Setter Property="BorderThickness" Value="3,0,0,0"/>
+                                        <Setter Property="BorderBrush"
+                                                Value="{Binding ContainerColor, Converter={StaticResource StringToBrush}}"/>
+                                        <Setter Property="CornerRadius" Value="0"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                <Setter Property="BorderThickness" Value="2"/>
+                                                <Setter Property="BorderBrush" Value="#FF00E5FF"/>
+                                                <Setter Property="CornerRadius" Value="4"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <!-- Active / hover overlay — semi-transparent so accent shows through -->
                                 <Border>
                                     <Border.Style>
