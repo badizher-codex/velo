@@ -55,3 +55,24 @@ public record PrivacyReceiptReadyEvent(string TabId, string Domain, int Trackers
     int FingerprintAttempts, long BytesNotDownloaded, string FinalShieldLevel) : IEvent;
 public record GlanceOpenedEvent(string Uri) : IEvent;
 public record GlanceClosedEvent(string Uri) : IEvent;
+
+// ── Fase 3 events ────────────────────────────────────────────────────────────
+/// <summary>
+/// Fase 3 / Sprint 1 — Rich event published whenever a request is blocked
+/// (RequestGuard, DownloadGuard, AISecurityEngine, GoldenList). Consumed by
+/// ThreatsPanelV2 to render the live per-tab block list. Existing
+/// SecurityVerdictEvent stays for back-compat callers; this one carries
+/// enough context for grouping by host + AI explanation.
+/// Source values mirror BlockSource enum: GoldenList | Malwaredex | AIEngine
+/// | UserRule | StaticList | RequestGuard | DownloadGuard.
+/// </summary>
+public record BlockedRequestEvent(
+    string TabId,
+    string Host,
+    string FullUrl,
+    string Kind,        // "Tracker" | "Malware" | "Ads" | "Fingerprint" | "Script" | "Social" | "Other"
+    string SubKind,     // "cross-site" | "fingerprint" | "pixel" | …
+    string Source,
+    bool   IsMalwaredexHit,
+    int    Confidence,
+    DateTime BlockedAtUtc) : IEvent;
