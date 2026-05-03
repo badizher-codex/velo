@@ -1182,6 +1182,12 @@ public partial class BrowserTab : UserControl
         if (_downloadGuard != null)
         {
             var verdict = _downloadGuard.Evaluate(_tabId, op.Uri, fileName, _currentPageUrl);
+            // v2.0.5.12 — Use the download URL's host (not the page tab) so the
+            // security panel's "Allow once / Whitelist always" actually whitelists
+            // the offending host. Previously the panel derived domain from the
+            // tab URL, which is empty for external-launched downloads.
+            string downloadHost = "";
+            try { downloadHost = new Uri(op.Uri).Host; } catch { }
 
             if (verdict.Action == DownloadAction.Block)
             {
@@ -1195,7 +1201,8 @@ public partial class BrowserTab : UserControl
                     Reason     = verdict.Reason,
                     ThreatType = verdict.Threat,
                     Source     = "DownloadGuard",
-                    Confidence = 97
+                    Confidence = 97,
+                    Host       = downloadHost,
                 }));
                 return;
             }
@@ -1209,7 +1216,8 @@ public partial class BrowserTab : UserControl
                     Reason     = verdict.Reason,
                     ThreatType = verdict.Threat,
                     Source     = "DownloadGuard",
-                    Confidence = 75
+                    Confidence = 75,
+                    Host       = downloadHost,
                 }));
                 // Fall through — download proceeds
             }

@@ -1,5 +1,5 @@
 #define AppName      "VELO"
-#define AppVersion   "2.0.5.11"
+#define AppVersion   "2.0.5.12"
 #define AppPublisher "VELO Browser Contributors"
 #define AppURL       "https://github.com/badizher-codex/velo"
 #define AppExeName   "VELO.exe"
@@ -37,8 +37,18 @@ CloseApplicationsFilter=*.exe
 RestartApplications=yes
 
 [Languages]
-Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+; Stock Inno Setup 6 languages (all ship in compiler:Languages\). Match the
+; runtime locales VELO supports so the installer matches the in-app UI.
+; ChineseSimplified is not stock (lives in the unofficial pack), so we omit
+; it here — Chinese-speaking users can still pick English or Japanese for
+; install and the app itself runs in their UI language.
+Name: "english";    MessagesFile: "compiler:Default.isl"
+Name: "spanish";    MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "portuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+Name: "french";     MessagesFile: "compiler:Languages\French.isl"
+Name: "german";     MessagesFile: "compiler:Languages\German.isl"
+Name: "russian";    MessagesFile: "compiler:Languages\Russian.isl"
+Name: "japanese";   MessagesFile: "compiler:Languages\Japanese.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"

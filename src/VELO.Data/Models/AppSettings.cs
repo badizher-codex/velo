@@ -36,4 +36,6 @@ public static class SettingKeys
     public const string BlocklistsLastUpdate    = "update.blocklists_last_update";
     public const string OnboardingCompleted     = "onboarding.completed";
     public const string Language               = "ui.language";
+    /// <summary>v2.0.5.12 — Comma-separated list of hosts the user has whitelisted via SecurityPanel.</summary>
+    public const string SecurityWhitelist       = "security.whitelist_hosts";
 }

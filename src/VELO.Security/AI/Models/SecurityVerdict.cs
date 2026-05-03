@@ -50,6 +50,15 @@ public class AIVerdict
     public ThreatType ThreatType { get; set; }
     public string Source { get; set; } = "";
     public bool IsFallback { get; set; }
+    /// <summary>
+    /// v2.0.5.12 — Host most relevant to this verdict (e.g. download URL host
+    /// for DownloadGuard verdicts, request host for RequestGuard). Used by
+    /// SecurityPanel so "Allow once" / "Whitelist always" actually whitelist
+    /// the offending host instead of the page-tab's URL host (which is often
+    /// empty for external-launched downloads, or wrong for cross-origin).
+    /// Empty string means "fall back to the active tab's host".
+    /// </summary>
+    public string Host { get; set; } = "";
 
     public static AIVerdict Safe() => new() { Verdict = VerdictType.Safe, Confidence = 80, Source = "AI" };
 

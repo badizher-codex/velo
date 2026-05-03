@@ -78,6 +78,7 @@
                                     Tag="{Binding Id}"
                                     MouseLeftButtonDown="Tab_Click"
                                     MouseRightButtonDown="Tab_RightClick"
+                                    MouseDown="Tab_MiddleClick"
                                     ToolTip="{Binding Title}">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -129,6 +130,7 @@
                                     MouseLeftButtonDown="Tab_Click"
                                     MouseMove="Tab_MouseMove"
                                     MouseRightButtonDown="Tab_RightClick"
+                                    MouseDown="Tab_MiddleClick"
                                     Tag="{Binding Id}">
                                 <Border.Style>
                                     <Style TargetType="Border">

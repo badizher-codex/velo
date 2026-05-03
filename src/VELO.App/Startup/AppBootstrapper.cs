@@ -54,6 +54,29 @@ public class AppBootstrapper(IServiceProvider services)
             await blocklist.LoadBundledAsync(Path.Combine(appDir, "resources"));
         }
 
+        // 2c (v2.0.5.12). Restore the persistent security whitelist so
+        // "Whitelist always" survives across VELO restarts. Both guards
+        // re-populate from the same source-of-truth list in settings.
+        try
+        {
+            var saved = await _services.GetRequiredService<SettingsRepository>()
+                .GetAsync(SettingKeys.SecurityWhitelist, "");
+            if (!string.IsNullOrWhiteSpace(saved))
+            {
+                foreach (var host in saved.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var h = host.Trim();
+                    if (h.Length == 0) continue;
+                    VELO.Security.Guards.RequestGuard.AddToWhitelist(h);
+                    VELO.Security.Guards.DownloadGuard.Whitelist(h);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Restore security whitelist failed — non-fatal");
+        }
+
         // 3. Load saved language
         var savedLang = await _services.GetRequiredService<SettingsRepository>()
             .GetAsync(SettingKeys.Language, "es");

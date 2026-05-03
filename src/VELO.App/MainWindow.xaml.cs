@@ -113,12 +113,21 @@ public partial class MainWindow : Window
             { if (ActiveBrowserTab() is { } bt) await bt.ToggleReaderModeAsync(); };
         UrlBarControl.ShieldScoreClicked   += (_, _) => OpenSecurityInspector();
 
-        // "Aprender más" en el panel de seguridad → navegar a URL de documentación
+        // "Aprender más" en el panel de seguridad → navegar a documentación.
+        // v2.0.5.12 — Old mapping pointed at docs/threats/{slug}.md which never
+        // existed (404). Point at the real THREAT_MODEL.md doc with the slug as
+        // anchor; even if the anchor is unknown, the page loads and the user
+        // lands on the right reference instead of a GitHub 404.
         SecurityPanelControl.LearnMoreRequested += (_, url) =>
         {
-            if (!string.IsNullOrEmpty(url))
-                _ = ActiveBrowserTab()?.NavigateAsync(url.Replace("velo://docs/threats/",
-                    "https://github.com/badizher-codex/velo/blob/main/docs/threats/") + ".md");
+            if (string.IsNullOrEmpty(url)) return;
+            var slug = url.StartsWith("velo://docs/threats/")
+                ? url["velo://docs/threats/".Length..]
+                : "";
+            var target = string.IsNullOrEmpty(slug)
+                ? "https://github.com/badizher-codex/velo/blob/main/docs/THREAT_MODEL.md"
+                : $"https://github.com/badizher-codex/velo/blob/main/docs/THREAT_MODEL.md#{slug}";
+            _ = ActiveBrowserTab()?.NavigateAsync(target);
         };
 
         // Sidebar: seed default workspace
@@ -131,6 +140,26 @@ public partial class MainWindow : Window
             if (_browserTabs.TryGetValue(tabId, out var bt))
                 return await bt.ExecuteScriptAsync(js);
             return "";
+        };
+        // v2.0.5.12 — Lets ReadPage/Summarize actually re-prompt the LLM
+        // with the extracted page text instead of no-op'ing on approval.
+        _agentExecutor.FollowUpPrompt = (tabId, promptKind, pageText) =>
+        {
+            var tabInfo = _tabManager.GetTab(tabId);
+            if (tabInfo == null) return;
+            var url = tabInfo.Url ?? "";
+            var host = "";
+            try { host = new Uri(url).Host; } catch { }
+            var ctx = new VELO.Agent.Models.AgentContext
+            {
+                CurrentUrl      = url,
+                CurrentDomain   = host,
+                PageTitle       = tabInfo.Title ?? "",
+                PageTextSnippet = pageText,
+                ContainerId     = tabInfo.ContainerId,
+                OpenTabCount    = _browserTabs.Count,
+            };
+            _agentLauncher.SendAsync(tabId, promptKind, ctx);
         };
         _agentSandbox.ActionApproved += async (tabId, action) =>
             await _agentExecutor.ExecuteAsync(tabId, action);
@@ -684,8 +713,13 @@ public partial class MainWindow : Window
             if (newLevel <= shownLevel) return;
             _tabVerdictLevel[tabId] = newLevel;
 
-            var domain = "";
-            try { domain = new Uri(_tabManager.GetTab(tabId)?.Url ?? "").Host; } catch { }
+            // v2.0.5.12 — Prefer the host the verdict was raised against
+            // (e.g. download URL host for DownloadGuard) so AllowOnce/Whitelist
+            // whitelist the right thing. Fall back to the tab URL only when
+            // the verdict didn't carry a specific host.
+            var domain = !string.IsNullOrEmpty(verdict.Host) ? verdict.Host : "";
+            if (string.IsNullOrEmpty(domain))
+                try { domain = new Uri(_tabManager.GetTab(tabId)?.Url ?? "").Host; } catch { }
             SecurityPanelControl.Show(domain, verdict);
         });
     }
@@ -930,9 +964,32 @@ public partial class MainWindow : Window
         ActiveBrowserTab()?.AllowOnce(domain);
     }
 
-    private void Security_Whitelist(object? sender, string domain)
+    private async void Security_Whitelist(object? sender, string domain)
     {
+        if (string.IsNullOrWhiteSpace(domain)) return;
+
+        // v2.0.5.12 — In-memory + persistent. Both guards already saw it via
+        // SecurityPanel.Whitelist_Click; here we save it to settings so the
+        // whitelist survives a VELO restart. Loaded back at startup in
+        // AppBootstrapper.
         RequestGuard.AddToWhitelist(domain);
+        VELO.Security.Guards.DownloadGuard.Whitelist(domain);
+
+        try
+        {
+            var settings = _services.GetRequiredService<SettingsRepository>();
+            var current  = await settings.GetAsync(SettingKeys.SecurityWhitelist, "");
+            var hosts    = string.IsNullOrWhiteSpace(current)
+                ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(current.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                                      StringComparer.OrdinalIgnoreCase);
+            if (hosts.Add(domain.ToLowerInvariant()))
+                await settings.SetAsync(SettingKeys.SecurityWhitelist, string.Join(",", hosts));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Persist whitelist failed: {ex.Message}");
+        }
     }
 
     // ── Bookmarks ────────────────────────────────────────────────────────

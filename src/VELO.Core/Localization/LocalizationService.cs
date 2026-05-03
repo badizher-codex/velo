@@ -858,5 +858,8 @@ public sealed class LocalizationService
         ["newtab.stats.requests"]       = new() { ["es"]="{0} requests bloqueados",["en"]="{0} requests blocked",["pt"]="{0} solicitações bloqueadas",["fr"]="{0} requêtes bloquées",["de"]="{0} Anfragen blockiert",["zh"]="已阻止 {0} 个请求",["ru"]="{0} запросов заблокировано",["ja"]="{0} 件のリクエストをブロック" },
         ["newtab.stats.sites"]          = new() { ["es"]="{0} sitios visitados",["en"]="{0} sites visited",["pt"]="{0} sites visitados",["fr"]="{0} sites visités",["de"]="{0} besuchte Seiten",["zh"]="已访问 {0} 个网站",["ru"]="{0} сайтов посещено",["ja"]="{0} サイトを訪問" },
         ["newtab.stats.total"]          = new() { ["es"]=" en total",["en"]=" in total",["pt"]=" no total",["fr"]=" au total",["de"]=" insgesamt",["zh"]="（总计）",["ru"]=" всего",["ja"]=" 合計" },
+
+        // ── Tab close (v2.0.5.12) — context-menu item for sidebar ────────
+        ["sidebar.tab.close"]           = new() { ["es"]="Cerrar pestaña",["en"]="Close tab",["pt"]="Fechar aba",["fr"]="Fermer l'onglet",["de"]="Tab schließen",["zh"]="关闭标签页",["ru"]="Закрыть вкладку",["ja"]="タブを閉じる" },
     };
 }

@@ -328,9 +328,32 @@ public partial class TabSidebar : UserControl
             }
         }
 
+        // ── Close section (v2.0.5.12) ─────────────────────────────────
+        // Without this menu item there's no way to close a tab when the
+        // sidebar is in compact mode (the X button is only on the expanded
+        // row template). Right-click works on both modes.
+        menu.Items.Add(new Separator());
+        var closeItem = new MenuItem { Header = L.T("sidebar.tab.close") };
+        closeItem.Click += (_, _) => TabCloseRequested?.Invoke(this, tabId);
+        menu.Items.Add(closeItem);
+
         menu.Placement = PlacementMode.MousePoint;
         menu.IsOpen = true;
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// v2.0.5.12 — Standard browser middle-click closes a tab. Works on both
+    /// expanded rows and collapsed squares since both share Tab_MiddleClick.
+    /// </summary>
+    private void Tab_MiddleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Middle) return;
+        if (sender is Border border && border.Tag is string tabId)
+        {
+            TabCloseRequested?.Invoke(this, tabId);
+            e.Handled = true;
+        }
     }
 
     private void CloseTab_Click(object sender, RoutedEventArgs e)

@@ -25,6 +25,15 @@ public class AgentActionExecutor(
     /// </summary>
     public Func<string, string, Task<string>>? ScriptExecutor { get; set; }
 
+    /// <summary>
+    /// v2.0.5.12 — The host wires this to AgentLauncher.SendAsync so that
+    /// approved ReadPage/Summarize actions can re-prompt the LLM with the
+    /// extracted page text. Without it those actions silently no-op.
+    /// Signature: (tabId, prompt, pageText) → fire-and-forget; the resulting
+    /// AgentLauncher.ResponseReady event displays the answer in the chat panel.
+    /// </summary>
+    public Action<string, string, string>? FollowUpPrompt { get; set; }
+
     public async Task ExecuteAsync(string tabId, AgentAction action)
     {
         _logger.LogInformation("Executor: [{Type}] for tab {TabId} — {Desc}",
@@ -95,8 +104,36 @@ public class AgentActionExecutor(
 
                 case AgentActionType.ReadPage:
                 case AgentActionType.Summarize:
+                    // v2.0.5.12 — Extract page text via the script executor and
+                    // re-prompt the LLM with it. Without this the action used to
+                    // no-op silently after approval. The follow-up call is
+                    // fire-and-forget; the host's ResponseReady handler appends
+                    // the answer to the chat panel.
+                    if (ScriptExecutor != null && FollowUpPrompt != null)
+                    {
+                        // innerText avoids dumping HTML/script. JSON.stringify
+                        // makes WebView2's return path safe (script returns a
+                        // quoted string we can deserialize trivially).
+                        const string js =
+                            "JSON.stringify((document.body && document.body.innerText) || '')";
+                        var raw = await ScriptExecutor(tabId, js);
+                        // raw arrives as a JSON-encoded JSON string (double-quoted),
+                        // so peel one layer off.
+                        var pageText = "";
+                        try { pageText = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? ""; }
+                        catch { pageText = raw; }
+                        // Cap to a sane size so adapters don't blow up.
+                        if (pageText.Length > 8000) pageText = pageText[..8000];
+
+                        var promptKind = action.Type == AgentActionType.Summarize
+                            ? "Summarise the page content below in 5 bullet points or fewer (TL;DR)."
+                            : "Read the page content below and answer the user's previous question using only what is on this page.";
+                        FollowUpPrompt(tabId, promptKind, pageText);
+                    }
+                    break;
+
                 case AgentActionType.Respond:
-                    // These produce output in the chat panel — no DOM action needed
+                    // Pure conversational reply — already shown in the chat panel.
                     break;
             }
         }
