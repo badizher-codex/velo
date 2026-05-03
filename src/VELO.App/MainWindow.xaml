@@ -118,11 +118,23 @@
                 <!-- Browser tabs (all kept in visual tree; active one is Visible) -->
                 <Grid x:Name="BrowserContent" Grid.Column="0"/>
 
-                <!-- Security Panel (slides in from right) -->
+                <!-- Security Panel chip (Phase 2) — kept as the always-visible
+                     trigger; clicking it expands ThreatsPanelV2 below. -->
                 <ui:SecurityPanel x:Name="SecurityPanelControl"
                                   Grid.Column="1"
                                   AllowOnceRequested="Security_AllowOnce"
                                   WhitelistRequested="Security_Whitelist"/>
+
+                <!-- Phase 3 Sprint 1 — Threats Panel v3. Sits in column 1
+                     alongside SecurityPanel, hidden by default. Show/hide
+                     wired in MainWindow.xaml.cs to the chip click and to
+                     the ✕ button on the panel itself. -->
+                <ui:ThreatsPanelV2 x:Name="ThreatsPanelControl"
+                                   Grid.Column="1"
+                                   HorizontalAlignment="Right"
+                                   CloseRequested="ThreatsPanel_CloseRequested"
+                                   AllowRequested="ThreatsPanel_AllowRequested"
+                                   ReportRequested="ThreatsPanel_ReportRequested"/>
 
                 <!-- VeloAgent Chat Panel (colapsable, lado derecho) -->
                 <ui:VeloAgentPanel x:Name="AgentPanelControl"

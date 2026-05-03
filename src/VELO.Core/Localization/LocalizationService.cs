@@ -861,5 +861,18 @@ public sealed class LocalizationService
 
         // ── Tab close (v2.0.5.12) — context-menu item for sidebar ────────
         ["sidebar.tab.close"]           = new() { ["es"]="Cerrar pestaña",["en"]="Close tab",["pt"]="Fechar aba",["fr"]="Fermer l'onglet",["de"]="Tab schließen",["zh"]="关闭标签页",["ru"]="Закрыть вкладку",["ja"]="タブを閉じる" },
+
+        // ── Threats Panel v3 (Phase 3 Sprint 1) ──────────────────────────
+        ["threatspanel.header.one"]     = new() { ["es"]="Amenazas — {0} bloqueo",["en"]="Threats — {0} block",["pt"]="Ameaças — {0} bloqueio",["fr"]="Menaces — {0} blocage",["de"]="Bedrohungen — {0} blockiert",["zh"]="威胁 — 已阻止 {0} 个",["ru"]="Угрозы — {0} блокировка",["ja"]="脅威 — {0} 件をブロック" },
+        ["threatspanel.header.many"]    = new() { ["es"]="Amenazas — {0} bloqueos",["en"]="Threats — {0} blocks",["pt"]="Ameaças — {0} bloqueios",["fr"]="Menaces — {0} blocages",["de"]="Bedrohungen — {0} blockiert",["zh"]="威胁 — 已阻止 {0} 个",["ru"]="Угрозы — {0} блокировок",["ja"]="脅威 — {0} 件をブロック" },
+        ["threatspanel.summary.empty"]  = new() { ["es"]="Sin amenazas en esta pestaña.",["en"]="No threats on this tab.",["pt"]="Sem ameaças nesta aba.",["fr"]="Aucune menace sur cet onglet.",["de"]="Keine Bedrohungen auf diesem Tab.",["zh"]="此标签页无威胁。",["ru"]="Нет угроз на этой вкладке.",["ja"]="このタブに脅威はありません。" },
+        ["threatspanel.summary.trackers"]    = new() { ["es"]="Trackers: {0}",["en"]="Trackers: {0}",["pt"]="Rastreadores: {0}",["fr"]="Traqueurs : {0}",["de"]="Tracker: {0}",["zh"]="跟踪器：{0}",["ru"]="Трекеры: {0}",["ja"]="トラッカー：{0}" },
+        ["threatspanel.summary.malware"]     = new() { ["es"]="Malware: {0}",["en"]="Malware: {0}",["pt"]="Malware: {0}",["fr"]="Malware : {0}",["de"]="Malware: {0}",["zh"]="恶意软件：{0}",["ru"]="Вредоносное ПО: {0}",["ja"]="マルウェア：{0}" },
+        ["threatspanel.summary.ads"]         = new() { ["es"]="Anuncios: {0}",["en"]="Ads: {0}",["pt"]="Anúncios: {0}",["fr"]="Publicités : {0}",["de"]="Werbung: {0}",["zh"]="广告：{0}",["ru"]="Реклама: {0}",["ja"]="広告：{0}" },
+        ["threatspanel.summary.fingerprint"] = new() { ["es"]="Fingerprint: {0}",["en"]="Fingerprint: {0}",["pt"]="Fingerprint: {0}",["fr"]="Empreinte : {0}",["de"]="Fingerprint: {0}",["zh"]="指纹：{0}",["ru"]="Отпечаток: {0}",["ja"]="フィンガープリント：{0}" },
+        ["threatspanel.explain.loading"] = new() { ["es"]="Generando explicación…",["en"]="Generating explanation…",["pt"]="Gerando explicação…",["fr"]="Génération de l'explication…",["de"]="Erkläre…",["zh"]="生成解释中…",["ru"]="Генерируется объяснение…",["ja"]="説明を生成中…" },
+        ["threatspanel.explain.error"]   = new() { ["es"]="Error generando explicación: {0}",["en"]="Error generating explanation: {0}",["pt"]="Erro ao gerar explicação: {0}",["fr"]="Erreur de génération : {0}",["de"]="Fehler bei der Erklärung: {0}",["zh"]="生成解释时出错：{0}",["ru"]="Ошибка генерации объяснения: {0}",["ja"]="説明生成エラー：{0}" },
+        ["threatspanel.export.ok"]       = new() { ["es"]="Sesión exportada a {0}",["en"]="Session exported to {0}",["pt"]="Sessão exportada para {0}",["fr"]="Session exportée vers {0}",["de"]="Sitzung exportiert nach {0}",["zh"]="会话已导出到 {0}",["ru"]="Сессия экспортирована в {0}",["ja"]="セッションを {0} にエクスポートしました" },
+        ["threatspanel.export.error"]    = new() { ["es"]="Error exportando: {0}",["en"]="Export error: {0}",["pt"]="Erro ao exportar: {0}",["fr"]="Erreur d'exportation : {0}",["de"]="Exportfehler: {0}",["zh"]="导出错误：{0}",["ru"]="Ошибка экспорта: {0}",["ja"]="エクスポートエラー：{0}" },
     };
 }

@@ -90,6 +90,10 @@ public static class DependencyConfig
         services.AddSingleton<IAIAdapter, OfflineAdapter>();  // default
         services.AddSingleton<AISecurityEngine>();
 
+        // Phase 3 / Sprint 1 — Threats Panel v3 stack.
+        services.AddSingleton<VELO.Security.Threats.BlockExplanationService>();
+        services.AddSingleton<VELO.Security.Threats.ThreatsPanelViewModel>();
+
         // DNS
         services.AddSingleton<HttpClient>();
         services.AddSingleton<IDoHProvider, Quad9Provider>();

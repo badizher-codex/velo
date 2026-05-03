@@ -16,6 +16,12 @@ public partial class SecurityPanel : UserControl
     // ── Public API (unchanged from v1) ───────────────────────────────────────
     public event EventHandler<string>? AllowOnceRequested;
     public event EventHandler<string>? WhitelistRequested;
+    /// <summary>
+    /// Phase 3 Sprint 1 — Raised when the mini chip is clicked. The host wires
+    /// this to toggle ThreatsPanelV2 visibility (option 3 of the agreed UI plan:
+    /// chip stays visible, expanded view is the new grouped panel).
+    /// </summary>
+    public event EventHandler? MiniTabClicked;
 
     // ── State ─────────────────────────────────────────────────────────────────
     private string _currentDomain = "";
@@ -280,6 +286,17 @@ public partial class SecurityPanel : UserControl
 
     private void MiniTab_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        // Phase 3 / option 3 of the agreed plan: when the host has subscribed
+        // to MiniTabClicked, it owns the expansion (opens ThreatsPanelV2) and
+        // we DON'T pop the legacy single-verdict PanelBorder — otherwise the
+        // user would see both stacked. Hosts without the new panel get the
+        // original behaviour.
+        if (MiniTabClicked != null)
+        {
+            MiniTabClicked.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
         MiniTab.Visibility     = Visibility.Collapsed;
         PanelBorder.Visibility = Visibility.Visible;
 

@@ -133,6 +133,41 @@ public partial class MainWindow : Window
         // Sidebar: seed default workspace
         TabSidebarControl.AddWorkspace(Workspace.Default);
 
+        // Phase 3 / Sprint 1 — Threats Panel v3 wiring.
+        var vmThreats   = _services.GetRequiredService<VELO.Security.Threats.ThreatsPanelViewModel>();
+        var explainerSvc = _services.GetRequiredService<VELO.Security.Threats.BlockExplanationService>();
+        ThreatsPanelControl.SetServices(vmThreats, explainerSvc);
+        SecurityPanelControl.MiniTabClicked += (_, _) =>
+            ThreatsPanelControl.Visibility = ThreatsPanelControl.Visibility == Visibility.Visible
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
+        // BlockExplanationService → AgentLauncher chat path. Without this the
+        // service silently falls back to static templates. The wired delegate
+        // sends an open-ended prompt and reads back the assistant's plain
+        // reply, ignoring any structured actions the model may include.
+        explainerSvc.ChatDelegate = (system, user, ct) =>
+        {
+            var tcs = new TaskCompletionSource<string>();
+            void OnResponse(VELO.Agent.Models.AgentResponse r)
+            {
+                if (!tcs.Task.IsCompleted) tcs.TrySetResult(r.ReplyText ?? "");
+                _agentLauncher.ResponseReady -= OnResponse;
+            }
+            _agentLauncher.ResponseReady += OnResponse;
+            ct.Register(() =>
+            {
+                _agentLauncher.ResponseReady -= OnResponse;
+                tcs.TrySetCanceled(ct);
+            });
+            // Minimal context — the system prompt + user prompt carry all the
+            // info BlockExplanationService asked for.
+            _agentLauncher.SendAsync("__explain__",
+                $"{system}\n\n{user}",
+                new VELO.Agent.Models.AgentContext { CurrentUrl = "", PageTitle = "" });
+            return tcs.Task;
+        };
+
         // VeloAgent panel wiring
         AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
         _agentExecutor.ScriptExecutor = async (tabId, js) =>
@@ -721,7 +756,59 @@ public partial class MainWindow : Window
             if (string.IsNullOrEmpty(domain))
                 try { domain = new Uri(_tabManager.GetTab(tabId)?.Url ?? "").Host; } catch { }
             SecurityPanelControl.Show(domain, verdict);
+
+            // Phase 3 / Sprint 1 — Also publish the rich BlockedRequestEvent
+            // so ThreatsPanelV2 can render the per-tab grouped session list.
+            if (verdict.Verdict == VerdictType.Block)
+                PublishBlockedRequest(tabId, domain, verdict);
         });
+    }
+
+    private void PublishBlockedRequest(string tabId, string domain, VELO.Security.AI.Models.AIVerdict verdict)
+    {
+        try
+        {
+            var fullUrl = string.IsNullOrEmpty(domain) ? "" : $"https://{domain}";
+            try
+            {
+                var tabUrl = _tabManager.GetTab(tabId)?.Url ?? "";
+                if (!string.IsNullOrEmpty(tabUrl) && tabUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    fullUrl = tabUrl;
+            }
+            catch { }
+
+            var kind = verdict.ThreatType switch
+            {
+                ThreatType.KnownTracker or ThreatType.Tracker => "Tracker",
+                ThreatType.Fingerprinting                     => "Fingerprint",
+                ThreatType.Malware or ThreatType.Phishing or
+                ThreatType.MitM or ThreatType.DnsRebinding    => "Malware",
+                _                                              => "Other",
+            };
+
+            // verdict.Source mirrors BlockSource enum names where possible
+            // (RequestGuard, DownloadGuard, AIEngine…). Anything else falls
+            // back to "RequestGuard" inside ThreatsPanelViewModel.ParseSource.
+            var source = string.IsNullOrEmpty(verdict.Source) ? "RequestGuard" : verdict.Source;
+
+            var subKey   = $"{kind}::{VELO.Data.Models.MalwaredexEntry.DetectSubType(verdict.ThreatType.ToString(), domain, verdict.Reason ?? "")}";
+            var hit      = _capturedThreatTypes.Contains(subKey);
+
+            _eventBus.Publish(new BlockedRequestEvent(
+                TabId:           tabId,
+                Host:            domain,
+                FullUrl:         fullUrl,
+                Kind:            kind,
+                SubKind:         verdict.ThreatType.ToString(),
+                Source:          source,
+                IsMalwaredexHit: hit,
+                Confidence:      verdict.Confidence,
+                BlockedAtUtc:    DateTime.UtcNow));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] PublishBlockedRequest failed: {ex.Message}");
+        }
     }
 
     // ── UrlBar events ────────────────────────────────────────────────────
@@ -962,6 +1049,38 @@ public partial class MainWindow : Window
     private void Security_AllowOnce(object? sender, string domain)
     {
         ActiveBrowserTab()?.AllowOnce(domain);
+    }
+
+    // ── Threats Panel v3 (Phase 3 / Sprint 1) ────────────────────────────
+
+    private void ThreatsPanel_CloseRequested(object? sender, EventArgs e)
+        => ThreatsPanelControl.Visibility = Visibility.Collapsed;
+
+    private void ThreatsPanel_AllowRequested(object? sender, VELO.Security.Threats.BlockEntry entry)
+    {
+        // Reuse the SecurityPanel allow path so the host still gets whitelisted
+        // through both RequestGuard and DownloadGuard (and persisted to settings).
+        Security_AllowOnce(this, entry.Host);
+        Security_Whitelist(this, entry.Host);
+    }
+
+    private void ThreatsPanel_ReportRequested(object? sender, VELO.Security.Threats.BlockEntry entry)
+    {
+        // Pre-load Malwaredex with the report and surface the window so the
+        // user can confirm. CaptureAsync is idempotent on (ThreatType, SubType).
+        try
+        {
+            var repo = _services.GetRequiredService<MalwaredexRepository>();
+            _ = repo.CaptureAsync(
+                threatType: entry.Kind.ToString(),
+                domain:     entry.Host,
+                reason:     entry.SubKind);
+            OpenMalwaredex();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] ThreatsPanel report failed: {ex.Message}");
+        }
     }
 
     private async void Security_Whitelist(object? sender, string domain)
