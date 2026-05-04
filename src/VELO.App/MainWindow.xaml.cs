@@ -942,6 +942,9 @@ public partial class MainWindow : Window
         var itemClearData = new MenuItem { Header = loc.T("menu.cleardata") };
         itemClearData.Click += (_, _) => OpenClearData();
 
+        var itemImport = new MenuItem { Header = loc.T("menu.import") };
+        itemImport.Click += async (_, _) => await RunImportWizardAsync();
+
         var itemInspector = new MenuItem { Header = "🔍 Security Inspector  Ctrl+Shift+V" };
         itemInspector.Click += (_, _) => OpenSecurityInspector();
 
@@ -960,6 +963,7 @@ public partial class MainWindow : Window
         menu.Items.Add(itemDownloads);
         menu.Items.Add(itemMalwaredex);
         menu.Items.Add(new Separator());
+        menu.Items.Add(itemImport);
         menu.Items.Add(itemInspector);
         menu.Items.Add(new Separator());
         menu.Items.Add(itemClearData);
@@ -1115,6 +1119,98 @@ public partial class MainWindow : Window
     private void Security_AllowOnce(object? sender, string domain)
     {
         ActiveBrowserTab()?.AllowOnce(domain);
+    }
+
+    // ── Browser import wizard (Phase 3 / Sprint 4) ───────────────────────
+
+    private async Task RunImportWizardAsync()
+    {
+        var loc = VELO.Core.Localization.LocalizationService.Current;
+        var svc = _services.GetRequiredService<VELO.Import.BrowserImportService>();
+
+        var detected = await svc.DetectInstalledAsync();
+        if (detected.Count == 0)
+        {
+            MessageBox.Show(this,
+                loc.T("import.none_detected"),
+                loc.T("import.title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        // Browser picker — comma-separated list.
+        var summary = string.Join("\n", detected.Select((b, i) =>
+            $"  {i + 1}) {b.DisplayName}  ({b.ProfileName})"));
+        var pickPrompt = MessageBox.Show(this,
+            string.Format(loc.T("import.detected_body"), detected.Count, summary),
+            loc.T("import.title"),
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Question);
+        if (pickPrompt != MessageBoxResult.OK) return;
+
+        // For the MVP modal we just import from the first detected browser
+        // with default options (bookmarks + history). A full picker UI lives
+        // in a Phase-3-extension wizard window — for now this lets users
+        // ALL of the most common case (Chrome → VELO) in one click.
+        var browser = detected[0];
+        var includePasswords = MessageBox.Show(this,
+            string.Format(loc.T("import.confirm_passwords"), browser.DisplayName),
+            loc.T("import.title"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question) == MessageBoxResult.Yes;
+
+        var opts = new VELO.Import.Models.ImportOptions
+        {
+            Bookmarks = true,
+            History   = true,
+            Passwords = includePasswords,
+        };
+
+        try
+        {
+            Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            var result = await svc.ImportAsync(browser, opts);
+
+            var bodyKey = result.Errors.Count == 0
+                ? "import.done.ok"
+                : "import.done.partial";
+            var report = new System.Text.StringBuilder();
+            report.AppendLine(string.Format(loc.T(bodyKey), browser.DisplayName));
+            report.AppendLine();
+            report.AppendLine($"  • {result.BookmarksImported} {loc.T("import.summary.bookmarks")}");
+            report.AppendLine($"  • {result.HistoryImported} {loc.T("import.summary.history")}");
+            if (opts.Passwords)
+                report.AppendLine($"  • {result.PasswordsImported} {loc.T("import.summary.passwords")}");
+            if (result.Warnings.Count > 0)
+            {
+                report.AppendLine();
+                report.AppendLine(loc.T("import.warnings"));
+                foreach (var w in result.Warnings.Take(5)) report.AppendLine($"  ⚠ {w}");
+            }
+            if (result.Errors.Count > 0)
+            {
+                report.AppendLine();
+                report.AppendLine(loc.T("import.errors"));
+                foreach (var e in result.Errors.Take(5)) report.AppendLine($"  ✗ {e}");
+            }
+            MessageBox.Show(this, report.ToString(), loc.T("import.title"),
+                MessageBoxButton.OK,
+                result.Errors.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Browser import failed");
+            MessageBox.Show(this,
+                string.Format(loc.T("import.fatal"), ex.Message),
+                loc.T("import.title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+        }
     }
 
     // ── Session restore (Phase 3 / Sprint 3) ─────────────────────────────

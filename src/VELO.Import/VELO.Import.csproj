@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
+    <ProjectReference Include="..\VELO.Data\VELO.Data.csproj" />
+    <ProjectReference Include="..\VELO.Vault\VELO.Vault.csproj" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="*" />
+    <PackageReference Include="sqlite-net-pcl" Version="*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="*" />
+  </ItemGroup>
+
+</Project>

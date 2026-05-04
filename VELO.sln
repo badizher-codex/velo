@@ -25,6 +25,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Agent.Tests", "tests\V
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VELO.Core.Tests", "tests\VELO.Core.Tests\VELO.Core.Tests.csproj", "{B1C2D3E4-0003-0000-0000-000000000003}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4A331EE0-0ED6-41D5-A3B5-99F9B16A1CE3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VELO.Import", "src\VELO.Import\VELO.Import.csproj", "{B3009F0C-DDA6-43A8-90C7-FD22BBDCA13C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{AE5F1D87-916B-4BF4-B006-32E8FEAA44F7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VELO.Import.Tests", "tests\VELO.Import.Tests\VELO.Import.Tests.csproj", "{E7C02203-8845-4A7E-9376-13020643AD7B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -75,5 +83,17 @@ Global
 		{B1C2D3E4-0003-0000-0000-000000000003}.Debug|x64.Build.0 = Debug|x64
 		{B1C2D3E4-0003-0000-0000-000000000003}.Release|x64.ActiveCfg = Release|x64
 		{B1C2D3E4-0003-0000-0000-000000000003}.Release|x64.Build.0 = Release|x64
+		{B3009F0C-DDA6-43A8-90C7-FD22BBDCA13C}.Debug|x64.ActiveCfg = Debug|x64
+		{B3009F0C-DDA6-43A8-90C7-FD22BBDCA13C}.Debug|x64.Build.0 = Debug|x64
+		{B3009F0C-DDA6-43A8-90C7-FD22BBDCA13C}.Release|x64.ActiveCfg = Release|x64
+		{B3009F0C-DDA6-43A8-90C7-FD22BBDCA13C}.Release|x64.Build.0 = Release|x64
+		{E7C02203-8845-4A7E-9376-13020643AD7B}.Debug|x64.ActiveCfg = Debug|x64
+		{E7C02203-8845-4A7E-9376-13020643AD7B}.Debug|x64.Build.0 = Debug|x64
+		{E7C02203-8845-4A7E-9376-13020643AD7B}.Release|x64.ActiveCfg = Release|x64
+		{E7C02203-8845-4A7E-9376-13020643AD7B}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B3009F0C-DDA6-43A8-90C7-FD22BBDCA13C} = {4A331EE0-0ED6-41D5-A3B5-99F9B16A1CE3}
+		{E7C02203-8845-4A7E-9376-13020643AD7B} = {AE5F1D87-916B-4BF4-B006-32E8FEAA44F7}
 	EndGlobalSection
 EndGlobal
