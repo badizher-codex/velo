@@ -1326,18 +1326,35 @@ public partial class MainWindow : Window
         await svc.ClearAsync();
     }
 
+    /// <summary>
+    /// v2.1.4 — Maximum tabs we restore eagerly. Above this we warn the user
+    /// and drop the oldest entries. Proper lazy-hydration with placeholder
+    /// rows in the sidebar (per spec § 6.4) is parked for Sprint 7's
+    /// MainWindow refactor; this cap keeps RAM sane in the meantime.
+    /// </summary>
+    private const int RestoreMaxTabs = 30;
+
     private void RestoreSnapshot(VELO.Core.Sessions.SessionSnapshot snap)
     {
         // First window only for now; tear-off windows are session-only by design.
         if (snap.Windows.Count == 0) return;
         var win = snap.Windows[0];
 
-        // Hydrate eagerly for the first 5 tabs (per spec § 6.4 perf note);
-        // the rest get created but the WebView2 doesn't initialise until the
-        // user clicks them. CreateTab does this naturally — only the active
-        // tab + visible tabs eagerly load.
+        var tabsToRestore = win.Tabs;
+        if (tabsToRestore.Count > RestoreMaxTabs)
+        {
+            // Most recently active first — TabSnapshot.LastActiveAtUtc is set
+            // at snapshot time so the user keeps the tabs they actually use.
+            tabsToRestore = tabsToRestore
+                .OrderByDescending(t => t.LastActiveAtUtc)
+                .Take(RestoreMaxTabs)
+                .ToList();
+            Log.Warning("Session restore: snapshot had {Total} tabs; only the {Cap} most recent are restored",
+                win.Tabs.Count, RestoreMaxTabs);
+        }
+
         var initialIdRemovedFromInitialUrl = false;
-        foreach (var tab in win.Tabs)
+        foreach (var tab in tabsToRestore)
         {
             // Skip the auto-created newtab if this is the very first tab —
             // we want the snapshot's URL to be the initial one.
@@ -1350,10 +1367,16 @@ public partial class MainWindow : Window
             _tabManager.CreateTab(tab.Url, tab.ContainerId);
         }
 
-        // The active tab is selected post-CreateTab via OnTabActivated chain.
         Log.Information("Session restore: hydrated {Count} tabs from snapshot saved at {SavedAt}",
-            win.Tabs.Count, snap.SavedAtUtc);
+            tabsToRestore.Count, snap.SavedAtUtc);
     }
+
+    /// <summary>
+    /// v2.1.4 — Cached fingerprint of the last snapshot so the 30-second
+    /// heartbeat can skip the disk write when nothing relevant has changed.
+    /// 120 unnecessary writes/hour add up on SSDs over time.
+    /// </summary>
+    private string _lastSessionFingerprint = "";
 
     private async Task SaveSessionSnapshotAsync(bool cleanShutdown)
     {
@@ -1393,7 +1416,38 @@ public partial class MainWindow : Window
             Windows          = [window],
         };
 
+        // v2.1.4 — Skip the disk write when the heartbeat would produce the
+        // same content as before. Saves ~120 writes/hour on idle sessions.
+        // Always write on a clean shutdown so the WasCleanShutdown=true flag
+        // lands even if the user hasn't opened a new tab in 5 minutes.
+        var fingerprint = ComputeSessionFingerprint(window, cleanShutdown);
+        if (!cleanShutdown && fingerprint == _lastSessionFingerprint) return;
+        _lastSessionFingerprint = fingerprint;
+
         await svc.SnapshotAsync(snap);
+    }
+
+    /// <summary>
+    /// Cheap, allocation-light hash of the per-tab (id|url|title|container|
+    /// workspace) tuples plus active-tab id and window bounds. Two heartbeats
+    /// with identical browsing state produce identical strings; anything that
+    /// would change the on-disk JSON also changes this.
+    /// </summary>
+    private static string ComputeSessionFingerprint(VELO.Core.Sessions.WindowSnapshot w, bool cleanShutdown)
+    {
+        var sb = new System.Text.StringBuilder(256);
+        sb.Append(cleanShutdown ? '1' : '0');
+        sb.Append('|').Append(w.ActiveTabId);
+        sb.Append('|').Append((int)w.Left).Append(',').Append((int)w.Top)
+          .Append(',').Append((int)w.Width).Append(',').Append((int)w.Height)
+          .Append(',').Append(w.IsMaximised ? '1' : '0');
+        foreach (var t in w.Tabs)
+        {
+            sb.Append('\n').Append(t.Id).Append('|').Append(t.Url).Append('|')
+              .Append(t.Title).Append('|').Append(t.ContainerId).Append('|')
+              .Append(t.WorkspaceId);
+        }
+        return sb.ToString();
     }
 
     /// <summary>

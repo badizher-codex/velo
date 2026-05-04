@@ -143,9 +143,26 @@ public sealed class BrowserImportService
                     var importer = new PasswordImporter();
                     var pr = importer.Import(browser);
                     foreach (var w in pr.Warnings) result.Warnings.Add($"Passwords: {w}");
+
+                    // v2.1.4 — Dedup against the existing Vault. Re-running the
+                    // import after sprint 4 used to silently double-up entries
+                    // since the wizard isn't gated to once-only. Match by
+                    // (Url host, Username) since identical credentials saved
+                    // for two subdomains is uncommon enough to ignore.
+                    var existing = await _vault.GetAllAsync();
+                    var existingKeys = new HashSet<string>(
+                        existing.Select(e => DedupKey(e.Url, e.Username)),
+                        StringComparer.OrdinalIgnoreCase);
+                    int duplicates = 0;
+
                     foreach (var c in pr.Credentials)
                     {
                         ct.ThrowIfCancellationRequested();
+                        if (!existingKeys.Add(DedupKey(c.Url, c.Username)))
+                        {
+                            duplicates++;
+                            continue;
+                        }
                         var siteName = TryHost(c.Url, fallback: c.Url);
                         await _vault.SaveAsync(new PasswordEntry
                         {
@@ -157,6 +174,8 @@ public sealed class BrowserImportService
                         });
                         result.PasswordsImported++;
                     }
+                    if (duplicates > 0)
+                        result.Warnings.Add($"Passwords: {duplicates} duplicate(s) skipped (already in Vault).");
                     _logger.LogInformation("Imported {Count} passwords from {Browser}",
                         result.PasswordsImported, browser.Kind);
                 }
@@ -183,5 +202,17 @@ public sealed class BrowserImportService
     private static string TryHost(string url, string fallback)
     {
         try { return new Uri(url).Host; } catch { return fallback; }
+    }
+
+    /// <summary>
+    /// Composite key used to detect duplicates during password import.
+    /// Hostname + lowercased username so re-importing doesn't double-up
+    /// when the user runs the wizard twice (different browsers, or
+    /// re-runs after a profile refresh).
+    /// </summary>
+    private static string DedupKey(string url, string username)
+    {
+        var host = TryHost(url, fallback: url).ToLowerInvariant();
+        return $"{host}|{(username ?? "").ToLowerInvariant()}";
     }
 }
