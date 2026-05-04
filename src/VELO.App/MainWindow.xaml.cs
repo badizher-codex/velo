@@ -287,20 +287,29 @@ public partial class MainWindow : Window
         _tabManager.CreateTab(_initialUrl);
     }
 
-    private void ShowUpdateToast(UpdateInfo info)
+    private async void ShowUpdateToast(VELO.Core.Updates.UpdateInfo info)
     {
         // Non-intrusive: only show once per session, and only if user hasn't dismissed
         if (_updateToastShown) return;
         _updateToastShown = true;
 
-        var result = MessageBox.Show(
+        // Phase 3 / Sprint 2 — three-button flow:
+        //   Yes        → Download + verify SHA256 + run installer (silent).
+        //   No         → Open the release page in a browser tab (legacy behaviour).
+        //   Cancel     → Dismiss until next launch.
+        var result = MessageBox.Show(this,
             $"VELO {info.LatestVersion} está disponible (tienes {info.CurrentVersion}).\n\n" +
-            $"¿Ir a la página de descarga ahora?",
+            $"¿Descargar e instalar ahora?\n\n" +
+            $"  Sí     → VELO descarga el instalador, verifica el hash SHA256 y lo ejecuta.\n" +
+            $"  No     → Abrir la página de la release en tu pestaña.\n" +
+            $"  Cancelar → No hacer nada.",
             "Actualización disponible",
-            MessageBoxButton.YesNo,
+            MessageBoxButton.YesNoCancel,
             MessageBoxImage.Information);
 
-        if (result == MessageBoxResult.Yes)
+        if (result == MessageBoxResult.Cancel) return;
+        if (result == MessageBoxResult.No)
+        {
             _ = ActiveBrowserTab()?.NavigateAsync(info.DownloadUrl)
                 ?? Task.Run(() =>
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -308,6 +317,51 @@ public partial class MainWindow : Window
                         FileName = info.DownloadUrl,
                         UseShellExecute = true
                     }));
+            return;
+        }
+
+        // Yes: secure auto-update flow.
+        var downloader = new VELO.Core.Updates.UpdateDownloader(
+            logger: _services.GetRequiredService<Microsoft.Extensions.Logging.ILogger<VELO.Core.Updates.UpdateDownloader>>());
+        var progress = MessageBox.Show(this,
+            "Descargando actualización… Esto puede tardar un minuto. Puedes seguir usando VELO mientras tanto.",
+            "VELO Update",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        // (The MessageBox is acknowledgement-only; the download itself runs async.)
+        var verify = await downloader.DownloadAndVerifyAsync(info);
+
+        if (!verify.Success)
+        {
+            MessageBox.Show(this,
+                $"❌ La descarga falló o el hash no coincide.\n\n" +
+                $"Razón: {verify.Error}\n\n" +
+                $"Intenta de nuevo desde la página de Releases en GitHub.",
+                "VELO Update — Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        // Hash verified — confirm with the user before running the installer.
+        var confirm = MessageBox.Show(this,
+            $"✅ Descarga verificada.\n\n" +
+            $"SHA256: {verify.ActualHashHex}\n\n" +
+            $"⚠ Este instalador NO tiene firma Authenticode. Windows SmartScreen mostrará una advertencia.\n" +
+            $"Esto es normal mientras VELO no tenga un certificado comercial.\n\n" +
+            $"¿Instalar ahora? VELO se cerrará y volverá a abrir tras la instalación.",
+            "VELO Update — Listo para instalar",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Question);
+
+        if (confirm != MessageBoxResult.OK) return;
+
+        if (downloader.ExecuteInstaller(verify.FilePath))
+        {
+            // Installer takes over from here — quit so /CLOSEAPPLICATIONS
+            // doesn't have to ask Inno to wait on us.
+            Application.Current.Shutdown();
+        }
     }
     private bool _updateToastShown;
 

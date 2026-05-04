@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using VELO.Core.Updates;
 
 namespace VELO.App;
 
@@ -129,11 +130,5 @@ public sealed class UpdateChecker(ILogger<UpdateChecker> logger)
     }
 }
 
-/// <summary>Information about an available update, passed to <see cref="UpdateChecker.UpdateAvailable"/>.</summary>
-public sealed record UpdateInfo(
-    Version  CurrentVersion,
-    Version  LatestVersion,
-    string   ReleaseName,
-    string   ReleaseNotes,
-    string   DownloadUrl,
-    DateTime PublishedAt);
+// UpdateInfo lives in VELO.Core/Updates so the UpdateDownloader unit tests
+// can reference it without pulling in VELO.App (the WinExe).
