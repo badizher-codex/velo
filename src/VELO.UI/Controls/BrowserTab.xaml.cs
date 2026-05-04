@@ -134,8 +134,12 @@ public partial class BrowserTab : UserControl
 
     // Fase 2: enriched context menu (optional — falls back to WebView2 default if null)
     private ContextMenuBuilder? _contextMenuBuilder;
+    // Phase 3 / Sprint 1E: when set, the AI variant decorates the menu with the
+    // 🤖 IA submenu. Falls back to the plain ContextMenuBuilder when null.
+    private AIContextMenuBuilder? _aiContextMenuBuilder;
 
     public void SetContextMenuBuilder(ContextMenuBuilder builder) => _contextMenuBuilder = builder;
+    public void SetAIContextMenuBuilder(AIContextMenuBuilder builder) => _aiContextMenuBuilder = builder;
 
     // Fase 2: banking-mode flag (set by caller after Initialize)
     private bool _isBankingContainer;
@@ -1279,7 +1283,10 @@ public partial class BrowserTab : UserControl
                     CurrentContainerId: _currentContainerId ?? "none",
                     Location:          new System.Windows.Point(e.Location.X, e.Location.Y));
 
-                var enrichedMenu = _contextMenuBuilder.Build(ctx);
+                // Phase 3 / Sprint 1E — Prefer the AI-decorated builder when wired.
+                var enrichedMenu = _aiContextMenuBuilder is not null
+                    ? _aiContextMenuBuilder.Build(ctx)
+                    : _contextMenuBuilder.Build(ctx);
                 enrichedMenu.PlacementTarget = WebView;
                 enrichedMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
                 enrichedMenu.IsOpen = true;

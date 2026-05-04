@@ -94,6 +94,15 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Security.Threats.BlockExplanationService>();
         services.AddSingleton<VELO.Security.Threats.ThreatsPanelViewModel>();
 
+        // Phase 3 / Sprint 1E — Context Menu IA stack. AIContextMenuBuilder
+        // composes ContextMenuBuilder (Phase 2 menu) so we register the inner
+        // builder too. Phase 2 had ContextMenuBuilder declared but unwired —
+        // Sprint 1E activates it through the AI variant.
+        services.AddSingleton<VELO.UI.Utilities.UrlCleaner>();
+        services.AddSingleton<VELO.UI.Controls.ContextMenuBuilder>();
+        services.AddSingleton<VELO.Agent.AIContextActions>();
+        services.AddSingleton<VELO.UI.Controls.AIContextMenuBuilder>();
+
         // DNS
         services.AddSingleton<HttpClient>();
         services.AddSingleton<IDoHProvider, Quad9Provider>();

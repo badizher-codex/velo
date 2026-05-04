@@ -10,9 +10,9 @@
     <AssemblyName>VELO</AssemblyName>
     <RootNamespace>VELO.App</RootNamespace>
     <ApplicationIcon>velo.ico</ApplicationIcon>
-    <Version>2.0.5.12</Version>
-    <AssemblyVersion>2.0.5.12</AssemblyVersion>
-    <FileVersion>2.0.5.12</FileVersion>
+    <Version>2.1.0</Version>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <FileVersion>2.1.0.0</FileVersion>
     <Copyright>© 2026 VELO Browser Contributors</Copyright>
     <Company>VELO Browser</Company>
     <Product>VELO</Product>

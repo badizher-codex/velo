@@ -142,31 +142,31 @@ public partial class MainWindow : Window
                 ? Visibility.Collapsed
                 : Visibility.Visible;
 
+        // Phase 3 / Sprint 1E — Context Menu IA wiring.
+        var aiActions = _services.GetRequiredService<VELO.Agent.AIContextActions>();
+        aiActions.ChatDelegate = WireAgentChat;
+        // Adapter name + capability come from AgentLauncher's adapter list. The
+        // launcher picks the best available; we mirror its name into the chip
+        // shown by AIResultWindow so the user always sees who answered.
+        aiActions.AdapterName = "Local";
+        aiActions.SupportsVision = false;
+
+        var aiBuilder = _services.GetRequiredService<VELO.UI.Controls.AIContextMenuBuilder>();
+        aiBuilder.AIActionRequested += (_, invocation) =>
+        {
+            var win = new VELO.UI.Dialogs.AIResultWindow { Owner = this };
+            win.Show(invocation.ActionLabel,
+                     invocation.SourceContext,
+                     invocation.AdapterName,
+                     invocation.IsCloud,
+                     invocation.Generator);
+        };
+
         // BlockExplanationService → AgentLauncher chat path. Without this the
         // service silently falls back to static templates. The wired delegate
         // sends an open-ended prompt and reads back the assistant's plain
         // reply, ignoring any structured actions the model may include.
-        explainerSvc.ChatDelegate = (system, user, ct) =>
-        {
-            var tcs = new TaskCompletionSource<string>();
-            void OnResponse(VELO.Agent.Models.AgentResponse r)
-            {
-                if (!tcs.Task.IsCompleted) tcs.TrySetResult(r.ReplyText ?? "");
-                _agentLauncher.ResponseReady -= OnResponse;
-            }
-            _agentLauncher.ResponseReady += OnResponse;
-            ct.Register(() =>
-            {
-                _agentLauncher.ResponseReady -= OnResponse;
-                tcs.TrySetCanceled(ct);
-            });
-            // Minimal context — the system prompt + user prompt carry all the
-            // info BlockExplanationService asked for.
-            _agentLauncher.SendAsync("__explain__",
-                $"{system}\n\n{user}",
-                new VELO.Agent.Models.AgentContext { CurrentUrl = "", PageTitle = "" });
-            return tcs.Task;
-        };
+        explainerSvc.ChatDelegate = WireAgentChat;
 
         // VeloAgent panel wiring
         AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
@@ -357,6 +357,11 @@ public partial class MainWindow : Window
             // Sprint 6: inject history repo so NewTab v2 can show top sites
             var histRepo = _services.GetRequiredService<HistoryRepository>();
             browserTab.SetHistoryRepository(histRepo);
+
+            // Phase 3 / Sprint 1E — wire the AI context-menu builder so the
+            // 🤖 IA submenu appears on right-click.
+            browserTab.SetAIContextMenuBuilder(
+                _services.GetRequiredService<VELO.UI.Controls.AIContextMenuBuilder>());
 
             // Add to panel (keeps WebView2 HWND alive across tab switches)
             BrowserContent.Children.Add(browserTab);
@@ -1049,6 +1054,32 @@ public partial class MainWindow : Window
     private void Security_AllowOnce(object? sender, string domain)
     {
         ActiveBrowserTab()?.AllowOnce(domain);
+    }
+
+    /// <summary>
+    /// Phase 3 — Bridges BlockExplanationService and AIContextActions to the
+    /// existing AgentLauncher chat path. Captures the next ResponseReady that
+    /// arrives, returning its plain text reply. Listening on a per-call basis
+    /// keeps requests independent (no shared promise state).
+    /// </summary>
+    private Task<string> WireAgentChat(string system, string user, CancellationToken ct)
+    {
+        var tcs = new TaskCompletionSource<string>();
+        void OnResponse(VELO.Agent.Models.AgentResponse r)
+        {
+            if (!tcs.Task.IsCompleted) tcs.TrySetResult(r.ReplyText ?? "");
+            _agentLauncher.ResponseReady -= OnResponse;
+        }
+        _agentLauncher.ResponseReady += OnResponse;
+        ct.Register(() =>
+        {
+            _agentLauncher.ResponseReady -= OnResponse;
+            tcs.TrySetCanceled(ct);
+        });
+        _agentLauncher.SendAsync("__ai__",
+            $"{system}\n\n{user}",
+            new VELO.Agent.Models.AgentContext { CurrentUrl = "", PageTitle = "" });
+        return tcs.Task;
     }
 
     // ── Threats Panel v3 (Phase 3 / Sprint 1) ────────────────────────────
