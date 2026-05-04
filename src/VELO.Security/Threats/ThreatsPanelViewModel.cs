@@ -135,6 +135,15 @@ public class ThreatsPanelViewModel : INotifyPropertyChanged
 
     private void ScheduleRecompute()
     {
+        // debounce == 0 → run inline. Removes the threadpool race that made
+        // the tab-change test flaky and keeps unit tests deterministic.
+        if (_debounce <= TimeSpan.Zero)
+        {
+            _pendingCts?.Cancel();
+            InvokeOnUi(Recompute);
+            return;
+        }
+
         // Cancel any in-flight debounce window and start a new one. The
         // last call within _debounce wins. Token is captured so a fast
         // follow-up doesn't accidentally fire two recomputes.
