@@ -38,4 +38,10 @@ public static class SettingKeys
     public const string Language               = "ui.language";
     /// <summary>v2.0.5.12 — Comma-separated list of hosts the user has whitelisted via SecurityPanel.</summary>
     public const string SecurityWhitelist       = "security.whitelist_hosts";
+    /// <summary>v2.1.2 — When true, restore the previous session on every clean launch without prompting.
+    /// Default false: ask the user the first time they encounter a clean snapshot.</summary>
+    public const string SessionRestoreAlways    = "session.restore_always";
+    /// <summary>v2.1.2 — Set to "yes" once the user has answered the first restore prompt so
+    /// we don't keep asking on every launch.</summary>
+    public const string SessionRestoreAsked     = "session.restore_asked";
 }

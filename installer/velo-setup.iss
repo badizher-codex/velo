@@ -1,5 +1,5 @@
 #define AppName      "VELO"
-#define AppVersion   "2.1.1"
+#define AppVersion   "2.1.2"
 #define AppPublisher "VELO Browser Contributors"
 #define AppURL       "https://github.com/badizher-codex/velo"
 #define AppExeName   "VELO.exe"

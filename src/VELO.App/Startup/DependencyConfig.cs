@@ -94,6 +94,9 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Security.Threats.BlockExplanationService>();
         services.AddSingleton<VELO.Security.Threats.ThreatsPanelViewModel>();
 
+        // Phase 3 / Sprint 3 — Session restore service.
+        services.AddSingleton<VELO.Core.Sessions.SessionService>();
+
         // Phase 3 / Sprint 1E — Context Menu IA stack. AIContextMenuBuilder
         // composes ContextMenuBuilder (Phase 2 menu) so we register the inner
         // builder too. Phase 2 had ContextMenuBuilder declared but unwired —

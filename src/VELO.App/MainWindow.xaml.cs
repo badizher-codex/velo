@@ -283,8 +283,15 @@ public partial class MainWindow : Window
             updater.StartBackgroundCheck();
         }
 
-        // Create initial tab (uses URL injected for tear-off windows, otherwise newtab)
-        _tabManager.CreateTab(_initialUrl);
+        // Phase 3 / Sprint 3 — Session restore. Runs before the first
+        // CreateTab so a restored session replaces (not stacks on top of)
+        // the auto-created newtab.
+        await InitSessionRestoreAsync();
+
+        // Create initial tab (uses URL injected for tear-off windows, otherwise newtab).
+        // Skip when session restore already populated tabs.
+        if (_tabManager.Tabs.Count == 0)
+            _tabManager.CreateTab(_initialUrl);
     }
 
     private async void ShowUpdateToast(VELO.Core.Updates.UpdateInfo info)
@@ -1108,6 +1115,189 @@ public partial class MainWindow : Window
     private void Security_AllowOnce(object? sender, string domain)
     {
         ActiveBrowserTab()?.AllowOnce(domain);
+    }
+
+    // ── Session restore (Phase 3 / Sprint 3) ─────────────────────────────
+
+    private System.Windows.Threading.DispatcherTimer? _sessionTimer;
+    private bool _sessionRestoreSkippedDueToSecurityMode;
+
+    /// <summary>
+    /// Starts the periodic snapshot heartbeat (every 30s with WasCleanShutdown=false).
+    /// Also performs the one-shot restore prompt when applicable.
+    /// </summary>
+    private async Task InitSessionRestoreAsync()
+    {
+        var settings = _services.GetRequiredService<SettingsRepository>();
+        var secMode  = await settings.GetAsync(SettingKeys.SecurityMode, "Normal");
+        _sessionRestoreSkippedDueToSecurityMode =
+            secMode is "Paranoid" or "Bunker";
+
+        if (_sessionRestoreSkippedDueToSecurityMode)
+        {
+            // Per spec § 6.3: never write a snapshot in these modes.
+            // Also wipe any stale snapshot so a previous Normal-mode session
+            // doesn't leak into a paranoid relaunch.
+            await _services.GetRequiredService<VELO.Core.Sessions.SessionService>().ClearAsync();
+            return;
+        }
+
+        // Restore (best-effort). Runs before we start writing fresh snapshots.
+        await TryRestoreSessionAsync(settings);
+
+        // Heartbeat: every 30s save a "we were running just before this point"
+        // snapshot. If the process dies hard the next launch will see clean=false.
+        _sessionTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(30),
+        };
+        _sessionTimer.Tick += async (_, _) =>
+        {
+            try { await SaveSessionSnapshotAsync(cleanShutdown: false); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] session heartbeat failed: {ex.Message}");
+            }
+        };
+        _sessionTimer.Start();
+    }
+
+    private async Task TryRestoreSessionAsync(SettingsRepository settings)
+    {
+        var svc = _services.GetRequiredService<VELO.Core.Sessions.SessionService>();
+        var snap = await svc.LoadLastAsync();
+        if (snap == null || snap.TotalTabs == 0) return;
+
+        bool restore;
+        if (!snap.WasCleanShutdown)
+        {
+            // Crash-recovery path always asks.
+            var loc = VELO.Core.Localization.LocalizationService.Current;
+            var ans = MessageBox.Show(this,
+                string.Format(loc.T("session.recover.body"), snap.TotalTabs),
+                loc.T("session.recover.title"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            restore = ans == MessageBoxResult.Yes;
+        }
+        else
+        {
+            // Clean shutdown → respect the saved preference. Ask once if no
+            // preference exists yet.
+            var alwaysRestore = await settings.GetBoolAsync(SettingKeys.SessionRestoreAlways, false);
+            var asked         = await settings.GetBoolAsync(SettingKeys.SessionRestoreAsked,  false);
+
+            if (alwaysRestore)
+            {
+                restore = true;
+            }
+            else if (!asked)
+            {
+                var loc = VELO.Core.Localization.LocalizationService.Current;
+                var ans = MessageBox.Show(this,
+                    string.Format(loc.T("session.restore.body"), snap.TotalTabs),
+                    loc.T("session.restore.title"),
+                    MessageBoxButton.YesNoCancel,
+                    MessageBoxImage.Question);
+                await settings.SetBoolAsync(SettingKeys.SessionRestoreAsked, true);
+                if (ans == MessageBoxResult.Yes)
+                {
+                    restore = true;
+                    await settings.SetBoolAsync(SettingKeys.SessionRestoreAlways, true);
+                }
+                else if (ans == MessageBoxResult.Cancel)
+                {
+                    restore = true;  // Cancel = restore-just-this-once
+                }
+                else
+                {
+                    restore = false;
+                }
+            }
+            else
+            {
+                restore = false;
+            }
+        }
+
+        if (restore)
+        {
+            RestoreSnapshot(snap);
+        }
+
+        // Wipe regardless — either we restored everything or the user said no.
+        // Keeping the file would re-prompt forever.
+        await svc.ClearAsync();
+    }
+
+    private void RestoreSnapshot(VELO.Core.Sessions.SessionSnapshot snap)
+    {
+        // First window only for now; tear-off windows are session-only by design.
+        if (snap.Windows.Count == 0) return;
+        var win = snap.Windows[0];
+
+        // Hydrate eagerly for the first 5 tabs (per spec § 6.4 perf note);
+        // the rest get created but the WebView2 doesn't initialise until the
+        // user clicks them. CreateTab does this naturally — only the active
+        // tab + visible tabs eagerly load.
+        var initialIdRemovedFromInitialUrl = false;
+        foreach (var tab in win.Tabs)
+        {
+            // Skip the auto-created newtab if this is the very first tab —
+            // we want the snapshot's URL to be the initial one.
+            if (!initialIdRemovedFromInitialUrl && _browserTabs.Count == 0 && _initialUrl == "velo://newtab")
+            {
+                _initialUrl = tab.Url;
+                initialIdRemovedFromInitialUrl = true;
+                continue;
+            }
+            _tabManager.CreateTab(tab.Url, tab.ContainerId);
+        }
+
+        // The active tab is selected post-CreateTab via OnTabActivated chain.
+        Log.Information("Session restore: hydrated {Count} tabs from snapshot saved at {SavedAt}",
+            win.Tabs.Count, snap.SavedAtUtc);
+    }
+
+    private async Task SaveSessionSnapshotAsync(bool cleanShutdown)
+    {
+        if (_sessionRestoreSkippedDueToSecurityMode) return;
+
+        var svc = _services.GetRequiredService<VELO.Core.Sessions.SessionService>();
+        var tabs = _tabManager.Tabs
+            .Where(t => VELO.Core.Sessions.SessionService.IsSafeForSnapshot(t.ContainerId))
+            .Select(t => new VELO.Core.Sessions.TabSnapshot
+            {
+                Id          = t.Id,
+                Url         = t.Url ?? "",
+                Title       = t.Title ?? "",
+                ContainerId = t.ContainerId,
+                WorkspaceId = t.WorkspaceId,
+                ScrollY     = 0,  // hooked from BrowserTab in a future sprint
+                LastActiveAtUtc = DateTime.UtcNow,
+            })
+            .ToList();
+
+        var window = new VELO.Core.Sessions.WindowSnapshot
+        {
+            Left        = Left,
+            Top         = Top,
+            Width       = ActualWidth,
+            Height      = ActualHeight,
+            IsMaximised = WindowState == WindowState.Maximized,
+            ActiveTabId = _tabManager.ActiveTab?.Id ?? "",
+            Tabs        = tabs,
+        };
+
+        var snap = new VELO.Core.Sessions.SessionSnapshot
+        {
+            Version          = 1,
+            SavedAtUtc       = DateTime.UtcNow,
+            WasCleanShutdown = cleanShutdown,
+            Windows          = [window],
+        };
+
+        await svc.SnapshotAsync(snap);
     }
 
     /// <summary>
@@ -2145,6 +2335,20 @@ public partial class MainWindow : Window
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
+        // Phase 3 / Sprint 3 — final clean snapshot. Heartbeats during the
+        // session wrote WasCleanShutdown=false; this final write flips it
+        // to true so next-launch knows to either silently restore (when
+        // session.restore_always=true) or stay quiet.
+        try
+        {
+            _sessionTimer?.Stop();
+            await SaveSessionSnapshotAsync(cleanShutdown: true);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Window_Closing snapshot failed: {ex.Message}");
+        }
+
         await _navController.ClearDataOnExitAsync();
 
         // v2.0.5 — Stop every WebView2 in this window BEFORE the window closes.
