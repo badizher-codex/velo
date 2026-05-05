@@ -1,9 +1,15 @@
-#define AppName      "VELO"
-#define AppVersion   "2.4.0"
-#define AppPublisher "VELO Browser Contributors"
-#define AppURL       "https://github.com/badizher-codex/velo"
-#define AppExeName   "VELO.exe"
-#define AppId        "{{B4D1E2F3-8A5C-4E6D-9F7B-2C3D4E5F6A7B}"
+#define AppName        "VELO"
+#define AppVersion     "2.4.0"
+; AppFileVersion is the 4-component version stamped into the EXE's
+; VERSIONINFO resource. Inno Setup's VersionInfoVersion accepts 3 or 4
+; segments only, so we keep it separate from the human-readable
+; AppVersion (which can be 3 segments like "2.4.0" or 4 like "2.1.5.1").
+; The release workflow rewrites both with a value derived from the git tag.
+#define AppFileVersion "2.4.0.0"
+#define AppPublisher   "VELO Browser Contributors"
+#define AppURL         "https://github.com/badizher-codex/velo"
+#define AppExeName     "VELO.exe"
+#define AppId          "{{B4D1E2F3-8A5C-4E6D-9F7B-2C3D4E5F6A7B}"
 
 [Setup]
 AppId={#AppId}
@@ -28,7 +34,7 @@ ArchitecturesAllowed=x64compatible
 MinVersion=10.0.17763
 UninstallDisplayName={#AppName} Browser
 UninstallDisplayIcon={app}\{#AppExeName}
-VersionInfoVersion={#AppVersion}.0
+VersionInfoVersion={#AppFileVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} Privacy Browser Setup
 PrivilegesRequired=admin

@@ -81,9 +81,24 @@ jobs:
       - name: Update version in installer script
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}" -replace '^v', ''
-          (Get-Content installer/velo-setup.iss) -replace '#define AppVersion\s+"[^"]+"', "#define AppVersion   `"$tag`"" |
-            Set-Content installer/velo-setup.iss
+          # github.ref_name is the pushed tag (e.g. "v2.4.0", "v2.1.5.1") OR
+          # the workflow-dispatch input. Strip the leading 'v' for AppVersion,
+          # then pad to exactly 4 numeric components for AppFileVersion since
+          # Inno Setup's VersionInfoVersion only accepts 3 or 4 segments.
+          $tag = "${{ steps.version.outputs.tag }}" -replace '^v', ''
+
+          # Normalise to 4 segments. Strip any non-numeric suffix from each
+          # part (defensive against pre-release tags like "2.4.0-rc1").
+          $parts = $tag.Split('.') | ForEach-Object { ($_ -replace '[^0-9]', '') }
+          while ($parts.Count -lt 4) { $parts += '0' }
+          $fileVersion = ($parts | Select-Object -First 4) -join '.'
+
+          Write-Host "AppVersion=$tag, AppFileVersion=$fileVersion"
+
+          $iss = Get-Content installer/velo-setup.iss -Raw
+          $iss = $iss -replace '#define AppVersion\s+"[^"]+"',     "#define AppVersion     `"$tag`""
+          $iss = $iss -replace '#define AppFileVersion\s+"[^"]+"', "#define AppFileVersion `"$fileVersion`""
+          Set-Content installer/velo-setup.iss -Value $iss -NoNewline
 
       - name: Build installer
         shell: pwsh
