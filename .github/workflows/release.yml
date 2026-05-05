@@ -20,6 +20,7 @@ jobs:
 
     outputs:
       version: ${{ steps.version.outputs.version }}
+      tag:     ${{ steps.version.outputs.tag }}
       installer-name: ${{ steps.version.outputs.installer-name }}
 
     steps:
@@ -201,6 +202,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # Explicit tag_name so workflow_dispatch runs (which trigger from
+          # main, not a tag) still know which tag the release belongs to.
+          # On tag-push runs this matches github.ref_name and is harmless.
+          tag_name: ${{ needs.build.outputs.tag }}
           name: "VELO v${{ needs.build.outputs.version }}"
           body: |
             ## VELO v${{ needs.build.outputs.version }}
