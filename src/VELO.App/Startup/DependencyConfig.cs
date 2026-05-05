@@ -121,6 +121,11 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Vault.Security.HibpClient>();
         services.AddSingleton<VELO.Vault.AutofillService>();
 
+        // Phase 3 / Sprint 6 — VeloAgent v2 contextual: slash commands +
+        // per-tab page priming.
+        services.AddSingleton<VELO.Agent.SlashCommandRouter>();
+        services.AddSingleton<VELO.Agent.PageContextManager>();
+
         // v2.1.5.1 — Per-site shields allowlist (relax fingerprint/WebRTC on
         // anti-bot login endpoints so users can sign in to homedepot, banks,
         // etc. without false "wrong password" rejections).

@@ -722,6 +722,46 @@ public partial class BrowserTab : UserControl
     }
 
     /// <summary>
+    /// Sprint 6 — Reads the active page's article text without navigating
+    /// away from it. Returns (url, title, content) for VeloAgent priming.
+    /// All-empty tuple when extraction fails or the page has no readable
+    /// article (e.g. SPA login screens, image galleries).
+    /// </summary>
+    public async Task<(string Url, string Title, string Content)> GetPageContentAsync()
+    {
+        if (!_webViewInitialized) return ("", "", "");
+        try
+        {
+            var script = await LoadScriptResourceAsync("reader.js");
+            if (script == null) return ("", "", "");
+
+            var jsonResult = await WebView.CoreWebView2.ExecuteScriptAsync(script);
+            var jsonStr = JsonSerializer.Deserialize<string>(jsonResult);
+            if (string.IsNullOrEmpty(jsonStr)) return ("", "", "");
+
+            using var doc = JsonDocument.Parse(jsonStr);
+            var root = doc.RootElement;
+            if (!root.GetProperty("found").GetBoolean()) return ("", "", "");
+
+            var title = root.GetProperty("title").GetString() ?? "";
+            var html  = root.GetProperty("html").GetString()  ?? "";
+
+            // Strip HTML tags for the priming prompt — the model doesn't need
+            // markup, just the prose.
+            var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
+            text = System.Net.WebUtility.HtmlDecode(text);
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+
+            return (WebView.CoreWebView2.Source, title, text);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] GetPageContent failed: {ex.Message}");
+            return ("", "", "");
+        }
+    }
+
+    /// <summary>
     /// Extracts article content via reader.js, then navigates to a clean reader page.
     /// Reloading the page exits reader mode (returns to the original content).
     /// </summary>

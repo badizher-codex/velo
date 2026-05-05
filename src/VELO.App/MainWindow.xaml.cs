@@ -170,6 +170,31 @@ public partial class MainWindow : Window
 
         // VeloAgent panel wiring
         AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
+
+        // Phase 3 / Sprint 6 — slash commands + page priming.
+        var slashRouter = _services.GetRequiredService<VELO.Agent.SlashCommandRouter>();
+        var pageCtx     = _services.GetRequiredService<VELO.Agent.PageContextManager>();
+        // Provide live page-content lookup so slash commands operate on the
+        // active tab's reader-extracted text.
+        slashRouter.PageContentProvider = () =>
+            ActiveBrowserTab() is { } bt
+                ? bt.GetPageContentAsync().GetAwaiter().GetResult().Content
+                : "";
+        AgentPanelControl.SetSlashServices(slashRouter, pageCtx);
+        AgentPanelControl.AskAboutPageRequested += async (_, _) =>
+        {
+            if (ActiveBrowserTab() is not { } bt) return;
+            var (url, title, content) = await bt.GetPageContentAsync();
+            if (string.IsNullOrEmpty(content))
+            {
+                MessageBox.Show(this,
+                    "No se encontró contenido legible en esta página. Prueba en una página de artículo.",
+                    "VeloAgent", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            AgentPanelControl.PrimeWithPage(url, title, content);
+            AgentPanelControl.Visibility = Visibility.Visible;
+        };
         _agentExecutor.ScriptExecutor = async (tabId, js) =>
         {
             if (_browserTabs.TryGetValue(tabId, out var bt))
@@ -681,6 +706,9 @@ public partial class MainWindow : Window
                     && tab.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase);
                 UrlBarControl.SetReaderModeAvailable(isRealPage);
                 UpdateAgentContext(e.TabId);
+                // Phase 3 / Sprint 6 — visual separator in the agent chat
+                // when the active tab changes (instead of resetting).
+                AgentPanelControl.NotifyTabSwitched(tab.Url);
             }
 
             // Refresh shield score and inspector for the newly-active tab

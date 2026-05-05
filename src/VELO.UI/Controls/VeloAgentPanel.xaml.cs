@@ -22,6 +22,12 @@ public partial class VeloAgentPanel : UserControl
     private AgentLauncher?      _launcher;
     private AgentActionSandbox? _sandbox;
 
+    // Phase 3 / Sprint 6 — slash commands + per-tab page priming.
+    private SlashCommandRouter? _slashRouter;
+    private PageContextManager? _pageCtx;
+    /// <summary>Raised when the user asks the host to extract the current page's content for priming.</summary>
+    public event EventHandler? AskAboutPageRequested;
+
     // ── State ─────────────────────────────────────────────────────────────────
     private string       _activeTabId = "";
     private AgentContext _context     = new();
@@ -56,6 +62,36 @@ public partial class VeloAgentPanel : UserControl
         _sandbox.ActionProposed += OnActionProposed;
 
         BackendLabel.Text = "Listo";
+    }
+
+    /// <summary>Wires Sprint 6 slash-command + page-priming services.</summary>
+    public void SetSlashServices(SlashCommandRouter router, PageContextManager pageCtx)
+    {
+        _slashRouter = router;
+        _pageCtx     = pageCtx;
+    }
+
+    /// <summary>
+    /// Called by the host after extracting the active page's reader-mode
+    /// text. Primes the chat so the next user message gets the page-context
+    /// system prompt prepended (spec § 7.3).
+    /// </summary>
+    public void PrimeWithPage(string url, string title, string content)
+    {
+        if (_pageCtx == null || string.IsNullOrEmpty(_activeTabId)) return;
+        _pageCtx.Prime(_activeTabId, url, title, content);
+        AppendSystemMessage($"Contexto cargado de: {title} — pregúntame lo que quieras sobre esta página.");
+    }
+
+    /// <summary>
+    /// Called by the host when the active tab changes. Adds a visual
+    /// separator instead of clearing the chat (spec § 7.3 — context
+    /// changes must be marked, not silently reset).
+    /// </summary>
+    public void NotifyTabSwitched(string newUrl)
+    {
+        if (MessagesPanel.Children.Count == 0) return;
+        AppendSystemMessage(PageContextManager.BuildTabSwitchSeparator(newUrl));
     }
 
     public void SetTabContext(string tabId, AgentContext context)
@@ -276,7 +312,7 @@ public partial class VeloAgentPanel : UserControl
 
     // ── Send flow ─────────────────────────────────────────────────────────────
 
-    private void TrySend()
+    private async void TrySend()
     {
         var text = InputBox.Text.Trim();
         if (string.IsNullOrEmpty(text) || _isThinking) return;
@@ -290,7 +326,54 @@ public partial class VeloAgentPanel : UserControl
         AppendUserBubble(text);
         SetThinking(true);
 
-        _launcher.SendAsync(_activeTabId, text, _context);
+        // Phase 3 / Sprint 6 — slash command? Run it locally without the
+        // model's tool-calling roundtrip; only fall through to the launcher
+        // when the command is unrecognised (then it's free-form chat).
+        if (_slashRouter != null && SlashCommandRouter.IsSlashCommand(text))
+        {
+            try
+            {
+                var slashResult = await _slashRouter.TryDispatchAsync(text);
+                if (slashResult != null)
+                {
+                    SetThinking(false);
+                    AppendAgentBubble(slashResult);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                SetThinking(false);
+                AppendSystemMessage($"⚠ Comando falló: {ex.Message}");
+                return;
+            }
+        }
+
+        // Page-priming: build a context with the per-tab system prompt the
+        // first time the user types after "Ask about this page". Subsequent
+        // turns use the same primed adapter history without resending the
+        // full document text.
+        var ctx = _context;
+        if (_pageCtx != null && _pageCtx.IsPrimed(_activeTabId))
+        {
+            var primingPrompt = _pageCtx.BuildSystemPrompt(_activeTabId);
+            if (!string.IsNullOrEmpty(primingPrompt))
+            {
+                ctx = new AgentContext
+                {
+                    CurrentUrl      = _context.CurrentUrl,
+                    CurrentDomain   = _context.CurrentDomain,
+                    PageTitle       = _context.PageTitle,
+                    PageTextSnippet = primingPrompt,    // adapter prepends this to system
+                    ContainerId     = _context.ContainerId,
+                    OpenTabCount    = _context.OpenTabCount,
+                    History         = _context.History,
+                };
+                _pageCtx.MarkSent(_activeTabId);
+            }
+        }
+
+        _launcher.SendAsync(_activeTabId, text, ctx);
     }
 
     private void SetThinking(bool thinking)
@@ -345,4 +428,7 @@ public partial class VeloAgentPanel : UserControl
 
     private void Close_Click(object sender, RoutedEventArgs e)
         => CloseRequested?.Invoke(this, EventArgs.Empty);
+
+    private void AskAboutPage_Click(object sender, RoutedEventArgs e)
+        => AskAboutPageRequested?.Invoke(this, EventArgs.Empty);
 }

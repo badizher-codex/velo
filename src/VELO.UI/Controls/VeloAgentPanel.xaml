@@ -45,6 +45,11 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button x:Name="AskAboutPageButton"
+                                Content="💬" FontSize="13"
+                                Style="{StaticResource IconButton}"
+                                ToolTip="Preguntar sobre esta página"
+                                Click="AskAboutPage_Click"/>
                         <Button x:Name="ClearButton"
                                 Content="🗑" FontSize="13"
                                 Style="{StaticResource IconButton}"
