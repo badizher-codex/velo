@@ -5,6 +5,24 @@
         <ResourceDictionary Source="Colors.xaml"/>
     </ResourceDictionary.MergedDictionaries>
 
+    <!--
+        v2.4.2 — Shared drop-shadow effect referenced as a StaticResource by
+        AutofillToast.xaml and PrivacyReceiptToast.xaml. The reference has
+        existed since Phase 2 in PrivacyReceiptToast, but that control was
+        never lifted into MainWindow.xaml so the missing resource was never
+        actually resolved at runtime. AutofillToast (Sprint 5) IS hosted in
+        MainWindow.xaml — eager XAML parsing on MainWindow load tried to
+        resolve the resource, found nothing, and crashed the whole app
+        with 'StaticResourceExtension' on launch (v2.4.0 / v2.4.1). Defining
+        it once here, app-wide, fixes both controls.
+    -->
+    <DropShadowEffect x:Key="DropShadowEffect"
+                      Color="Black"
+                      BlurRadius="20"
+                      ShadowDepth="4"
+                      Opacity="0.45"
+                      Direction="270"/>
+
     <!-- Base styles -->
     <Style TargetType="Window">
         <Setter Property="Background" Value="{StaticResource BackgroundDarkBrush}" />
