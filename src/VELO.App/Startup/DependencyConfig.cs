@@ -139,6 +139,16 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Security.Guards.PhishingShield>();
         services.AddSingleton<VELO.Security.Threats.BlockNarrationService>();
 
+        // Phase 3 / Sprint 9 — AI Productivity Pack:
+        //   • CodeActions      — right-click code-block actions (Explain,
+        //     Translate, Debug, Optimize, Comment, AddErrorHandling)
+        //   • BookmarkAIService — auto-tag on save + semantic rerank on search
+        //   • TldrService       — eligibility check + on-demand TL;DR
+        // ChatDelegates wired in MainWindow once the AI adapter resolves.
+        services.AddSingleton<VELO.Agent.CodeActions>();
+        services.AddSingleton<VELO.Agent.BookmarkAIService>();
+        services.AddSingleton<VELO.Agent.TldrService>();
+
         // v2.1.5.1 — Per-site shields allowlist (relax fingerprint/WebRTC on
         // anti-bot login endpoints so users can sign in to homedepot, banks,
         // etc. without false "wrong password" rejections).

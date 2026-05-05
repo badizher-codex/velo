@@ -178,6 +178,14 @@ public partial class MainWindow : Window
         smartBlock.ChatDelegate     = WireAgentChat;
         phishingShield.ChatDelegate = WireAgentChat;
 
+        // Phase 3 / Sprint 9 — AI Productivity Pack (CodeActions / BookmarkAI).
+        // TldrService gets its own backing AIContextActions via DI, no wiring
+        // needed here.
+        var codeActions      = _services.GetRequiredService<VELO.Agent.CodeActions>();
+        var bookmarkAi       = _services.GetRequiredService<VELO.Agent.BookmarkAIService>();
+        codeActions.ChatDelegate = WireAgentChat;
+        bookmarkAi.ChatDelegate  = WireAgentChat;
+
         // VeloAgent panel wiring
         AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
 
