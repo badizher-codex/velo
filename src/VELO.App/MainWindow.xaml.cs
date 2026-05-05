@@ -168,6 +168,16 @@ public partial class MainWindow : Window
         // reply, ignoring any structured actions the model may include.
         explainerSvc.ChatDelegate = WireAgentChat;
 
+        // Phase 3 / Sprint 8 — AI Privacy Shield: wire the same chat path
+        // so SmartBlock + PhishingShield use whatever adapter is selected
+        // (Ollama/LlamaSharp/Claude). All three services are passive until
+        // their respective callers invoke them — this just makes them
+        // capable when activated.
+        var smartBlock     = _services.GetRequiredService<VELO.Security.Guards.SmartBlockClassifier>();
+        var phishingShield = _services.GetRequiredService<VELO.Security.Guards.PhishingShield>();
+        smartBlock.ChatDelegate     = WireAgentChat;
+        phishingShield.ChatDelegate = WireAgentChat;
+
         // VeloAgent panel wiring
         AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
 

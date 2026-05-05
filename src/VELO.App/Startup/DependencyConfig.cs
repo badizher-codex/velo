@@ -126,6 +126,19 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Agent.SlashCommandRouter>();
         services.AddSingleton<VELO.Agent.PageContextManager>();
 
+        // Phase 3 / Sprint 8 — AI Privacy Shield:
+        //   • SmartBlockClassifier — second-pass tracker classification
+        //     for sub-resources missed by the static blocklist.
+        //   • PhishingShield — local-LLM phishing/impersonation analysis
+        //     using URL + TLS + login-form signals.
+        //   • BlockNarrationService — proactive human-readable explanations
+        //     for "interesting" blocks (off by default; toggled by setting).
+        // ChatDelegate wiring happens in MainWindow once the AI adapter is
+        // resolved (same pattern as BlockExplanationService's ChatDelegate).
+        services.AddSingleton<VELO.Security.Guards.SmartBlockClassifier>();
+        services.AddSingleton<VELO.Security.Guards.PhishingShield>();
+        services.AddSingleton<VELO.Security.Threats.BlockNarrationService>();
+
         // v2.1.5.1 — Per-site shields allowlist (relax fingerprint/WebRTC on
         // anti-bot login endpoints so users can sign in to homedepot, banks,
         // etc. without false "wrong password" rejections).
