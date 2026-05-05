@@ -10,6 +10,7 @@ using Microsoft.Web.WebView2.Core;
 using VELO.Agent;
 using VELO.App.Startup;
 using VELO.Core;
+using VELO.Core.AI;
 using VELO.Core.Downloads;
 using VELO.Core.Events;
 using VELO.Core.Localization;
@@ -142,12 +143,11 @@ public partial class MainWindow : Window
                 ? Visibility.Collapsed
                 : Visibility.Visible;
 
-        // Phase 3 / Sprint 1E — Context Menu IA wiring.
+        // Phase 3 / Sprint 1E — Context Menu IA wiring (adapter name + vision
+        // capability come from AgentLauncher's adapter list, the launcher
+        // picks the best available; we mirror its name into the chip shown
+        // by AIResultWindow so the user always sees who answered).
         var aiActions = _services.GetRequiredService<VELO.Agent.AIContextActions>();
-        aiActions.ChatDelegate = WireAgentChat;
-        // Adapter name + capability come from AgentLauncher's adapter list. The
-        // launcher picks the best available; we mirror its name into the chip
-        // shown by AIResultWindow so the user always sees who answered.
         aiActions.AdapterName = "Local";
         aiActions.SupportsVision = false;
 
@@ -162,29 +162,26 @@ public partial class MainWindow : Window
                      invocation.Generator);
         };
 
-        // BlockExplanationService → AgentLauncher chat path. Without this the
-        // service silently falls back to static templates. The wired delegate
-        // sends an open-ended prompt and reads back the assistant's plain
-        // reply, ignoring any structured actions the model may include.
-        explainerSvc.ChatDelegate = WireAgentChat;
-
-        // Phase 3 / Sprint 8 — AI Privacy Shield: wire the same chat path
-        // so SmartBlock + PhishingShield use whatever adapter is selected
-        // (Ollama/LlamaSharp/Claude). All three services are passive until
-        // their respective callers invoke them — this just makes them
-        // capable when activated.
+        // Sprint 10 — Single point of coordination for the chat delegate that
+        // every AI-capable service needs. Sprints 1/5/6/8/9 each added a new
+        // service to this list; the router lets us keep them in one place
+        // and re-push the delegate when the user switches adapter at runtime.
+        // Adding a service in a future sprint is one extra .Register(...) line.
         var smartBlock     = _services.GetRequiredService<VELO.Security.Guards.SmartBlockClassifier>();
         var phishingShield = _services.GetRequiredService<VELO.Security.Guards.PhishingShield>();
-        smartBlock.ChatDelegate     = WireAgentChat;
-        phishingShield.ChatDelegate = WireAgentChat;
+        var codeActions    = _services.GetRequiredService<VELO.Agent.CodeActions>();
+        var bookmarkAi     = _services.GetRequiredService<VELO.Agent.BookmarkAIService>();
 
-        // Phase 3 / Sprint 9 — AI Productivity Pack (CodeActions / BookmarkAI).
-        // TldrService gets its own backing AIContextActions via DI, no wiring
-        // needed here.
-        var codeActions      = _services.GetRequiredService<VELO.Agent.CodeActions>();
-        var bookmarkAi       = _services.GetRequiredService<VELO.Agent.BookmarkAIService>();
-        codeActions.ChatDelegate = WireAgentChat;
-        bookmarkAi.ChatDelegate  = WireAgentChat;
+        AiChatRouter.ChatDelegate chatAdapter = WireAgentChat;
+        var aiChatRouter = new AiChatRouter()
+            .Register(d => aiActions.ChatDelegate     = (sys, user, ct) => d(sys, user, ct))
+            .Register(d => explainerSvc.ChatDelegate  = (sys, user, ct) => d(sys, user, ct))
+            .Register(d => smartBlock.ChatDelegate    = (sys, user, ct) => d(sys, user, ct))
+            .Register(d => phishingShield.ChatDelegate = (sys, user, ct) => d(sys, user, ct))
+            .Register(d => codeActions.ChatDelegate   = (sys, user, ct) => d(sys, user, ct))
+            .Register(d => bookmarkAi.ChatDelegate    = (sys, user, ct) => d(sys, user, ct));
+        aiChatRouter.WireAll(chatAdapter, onError: ex =>
+            Log.Warning(ex, "AiChatRouter: failed to install delegate on a consumer"));
 
         // VeloAgent panel wiring
         AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
@@ -1571,7 +1568,7 @@ public partial class MainWindow : Window
         // same content as before. Saves ~120 writes/hour on idle sessions.
         // Always write on a clean shutdown so the WasCleanShutdown=true flag
         // lands even if the user hasn't opened a new tab in 5 minutes.
-        var fingerprint = ComputeSessionFingerprint(window, cleanShutdown);
+        var fingerprint = VELO.Core.Sessions.SessionFingerprint.Compute(window, cleanShutdown);
         if (!cleanShutdown && fingerprint == _lastSessionFingerprint) return;
         _lastSessionFingerprint = fingerprint;
 
@@ -1584,22 +1581,6 @@ public partial class MainWindow : Window
     /// with identical browsing state produce identical strings; anything that
     /// would change the on-disk JSON also changes this.
     /// </summary>
-    private static string ComputeSessionFingerprint(VELO.Core.Sessions.WindowSnapshot w, bool cleanShutdown)
-    {
-        var sb = new System.Text.StringBuilder(256);
-        sb.Append(cleanShutdown ? '1' : '0');
-        sb.Append('|').Append(w.ActiveTabId);
-        sb.Append('|').Append((int)w.Left).Append(',').Append((int)w.Top)
-          .Append(',').Append((int)w.Width).Append(',').Append((int)w.Height)
-          .Append(',').Append(w.IsMaximised ? '1' : '0');
-        foreach (var t in w.Tabs)
-        {
-            sb.Append('\n').Append(t.Id).Append('|').Append(t.Url).Append('|')
-              .Append(t.Title).Append('|').Append(t.ContainerId).Append('|')
-              .Append(t.WorkspaceId);
-        }
-        return sb.ToString();
-    }
 
     /// <summary>
     /// Phase 3 — Bridges BlockExplanationService and AIContextActions to the
