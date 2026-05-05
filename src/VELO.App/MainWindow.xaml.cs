@@ -424,6 +424,16 @@ public partial class MainWindow : Window
             browserTab.SetAIContextMenuBuilder(
                 _services.GetRequiredService<VELO.UI.Controls.AIContextMenuBuilder>());
 
+            // Phase 3 / Sprint 5 — autofill prompt + save-on-submit
+            var autofill = _services.GetRequiredService<VELO.Vault.AutofillService>();
+            browserTab.SetAutofillService(autofill);
+
+            browserTab.AutofillFormDetected += (_, host) =>
+                _ = OnAutofillFormDetectedAsync(e.TabId, host, autofill);
+
+            browserTab.AutofillFormSubmitted += (_, payload) =>
+                _ = OnAutofillFormSubmittedAsync(e.TabId, payload, autofill);
+
             // Add to panel (keeps WebView2 HWND alive across tab switches)
             BrowserContent.Children.Add(browserTab);
             _browserTabs[e.TabId] = browserTab;
@@ -488,6 +498,94 @@ public partial class MainWindow : Window
             foreach (var tabId in tabsInContainer)
                 _tabManager.CloseTab(tabId);
         });
+    }
+
+    // ── Phase 3 / Sprint 5 — Autofill handlers ──────────────────────────────
+
+    private bool _autofillToastShownForHost;
+    private string _autofillLastHost = "";
+
+    private async Task OnAutofillFormDetectedAsync(string tabId, string host, VELO.Vault.AutofillService autofill)
+    {
+        try
+        {
+            // Only the foreground tab gets to drive the toast, and we only
+            // show it once per host visit to avoid spam from MutationObserver.
+            if (!IsUiDrivingTab(tabId)) return;
+            if (string.IsNullOrEmpty(host)) return;
+            if (_autofillToastShownForHost && string.Equals(_autofillLastHost, host, StringComparison.OrdinalIgnoreCase)) return;
+
+            var suggestions = await autofill.GetSuggestionsAsync(host);
+            if (suggestions.Count == 0) return;
+
+            // First suggestion wins (already ordered by exact-host then username).
+            var pick = suggestions[0];
+            var entry = await autofill.ResolveCredentialAsync(pick.Id, host);
+            if (entry == null) return;
+
+            _autofillLastHost = host;
+            _autofillToastShownForHost = true;
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                EventHandler? acceptedHandler = null;
+                EventHandler? dismissedHandler = null;
+
+                acceptedHandler = async (_, _) =>
+                {
+                    AutofillToastControl.Accepted -= acceptedHandler;
+                    AutofillToastControl.Dismissed -= dismissedHandler;
+                    if (_browserTabs.TryGetValue(tabId, out var bt))
+                        await bt.FillCredentialAsync(entry.Username, entry.Password);
+                };
+                dismissedHandler = (_, _) =>
+                {
+                    AutofillToastControl.Accepted -= acceptedHandler;
+                    AutofillToastControl.Dismissed -= dismissedHandler;
+                };
+
+                AutofillToastControl.Accepted  += acceptedHandler;
+                AutofillToastControl.Dismissed += dismissedHandler;
+                AutofillToastControl.Show(AutofillToast.Mode.UseSaved, entry.Username, host);
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Autofill detect handler failed");
+        }
+    }
+
+    private async Task OnAutofillFormSubmittedAsync(
+        string tabId,
+        (string Host, string Username, string Password) payload,
+        VELO.Vault.AutofillService autofill)
+    {
+        try
+        {
+            if (!IsUiDrivingTab(tabId)) return;
+
+            var outcome = await autofill.SaveNewCredentialAsync(
+                payload.Host, payload.Username, payload.Password, autoDetected: true);
+
+            // Fire-and-forget HIBP check — never block the UI thread.
+            var breach = await autofill.CheckBreachAsync(payload.Password);
+
+            if (outcome is VELO.Vault.SaveOutcome.Created or VELO.Vault.SaveOutcome.Updated)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    AutofillToastControl.Show(
+                        AutofillToast.Mode.SaveNew,
+                        payload.Username,
+                        payload.Host,
+                        breachCount: breach.Count);
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Autofill submit handler failed");
+        }
     }
 
     // ── VeloAgent panel handlers ─────────────────────────────────────────────
@@ -664,6 +762,9 @@ public partial class MainWindow : Window
             _tabNewCapture.Remove(tabId);
             _tabVerdictLevel[tabId]     = 0;
             _tabLastAiVerdict[tabId]    = null;
+
+            // Phase 3 / Sprint 5 — let the autofill toast re-arm on new host.
+            _autofillToastShownForHost = false;
             _tabTlsStatus.Remove(tabId);
 
             // Show "analyzing" on shield while new page loads

@@ -159,6 +159,15 @@
                     IsHitTestVisible="False">
                 <ui:GlancePopup x:Name="GlancePopupControl"/>
             </Canvas>
+
+            <!-- ── Autofill toast (Phase 3 / Sprint 5) — bottom-right anchor ── -->
+            <ui:AutofillToast x:Name="AutofillToastControl"
+                              Grid.Row="0"
+                              Grid.RowSpan="3"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Bottom"
+                              Margin="0,0,16,16"
+                              Panel.ZIndex="95"/>
         </Grid>
     </Grid>
 </Window>

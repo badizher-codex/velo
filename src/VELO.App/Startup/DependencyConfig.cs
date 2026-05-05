@@ -117,6 +117,10 @@ public static class DependencyConfig
         // Vault
         services.AddSingleton<VaultService>();
 
+        // Phase 3 / Sprint 5 — Password autofill + HIBP breach check
+        services.AddSingleton<VELO.Vault.Security.HibpClient>();
+        services.AddSingleton<VELO.Vault.AutofillService>();
+
         // Containers (Fase 2)
         services.AddSingleton<ContainerExpiryService>();
 

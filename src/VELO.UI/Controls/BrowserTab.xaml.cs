@@ -16,6 +16,7 @@ using VELO.Security.AI;
 using VELO.Security.AI.Models;
 using VELO.Security.CookieWall;
 using VELO.Security.Guards;
+using VELO.Vault;
 
 namespace VELO.UI.Controls;
 
@@ -152,6 +153,32 @@ public partial class BrowserTab : UserControl
 
     public void SetPasteGuard(PasteGuard guard) => _pasteGuard = guard;
 
+    // Phase 3 / Sprint 5 — Autofill
+    private AutofillService? _autofill;
+    /// <summary>Raised when the page reports a login form is present. Arg = host.</summary>
+    public event EventHandler<string>? AutofillFormDetected;
+    /// <summary>Raised when the user submits a login form. Args = (host, username, password).</summary>
+    public event EventHandler<(string Host, string Username, string Password)>? AutofillFormSubmitted;
+    public void SetAutofillService(AutofillService svc) => _autofill = svc;
+
+    /// <summary>Fills the active login form with the chosen credential. No-op if no form is detected.</summary>
+    public async Task FillCredentialAsync(string username, string password)
+    {
+        if (!_webViewInitialized) return;
+        // The page-side hook returns a boolean we don't read — JS-encode args safely.
+        var u = JsonSerializer.Serialize(username);
+        var p = JsonSerializer.Serialize(password);
+        try
+        {
+            await WebView.CoreWebView2.ExecuteScriptAsync(
+                $"window.__veloAutofillFill && window.__veloAutofillFill({u},{p})");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Autofill fill failed: {ex.Message}");
+        }
+    }
+
     /// <summary>Provides the history repository so NewTab v2 can load top sites.</summary>
     public void SetHistoryRepository(HistoryRepository repo) => _historyRepo = repo;
 
@@ -272,6 +299,18 @@ public partial class BrowserTab : UserControl
         catch (Exception ex)
         {
             System.Diagnostics.Trace.WriteLine($"[VELO] PasteGuard inject failed: {ex.Message}");
+        }
+
+        // Phase 3 / Sprint 5 — Autofill content script
+        try
+        {
+            var autofillScript = await LoadScriptResourceAsync("autofill.js");
+            if (autofillScript != null)
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(autofillScript);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Autofill inject failed: {ex.Message}");
         }
 
         // Glance modal — hover-link preview
@@ -1034,6 +1073,22 @@ public partial class BrowserTab : UserControl
                 case "glance-hide":
                     GlanceLinkHovered?.Invoke(this, "");
                     break;
+                case "autofill-detect":
+                {
+                    var h = node["host"]?.GetValue<string>() ?? "";
+                    if (!string.IsNullOrEmpty(h))
+                        Dispatcher.Invoke(() => AutofillFormDetected?.Invoke(this, h));
+                    break;
+                }
+                case "autofill-submit":
+                {
+                    var h  = node["host"]?.GetValue<string>() ?? "";
+                    var u  = node["username"]?.GetValue<string>() ?? "";
+                    var pw = node["password"]?.GetValue<string>() ?? "";
+                    if (!string.IsNullOrEmpty(h) && !string.IsNullOrEmpty(pw))
+                        Dispatcher.Invoke(() => AutofillFormSubmitted?.Invoke(this, (h, u, pw)));
+                    break;
+                }
             }
         }
         catch (Exception ex)
