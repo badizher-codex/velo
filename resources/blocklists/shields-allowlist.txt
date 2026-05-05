@@ -1,0 +1,89 @@
+# VELO Browser — Shields Allowlist (eTLD+1, one per line)
+#
+# Domains where fingerprint spoofing and WebRTC relay are auto-disabled
+# because the site uses anti-bot fingerprinting (Akamai Bot Manager,
+# PerimeterX, Imperva, Cloudflare Bot Mgmt, hCaptcha enterprise) that
+# rejects login attempts when canvas/WebGL/audio fingerprints don't
+# match expected device signatures.
+#
+# Tracker/ad/request-guard protections REMAIN ACTIVE on these domains.
+# Only fingerprint and WebRTC spoofing are relaxed.
+#
+# Match rule: navigation host's eTLD+1 must equal a line below, OR the
+# navigation host must end with ".<line>".
+#
+# This file is bundled with the installer. To extend per-machine, edit
+# %LocalAppData%\VELO\shields-allowlist-user.txt (one domain per line).
+# User entries are unioned with this seed list.
+
+# ── US big retail (all known to use Akamai/PerimeterX on /signin) ──
+homedepot.com
+lowes.com
+walmart.com
+target.com
+bestbuy.com
+costco.com
+samsclub.com
+kroger.com
+walgreens.com
+cvs.com
+macys.com
+nordstrom.com
+
+# ── E-commerce / marketplace ──
+amazon.com
+ebay.com
+etsy.com
+mercadolibre.com
+mercadolibre.com.mx
+mercadolibre.com.ar
+
+# ── Travel & hospitality ──
+delta.com
+united.com
+aa.com
+southwest.com
+booking.com
+expedia.com
+hotels.com
+airbnb.com
+
+# ── Banking / financial (US) ──
+chase.com
+bankofamerica.com
+wellsfargo.com
+citi.com
+capitalone.com
+usbank.com
+pnc.com
+americanexpress.com
+discover.com
+schwab.com
+fidelity.com
+vanguard.com
+paypal.com
+venmo.com
+zellepay.com
+
+# ── Banking (LatAm) ──
+bbva.mx
+banamex.com
+santander.com.mx
+banorte.com
+hsbc.com.mx
+scotiabank.com.mx
+banregio.com
+
+# ── Government / healthcare ──
+irs.gov
+sat.gob.mx
+ssa.gov
+healthcare.gov
+medicare.gov
+usps.com
+
+# ── Big tech logins (sometimes break under aggressive spoofing) ──
+microsoftonline.com
+live.com
+apple.com
+icloud.com

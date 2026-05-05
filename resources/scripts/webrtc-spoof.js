@@ -4,6 +4,15 @@
 (function () {
     'use strict';
 
+    // v2.1.5.1 — Per-site shields allowlist. Same rationale as fingerprint
+    // script: Akamai/PerimeterX login endpoints inspect ICE candidates;
+    // mismatches between spoofed and real signals are treated as bot.
+    try {
+        const list = window.__VELO_RELAXED_DOMAINS__ || [];
+        const h = (location.hostname || '').toLowerCase();
+        if (list.some(d => h === d || h.endsWith('.' + d))) return;
+    } catch { /* fall through */ }
+
     const VELO_WEBRTC_MODE = window.__VELO_WEBRTC_MODE__ || 'spoof'; // injected by C# per settings
 
     if (VELO_WEBRTC_MODE === 'disabled') {

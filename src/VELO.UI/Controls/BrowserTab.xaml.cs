@@ -87,6 +87,14 @@ public partial class BrowserTab : UserControl
         return colonIdx > 0 ? uri[..colonIdx].ToLowerInvariant() : "";
     }
 
+    // v2.1.5 — dedup window. Some WebView2 builds raise BOTH
+    // NewWindowRequested (for target=_blank) AND LaunchingExternalUriScheme
+    // for the same custom-protocol click. Without this guard, MakerWorld →
+    // Bambu Studio launches twice (open dialog twice in the desktop app).
+    private string _lastLaunchedUri = "";
+    private DateTime _lastLaunchedAt = DateTime.MinValue;
+    private static readonly TimeSpan ExternalLaunchDedupWindow = TimeSpan.FromSeconds(1.5);
+
     /// <summary>
     /// Hands an external-protocol URI off to the OS via ShellExecute, with a
     /// confirmation prompt for unknown schemes. Returns true if launched.
@@ -95,6 +103,14 @@ public partial class BrowserTab : UserControl
     {
         var scheme = GetScheme(uri);
         if (string.IsNullOrEmpty(scheme)) return false;
+
+        // Dedup: skip if we just launched this same URI a moment ago.
+        if (string.Equals(_lastLaunchedUri, uri, StringComparison.Ordinal) &&
+            (DateTime.UtcNow - _lastLaunchedAt) < ExternalLaunchDedupWindow)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] External URI dedup: ignoring duplicate {scheme}:// within window");
+            return true;
+        }
 
         bool allowed = _allowedExternalSchemes.Contains(scheme);
 
@@ -120,6 +136,8 @@ public partial class BrowserTab : UserControl
                 FileName        = uri,
                 UseShellExecute = true
             });
+            _lastLaunchedUri = uri;
+            _lastLaunchedAt  = DateTime.UtcNow;
             return true;
         }
         catch (Exception ex)
@@ -152,6 +170,10 @@ public partial class BrowserTab : UserControl
     private HistoryRepository? _historyRepo;
 
     public void SetPasteGuard(PasteGuard guard) => _pasteGuard = guard;
+
+    // v2.1.5.1 — Shields allowlist wired in from MainWindow before WebView init.
+    private ShieldsAllowlist? _shieldsAllowlist;
+    public void SetShieldsAllowlist(ShieldsAllowlist allow) => _shieldsAllowlist = allow;
 
     // Phase 3 / Sprint 5 — Autofill
     private AutofillService? _autofill;
@@ -257,6 +279,21 @@ public partial class BrowserTab : UserControl
 
         // Cookie consent auto-dismiss (embedded — no external files)
         await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(ConsentScript);
+
+        // v2.1.5.1 — Inject shields allowlist constant FIRST so subsequent
+        // fingerprint / webrtc scripts can early-return on relaxed domains.
+        if (_shieldsAllowlist != null && _shieldsAllowlist.Count > 0)
+        {
+            try
+            {
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(
+                    _shieldsAllowlist.BuildJsConstant());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] Shields allowlist inject failed: {ex.Message}");
+            }
+        }
 
         // Fingerprint protection
         try

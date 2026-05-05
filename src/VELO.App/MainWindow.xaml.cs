@@ -424,6 +424,10 @@ public partial class MainWindow : Window
             browserTab.SetAIContextMenuBuilder(
                 _services.GetRequiredService<VELO.UI.Controls.AIContextMenuBuilder>());
 
+            // v2.1.5.1 — Shields allowlist (per-site fingerprint/WebRTC relax).
+            browserTab.SetShieldsAllowlist(
+                _services.GetRequiredService<VELO.Security.Guards.ShieldsAllowlist>());
+
             // Phase 3 / Sprint 5 — autofill prompt + save-on-submit
             var autofill = _services.GetRequiredService<VELO.Vault.AutofillService>();
             browserTab.SetAutofillService(autofill);

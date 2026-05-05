@@ -45,20 +45,36 @@ public class NavigationController(
 
         if (historyEnabled && securityMode != "Bunker" && !isBanking)
         {
-            await _historyRepo.SaveAsync(new HistoryEntry
+            try
             {
-                Url = url,
-                Title = title,
-                ContainerId = tab?.ContainerId,
-                VisitedAt = DateTime.UtcNow,
-                BlockedCount = blocked,
-                TrackerCount = trackers,
-                MalwareCount = malware,
-                MonsterCaptured = monsterCaptured
-            });
+                await _historyRepo.SaveAsync(new HistoryEntry
+                {
+                    Url = url,
+                    Title = title,
+                    ContainerId = tab?.ContainerId,
+                    VisitedAt = DateTime.UtcNow,
+                    BlockedCount = blocked,
+                    TrackerCount = trackers,
+                    MalwareCount = malware,
+                    MonsterCaptured = monsterCaptured
+                });
+                _logger.LogInformation("History saved: {Url}", url);
+            }
+            catch (Exception ex)
+            {
+                // v2.1.5.1 — previously this exception was swallowed by the
+                // fire-and-forget Dispatcher.Invoke wrapper in MainWindow,
+                // making history failures invisible. Surface them here so
+                // the user-visible "0 entries" bug has a paper trail.
+                _logger.LogError(ex, "History save FAILED for {Url}", url);
+            }
         }
-
-        _logger.LogDebug("Navigation recorded: {Url}", url);
+        else
+        {
+            _logger.LogInformation(
+                "History NOT saved for {Url} — historyEnabled={Hist} securityMode={Mode} isBanking={Banking}",
+                url, historyEnabled, securityMode, isBanking);
+        }
     }
 
     public async Task ClearDataOnExitAsync()

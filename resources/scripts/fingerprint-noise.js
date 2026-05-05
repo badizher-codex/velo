@@ -5,6 +5,16 @@
 (function () {
     'use strict';
 
+    // v2.1.5.1 — Per-site shields allowlist. Anti-bot endpoints (Akamai,
+    // PerimeterX, Imperva) reject login when our spoofed canvas/WebGL/audio
+    // fingerprint mismatches their expected device baseline. Bail out for
+    // those domains while keeping every other tracker/ad/request defense.
+    try {
+        const list = window.__VELO_RELAXED_DOMAINS__ || [];
+        const h = (location.hostname || '').toLowerCase();
+        if (list.some(d => h === d || h.endsWith('.' + d))) return;
+    } catch { /* worst case: spoof normally */ }
+
     // ── Session-stable random (seeded per session, never stored) ──────────
     const seed = Math.random();
     function seededRand(min, max) {

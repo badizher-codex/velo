@@ -121,6 +121,18 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Vault.Security.HibpClient>();
         services.AddSingleton<VELO.Vault.AutofillService>();
 
+        // v2.1.5.1 — Per-site shields allowlist (relax fingerprint/WebRTC on
+        // anti-bot login endpoints so users can sign in to homedepot, banks,
+        // etc. without false "wrong password" rejections).
+        services.AddSingleton<VELO.Security.Guards.ShieldsAllowlist>(sp =>
+        {
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            var allow = new VELO.Security.Guards.ShieldsAllowlist(
+                loggerFactory.CreateLogger<VELO.Security.Guards.ShieldsAllowlist>());
+            allow.Load(userDataPath: appDataPath);
+            return allow;
+        });
+
         // Containers (Fase 2)
         services.AddSingleton<ContainerExpiryService>();
 
