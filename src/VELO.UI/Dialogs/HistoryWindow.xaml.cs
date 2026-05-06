@@ -21,7 +21,14 @@ public partial class HistoryWindow : Window
         ApplyLanguage();
         LocalizationService.Current.LanguageChanged += ApplyLanguage;
         Closed += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
-        Loaded += async (_, _) => await LoadAsync();
+
+        // v2.4.4 — Reload on every Activated event (window gets focus) so the
+        // dialog stays in sync with navigations that happen while it's open.
+        // Loaded fires once at construction; Activated fires every time the
+        // window comes to the foreground. The previous behaviour was a
+        // genuine UX bug: open History first → navigate → keep dialog open
+        // → still see "0 entries" because the snapshot was stale.
+        Activated += async (_, _) => await LoadAsync();
     }
 
     private void ApplyLanguage()
