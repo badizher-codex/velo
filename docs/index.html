@@ -401,6 +401,36 @@
         <p class="mt-3 text-sm text-slate-400 text-center" data-i18n="screen_agent_caption">VeloAgent — your local AI assistant, always one click away</p>
       </div>
 
+      <div class="group">
+        <div class="rounded-2xl overflow-hidden border border-slate-700/60 shadow-xl transition-all duration-300 group-hover:border-amber-500/30">
+          <div class="bg-slate-800 flex items-center gap-1.5 px-4 py-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/70"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400/70"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/70"></span>
+            <span class="ml-3 text-xs text-slate-500 font-mono" data-i18n="chrome_vault">Password Vault — VELO</span>
+          </div>
+          <img src="images/screenshot-vault.png"
+               alt="VELO Password Vault"
+               class="w-full block" loading="lazy" />
+        </div>
+        <p class="mt-3 text-sm text-slate-400 text-center" data-i18n="screen_vault_caption">Password Vault — encrypted with your master password, never leaves your device</p>
+      </div>
+
+      <div class="group">
+        <div class="rounded-2xl overflow-hidden border border-slate-700/60 shadow-xl transition-all duration-300 group-hover:border-fuchsia-500/30">
+          <div class="bg-slate-800 flex items-center gap-1.5 px-4 py-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/70"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400/70"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/70"></span>
+            <span class="ml-3 text-xs text-slate-500 font-mono" data-i18n="chrome_settings">Settings — VELO</span>
+          </div>
+          <img src="images/screenshot-ai-settings.png"
+               alt="VELO AI settings — Ollama, LlamaSharp, Claude (BYOK)"
+               class="w-full block" loading="lazy" />
+        </div>
+        <p class="mt-3 text-sm text-slate-400 text-center" data-i18n="screen_ai_settings_caption">AI Settings — pick Ollama, LlamaSharp local, or bring your own Claude API key</p>
+      </div>
+
     </div>
   </div>
 </div>
@@ -732,10 +762,14 @@ const T = {
     chrome_newtab:"New tab — VELO",
     chrome_inspector:"VELO Security Inspector",
     chrome_malwaredex:"Malwaredex — VELO",
+    chrome_vault:"Password Vault — VELO",
+    chrome_settings:"Settings — VELO",
     screen_inspector_caption:"Security Inspector — TLS, fingerprint protection, AI analysis, one keystroke away",
     screen_malwaredex_caption:"Malwaredex — 43 threat types tracked and blocked across every site you visit",
     screen_tabs_caption:"Vertical tab sidebar with workspaces — organize sessions the way you think",
     screen_agent_caption:"VeloAgent — your local AI assistant, always one click away",
+    screen_vault_caption:"Password Vault — encrypted with your master password, never leaves your device",
+    screen_ai_settings_caption:"AI Settings — pick Ollama, LlamaSharp local, or bring your own Claude API key",
     // AI section
     ai_label:"LOCAL ARTIFICIAL INTELLIGENCE",
     ai_title:"AI that protects you<br>without sending your data",
@@ -833,10 +867,14 @@ const T = {
     chrome_newtab:"Nueva pestaña — VELO",
     chrome_inspector:"Inspector de Seguridad VELO",
     chrome_malwaredex:"Malwaredex — VELO",
+    chrome_vault:"Password Vault — VELO",
+    chrome_settings:"Configuración — VELO",
     screen_inspector_caption:"Inspector de seguridad — TLS, protección de huella y análisis IA, a un atajo de teclado",
     screen_malwaredex_caption:"Malwaredex — 43 tipos de amenaza rastreados y bloqueados en cada sitio que visitas",
     screen_tabs_caption:"Barra lateral de pestañas con workspaces — organiza tus sesiones como piensas",
     screen_agent_caption:"VeloAgent — tu asistente IA local, siempre a un clic",
+    screen_vault_caption:"Password Vault — cifrado con tu contraseña maestra, nunca sale de tu equipo",
+    screen_ai_settings_caption:"Configuración de IA — elige Ollama, LlamaSharp local o tu propia API key de Claude",
     ai_label:"INTELIGENCIA ARTIFICIAL LOCAL",
     ai_title:"IA que te protege<br>sin enviar tus datos",
     ai_feat1:"<strong>Ollama + LM Studio</strong> — Modelos locales compatibles con OpenAI",
