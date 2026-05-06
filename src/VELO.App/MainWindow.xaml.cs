@@ -829,12 +829,40 @@ public partial class MainWindow : Window
                 UrlBarControl.SetReaderModeAvailable(isRealPage);
                 UpdateAgentContext(tabId);
             }
+
+            // v2.4.3 — History persistence is anchored to the URL-change
+            // event (which fires from NavigationCompleted) instead of the
+            // title-change event. WebView2 fires DocumentTitleChanged DURING
+            // DOM construction — before NavigationCompleted — so the prior
+            // implementation read tab.Url before it was committed and the
+            // guard `if (!IsNullOrEmpty(url))` silently dropped every save.
+            // That left history at 0 entries even with the setting enabled.
+            // Now we record on the canonical "this nav is done" signal,
+            // using whatever title is set at that moment. Pages that JS-set
+            // the title later will have a (slightly) stale title here, but
+            // history shows the URL which is what matters for navigation.
+            if (!string.IsNullOrEmpty(url) &&
+                url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                var titleAtNav = _tabManager.GetTab(tabId)?.Title ?? "";
+                var counts = _tabBlockCounts.GetValueOrDefault(tabId);
+                var newCapture = _tabNewCapture.Remove(tabId);
+                try
+                {
+                    await _navController.RecordNavigationAsync(tabId, url, titleAtNav,
+                        counts.Blocked, counts.Trackers, counts.Malware, newCapture);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "RecordNavigationAsync threw for {Url}", url);
+                }
+            }
         });
     }
 
     private void OnBrowserTitleChanged(string tabId, string title)
     {
-        Dispatcher.Invoke(async () =>
+        Dispatcher.Invoke(() =>
         {
             _tabManager.UpdateTab(tabId, t => t.Title = title);
             var tab = _tabManager.GetTab(tabId);
@@ -844,14 +872,8 @@ public partial class MainWindow : Window
                 if (IsUiDrivingTab(tabId))
                     Title = $"{title} — VELO";
             }
-            var url = _tabManager.GetTab(tabId)?.Url ?? "";
-            if (!string.IsNullOrEmpty(url))
-            {
-                var counts = _tabBlockCounts.GetValueOrDefault(tabId);
-                var newCapture = _tabNewCapture.Remove(tabId);
-                await _navController.RecordNavigationAsync(tabId, url, title,
-                    counts.Blocked, counts.Trackers, counts.Malware, newCapture);
-            }
+            // v2.4.3 — History no longer anchored here (see OnBrowserUrlChanged).
+            // Title-change is just for window-title + sidebar updates now.
         });
     }
 
