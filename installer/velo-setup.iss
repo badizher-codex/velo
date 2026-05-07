@@ -1,11 +1,11 @@
 #define AppName        "VELO"
-#define AppVersion     "2.4.4"
+#define AppVersion     "2.4.5"
 ; AppFileVersion is the 4-component version stamped into the EXE's
 ; VERSIONINFO resource. Inno Setup's VersionInfoVersion accepts 3 or 4
 ; segments only, so we keep it separate from the human-readable
 ; AppVersion (which can be 3 segments like "2.4.0" or 4 like "2.1.5.1").
 ; The release workflow rewrites both with a value derived from the git tag.
-#define AppFileVersion "2.4.4.0"
+#define AppFileVersion "2.4.5.0"
 #define AppPublisher   "VELO Browser Contributors"
 #define AppURL         "https://github.com/badizher-codex/velo"
 #define AppExeName     "VELO.exe"

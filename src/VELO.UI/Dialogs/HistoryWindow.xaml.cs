@@ -22,14 +22,19 @@ public partial class HistoryWindow : Window
         LocalizationService.Current.LanguageChanged += ApplyLanguage;
         Closed += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
 
-        // v2.4.4 — Reload on every Activated event (window gets focus) so the
-        // dialog stays in sync with navigations that happen while it's open.
-        // Loaded fires once at construction; Activated fires every time the
-        // window comes to the foreground. The previous behaviour was a
-        // genuine UX bug: open History first → navigate → keep dialog open
-        // → still see "0 entries" because the snapshot was stale.
+        // v2.4.5 — Wire BOTH Loaded and Activated. v2.4.4 only wired
+        // Activated assuming it fired on first show, but in WPF that event
+        // is tied to "window becomes the active window" — and ShowDialog()
+        // doesn't always activate the dialog if the parent's UI is in an
+        // unusual focus state, leaving the dialog blank. Loaded guarantees
+        // a first read; Activated keeps subsequent focus-returns fresh.
+        // LoadAsync itself dedupes via _isLoading so the first focus event
+        // immediately after Loaded is a no-op.
+        Loaded    += async (_, _) => await LoadAsync();
         Activated += async (_, _) => await LoadAsync();
     }
+
+    private bool _isLoading;
 
     private void ApplyLanguage()
     {
@@ -43,8 +48,21 @@ public partial class HistoryWindow : Window
 
     private async Task LoadAsync()
     {
-        _all = await _repo.GetRecentAsync(500);
-        Render(_all);
+        if (_isLoading) return;
+        _isLoading = true;
+        try
+        {
+            _all = await _repo.GetRecentAsync(500);
+            // Defensive trace so the next time we see "0 entries" the
+            // user can grep DebugView / VS Output for the actual count.
+            System.Diagnostics.Trace.WriteLine(
+                $"[VELO] HistoryWindow loaded {_all.Count} entries");
+            Render(_all);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     private void Render(List<HistoryEntry> entries)
