@@ -36,6 +36,16 @@ public partial class SecurityPanel : UserControl
     // Session log (cleared on browser close)
     private readonly List<SessionLogEntry> _sessionLog = [];
 
+    // v2.4.9 — Per-(domain, verdict-type) "already notified" tracker. The
+    // first verdict on a domain pops the lateral panel as before; every
+    // subsequent verdict of the same kind on the same domain only updates
+    // the corner chip counter. Without this, browsing a tracker-heavy site
+    // (e.g. 3dmarket.mx product pages) flashes the panel on every product
+    // click — annoying noise. High-severity verdicts (Phishing, Malware)
+    // bypass the suppression so the user always sees them.
+    private readonly Dictionary<string, DateTime> _domainPanelShownAt = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan PanelSuppressionWindow = TimeSpan.FromMinutes(30);
+
     private readonly ExplanationGenerator _explanationGenerator = new();
 
     // Auto-collapse timer
@@ -132,6 +142,33 @@ public partial class SecurityPanel : UserControl
         // Increment session counters
         _sessionThreatCount++;
         if (verdict.Verdict == VerdictType.Warn) _hasActiveWarn = true;
+
+        // v2.4.9 — Suppress repeat lateral panel for the same domain within
+        // the suppression window. High-severity verdicts (Phishing, Malware)
+        // always pop because they're rare and the user needs to see them
+        // even if we showed something on this domain already.
+        bool isHighSeverity =
+            verdict.ThreatType == ThreatType.Phishing ||
+            verdict.ThreatType == ThreatType.Malware;
+
+        var key = $"{domain}|{verdict.Verdict}";
+        var now = DateTime.UtcNow;
+        bool isRepeat =
+            !isHighSeverity &&
+            _domainPanelShownAt.TryGetValue(key, out var shownAt) &&
+            (now - shownAt) < PanelSuppressionWindow;
+
+        if (isRepeat)
+        {
+            // Subsequent block on same (domain, verdict-type): only update
+            // the corner chip counter (which already accumulates) and bail.
+            // No panel pop, no auto-collapse timer churn, no log spam.
+            UpdateChip();
+            return;
+        }
+
+        // Mark this (domain, verdict-type) as notified for the next 30 min.
+        _domainPanelShownAt[key] = now;
 
         // Generate v2 explanation in the active UI language
         var explanation = _explanationGenerator.Generate(verdict, LocalizationService.Current.Language);
