@@ -1252,23 +1252,37 @@ public partial class BrowserTab : UserControl
         }
 
         // ── Rule 2: popup burst — piracy sites open multiple tabs per click ─
-        // Even when IsUserInitiated=true, >1 popup in 3s is abusive behavior
+        // v2.4.6 — Two adjustments after a real-world false-positive on
+        // github.com (user opened multiple repo links via Ctrl+click and got
+        // their own repo flagged as malware/piracy):
+        //
+        //   • Domains in the ShieldsAllowlist (github.com, gitlab.com, big
+        //     retail, banks, gov, etc.) skip this rule entirely. Power users
+        //     routinely Ctrl+click sprees on those.
+        //   • Threshold bumped from 2 popups → 4 popups in the window for
+        //     everything else, so a normal pair-of-tabs Ctrl+click on any
+        //     other site doesn't trigger either. Real piracy sites typically
+        //     burst 5-10 popups per click; 4 is still well under that.
+        var pageHost = GetHost(_currentPageUrl);
+        var isAllowlistedSite = _shieldsAllowlist?.Matches(pageHost) ?? false;
+
         var now = DateTime.UtcNow;
         while (_popupTimes.Count > 0 && (now - _popupTimes.Peek()) > PopupBurstWindow)
             _popupTimes.Dequeue();
-
-        var isBurst = _popupTimes.Count >= 1; // 2nd+ popup within burst window
         _popupTimes.Enqueue(now);
+
+        const int PopupBurstThreshold = 4;
+        var isBurst = !isAllowlistedSite && _popupTimes.Count > PopupBurstThreshold;
 
         if (isBurst)
         {
             Dispatcher.Invoke(() => SecurityVerdictReceived?.Invoke(this, new AIVerdict
             {
                 Verdict    = VerdictType.Block,
-                Reason     = $"Popup bloqueado: múltiples pestañas abiertas en pocos segundos (técnica de sitios de piratería/malware). '{ShortenUrl(targetUri)}' fue bloqueado.",
+                Reason     = $"Popup bloqueado: {_popupTimes.Count} pestañas abiertas en pocos segundos (técnica de sitios de piratería/malware). '{ShortenUrl(targetUri)}' fue bloqueado.",
                 ThreatType = ThreatType.Malware,
                 Source     = "PopupGuard",
-                Confidence = 95
+                Confidence = 90
             }));
             return;
         }
