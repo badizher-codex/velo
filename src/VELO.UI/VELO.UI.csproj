@@ -21,6 +21,7 @@
     <ProjectReference Include="..\VELO.Vault\VELO.Vault.csproj" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="*" />
     <PackageReference Include="ModernWpfUI" Version="*" />
+    <PackageReference Include="Serilog" Version="*" />
   </ItemGroup>
 
 </Project>

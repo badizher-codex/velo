@@ -52,12 +52,29 @@ public partial class HistoryWindow : Window
         _isLoading = true;
         try
         {
-            _all = await _repo.GetRecentAsync(500);
-            // Defensive trace so the next time we see "0 entries" the
-            // user can grep DebugView / VS Output for the actual count.
-            System.Diagnostics.Trace.WriteLine(
-                $"[VELO] HistoryWindow loaded {_all.Count} entries");
-            Render(_all);
+            var entries = await _repo.GetRecentAsync(500);
+            Serilog.Log.Information(
+                "HistoryWindow.LoadAsync: GetRecentAsync returned {Count} entries — about to Render",
+                entries.Count);
+
+            // v2.4.8 — Bounce through the dispatcher explicitly. The previous
+            // Render(_all) call worked on the captured SyncContext, which IS
+            // the WPF dispatcher in normal cases — but the user just hit a
+            // case where GetRecentAsync logged 368 entries and the UI still
+            // rendered 0. Forcing the dispatcher hop guarantees Render runs
+            // on the UI thread and the visual tree refreshes.
+            await Dispatcher.InvokeAsync(() =>
+            {
+                _all = entries;
+                Render(_all);
+                Serilog.Log.Information(
+                    "HistoryWindow.LoadAsync: Render({Count}) completed; CountLabel='{Label}'",
+                    _all.Count, CountLabel.Text);
+            });
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "HistoryWindow.LoadAsync threw");
         }
         finally
         {
