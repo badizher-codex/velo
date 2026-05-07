@@ -1,110 +1,140 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using VELO.Core.Localization;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
 
 namespace VELO.UI.Dialogs;
 
+/// <summary>
+/// v2.4.10 — Complete rewrite. Previous incarnation (Phase 2 + v2.4.4-v2.4.9
+/// hotfix accretion) had at least three layered defects that none of the
+/// hotfixes individually fixed:
+///   • Constructor's ApplyLanguage() called Render(_all) before _all was
+///     populated, leaving CountLabel pinned at "0 entries"
+///   • Loaded/Activated dual wiring + _isLoading dedupe didn't recover
+///     when the captured-context continuation didn't return to UI thread
+///   • DataTemplate bound to localisation keys via Source='history.badge.X'
+///     which the LocalizeKeyConverter handled silently — failures rendered
+///     as empty rows that the user perceived as "missing entries"
+/// We replace all of that with the simplest WPF pattern that works:
+/// ItemsControl.ItemsSource ← ObservableCollection&lt;HistoryEntry&gt;.
+/// One reload path. Synchronous to the user via the existing
+/// .GetAwaiter().GetResult() inside HistoryRepository (the underlying
+/// SQLite query is &lt;10ms for 500 rows). No converter chain. No
+/// localisation in the template (added back later if needed).
+/// </summary>
 public partial class HistoryWindow : Window
 {
     private readonly HistoryRepository _repo;
-    private List<HistoryEntry> _all = [];
+    private readonly ObservableCollection<HistoryEntry> _items = new();
+    private List<HistoryEntry> _allCached = new();
 
+    /// <summary>Raised when the user clicks an entry to navigate to its URL.</summary>
     public event EventHandler<string>? NavigationRequested;
 
     public HistoryWindow(HistoryRepository repo)
     {
         _repo = repo;
         InitializeComponent();
-        ApplyLanguage();
-        LocalizationService.Current.LanguageChanged += ApplyLanguage;
-        Closed += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
-
-        // v2.4.5 — Wire BOTH Loaded and Activated. v2.4.4 only wired
-        // Activated assuming it fired on first show, but in WPF that event
-        // is tied to "window becomes the active window" — and ShowDialog()
-        // doesn't always activate the dialog if the parent's UI is in an
-        // unusual focus state, leaving the dialog blank. Loaded guarantees
-        // a first read; Activated keeps subsequent focus-returns fresh.
-        // LoadAsync itself dedupes via _isLoading so the first focus event
-        // immediately after Loaded is a no-op.
-        Loaded    += async (_, _) => await LoadAsync();
-        Activated += async (_, _) => await LoadAsync();
+        HistoryList.ItemsSource = _items;
+        Loaded += async (_, _) => await ReloadAsync();
     }
 
-    private bool _isLoading;
+    // ── Reload ──────────────────────────────────────────────────────────
 
-    private void ApplyLanguage()
+    private async Task ReloadAsync()
     {
-        var L = LocalizationService.Current;
-        Title = L.T("title.history");
-        HeaderLabel.Text  = L.T("history.title");
-        SearchBox.Tag     = L.T("history.search");
-        ClearAllBtn.Content = L.T("history.clearall");
-        Render(_all);
-    }
-
-    private async Task LoadAsync()
-    {
-        if (_isLoading) return;
-        _isLoading = true;
+        StatusLabel.Text = "Loading…";
+        DiagLabel.Text = "";
         try
         {
-            var entries = await _repo.GetRecentAsync(500);
+            var rows = await _repo.GetRecentAsync(500);
+            _allCached = rows;
+            ApplyToCollection(rows);
+            StatusLabel.Text = $"{rows.Count} entries";
+            DiagLabel.Text = $"loaded {rows.Count} from DB";
             Serilog.Log.Information(
-                "HistoryWindow.LoadAsync: GetRecentAsync returned {Count} entries — about to Render",
-                entries.Count);
-
-            // v2.4.8 — Bounce through the dispatcher explicitly. The previous
-            // Render(_all) call worked on the captured SyncContext, which IS
-            // the WPF dispatcher in normal cases — but the user just hit a
-            // case where GetRecentAsync logged 368 entries and the UI still
-            // rendered 0. Forcing the dispatcher hop guarantees Render runs
-            // on the UI thread and the visual tree refreshes.
-            await Dispatcher.InvokeAsync(() =>
-            {
-                _all = entries;
-                Render(_all);
-                Serilog.Log.Information(
-                    "HistoryWindow.LoadAsync: Render({Count}) completed; CountLabel='{Label}'",
-                    _all.Count, CountLabel.Text);
-            });
+                "HistoryWindow.ReloadAsync OK: {Count} entries; ItemsControl now has {ItemsCount} items",
+                rows.Count, _items.Count);
         }
         catch (Exception ex)
         {
-            Serilog.Log.Error(ex, "HistoryWindow.LoadAsync threw");
-        }
-        finally
-        {
-            _isLoading = false;
+            StatusLabel.Text = $"Error: {ex.Message}";
+            DiagLabel.Text = "";
+            Serilog.Log.Error(ex, "HistoryWindow.ReloadAsync failed");
         }
     }
 
-    private void Render(List<HistoryEntry> entries)
+    /// <summary>
+    /// Replaces the visible collection in-place. ObservableCollection
+    /// raises CollectionChanged for each Clear/Add so the ItemsControl
+    /// rebuilds its visual children correctly. Faster + more reliable
+    /// than ItemsSource = newList.
+    /// </summary>
+    private void ApplyToCollection(IReadOnlyList<HistoryEntry> rows)
     {
-        HistoryList.ItemsSource = entries.ToList();
-        var L = LocalizationService.Current;
-        var word = entries.Count == 1 ? L.T("history.entry") : L.T("history.entries");
-        CountLabel.Text = $"{entries.Count} {word}";
+        _items.Clear();
+        foreach (var row in rows) _items.Add(row);
     }
+
+    // ── Search ──────────────────────────────────────────────────────────
 
     private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         var q = SearchBox.Text.Trim();
         if (string.IsNullOrEmpty(q))
         {
-            Render(_all);
+            ApplyToCollection(_allCached);
+            StatusLabel.Text = $"{_allCached.Count} entries";
             return;
         }
-        var results = await _repo.SearchAsync(q);
-        Render(results);
+
+        try
+        {
+            var rows = await _repo.SearchAsync(q);
+            ApplyToCollection(rows);
+            StatusLabel.Text = $"{rows.Count} matches for \"{q}\"";
+        }
+        catch (Exception ex)
+        {
+            StatusLabel.Text = $"Search failed: {ex.Message}";
+            Serilog.Log.Error(ex, "HistoryWindow.SearchAsync failed");
+        }
     }
+
+    // ── Buttons ─────────────────────────────────────────────────────────
+
+    private async void Reload_Click(object sender, RoutedEventArgs e)
+        => await ReloadAsync();
+
+    private async void Clear_Click(object sender, RoutedEventArgs e)
+    {
+        var r = MessageBox.Show(this,
+            "Clear all browsing history?",
+            "Confirm",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (r != MessageBoxResult.Yes) return;
+
+        try
+        {
+            await _repo.ClearAllAsync();
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusLabel.Text = $"Clear failed: {ex.Message}";
+            Serilog.Log.Error(ex, "HistoryWindow.Clear failed");
+        }
+    }
+
+    // ── Per-entry interactions ──────────────────────────────────────────
 
     private void Entry_Click(object sender, MouseButtonEventArgs e)
     {
-        if (sender is Border b && b.Tag is string url)
+        if (sender is Border b && b.Tag is string url && !string.IsNullOrEmpty(url))
         {
             NavigationRequested?.Invoke(this, url);
             Close();
@@ -113,22 +143,19 @@ public partial class HistoryWindow : Window
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.Tag is int id)
+        if (sender is not Button btn || btn.Tag is not int id) return;
+        try
         {
             await _repo.DeleteAsync(id);
-            _all.RemoveAll(h => h.Id == id);
-            Render(_all);
+            _allCached.RemoveAll(h => h.Id == id);
+            ApplyToCollection(_allCached);
+            StatusLabel.Text = $"{_allCached.Count} entries";
         }
-    }
-
-    private async void ClearAll_Click(object sender, RoutedEventArgs e)
-    {
-        var L = LocalizationService.Current;
-        var r = MessageBox.Show(L.T("history.confirm.clear"), L.T("history.title"),
-            MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (r != MessageBoxResult.Yes) return;
-        await _repo.ClearAllAsync();
-        _all.Clear();
-        Render(_all);
+        catch (Exception ex)
+        {
+            StatusLabel.Text = $"Delete failed: {ex.Message}";
+            Serilog.Log.Error(ex, "HistoryWindow.Delete failed for id {Id}", id);
+        }
+        e.Handled = true; // prevent the row click from firing
     }
 }
