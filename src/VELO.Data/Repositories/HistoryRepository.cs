@@ -1,19 +1,49 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using VELO.Data.Models;
 
 namespace VELO.Data.Repositories;
 
-public class HistoryRepository(VeloDatabase db)
+public class HistoryRepository
 {
-    private readonly VeloDatabase _db = db;
+    private readonly VeloDatabase _db;
+    private readonly ILogger<HistoryRepository> _logger;
+
+    public HistoryRepository(VeloDatabase db, ILogger<HistoryRepository>? logger = null)
+    {
+        _db = db;
+        _logger = logger ?? NullLogger<HistoryRepository>.Instance;
+    }
 
     public async Task SaveAsync(HistoryEntry entry)
         => await _db.Connection.InsertAsync(entry);
 
     public async Task<List<HistoryEntry>> GetRecentAsync(int limit = 100)
-        => await _db.Connection.Table<HistoryEntry>()
+    {
+        // v2.4.6 — diagnostic: log both the LINQ count and a raw SQL count
+        // to triangulate the v2.4.x "0 entries despite 1.13 MB DB" bug.
+        // If raw != linq, sqlite-net deserialiser is silently dropping rows.
+        // If both = 0 but DB has data, the table or schema is mismatched.
+        var rows = await _db.Connection.Table<HistoryEntry>()
             .OrderByDescending(h => h.VisitedAt)
             .Take(limit)
             .ToListAsync();
+
+        try
+        {
+            var rawCount = await _db.Connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM history");
+            _logger.LogInformation(
+                "GetRecentAsync(limit={Limit}) → {LinqCount} entries (raw SQL count = {Raw})",
+                limit, rows.Count, rawCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GetRecentAsync raw-count diagnostic failed");
+        }
+
+        return rows;
+    }
 
     public async Task<List<HistoryEntry>> SearchAsync(string query)
         => await _db.Connection.Table<HistoryEntry>()
