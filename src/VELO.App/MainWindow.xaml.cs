@@ -463,6 +463,10 @@ public partial class MainWindow : Window
             // 🤖 IA submenu appears on right-click.
             browserTab.SetAIContextMenuBuilder(
                 _services.GetRequiredService<VELO.UI.Controls.AIContextMenuBuilder>());
+            // v2.4.16 — also wire the inner ContextMenuBuilder so the tab can
+            // subscribe to its events (e.g. RequestPaste needs WebView access).
+            browserTab.SetContextMenuBuilder(
+                _services.GetRequiredService<VELO.UI.Controls.ContextMenuBuilder>());
 
             // v2.1.5.1 — Shields allowlist (per-site fingerprint/WebRTC relax).
             browserTab.SetShieldsAllowlist(

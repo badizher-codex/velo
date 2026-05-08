@@ -28,6 +28,16 @@ public class ContextMenuBuilder(
     {
         var menu = new ContextMenu();
 
+        // v2.4.16 — Pegar at the top whenever the right-click target is an
+        // editable element (input/textarea/contenteditable). Sits above the
+        // contextual items so it's the first thing users see — most natural
+        // place for it given mainstream-browser convention.
+        if (ctx.IsEditableTarget)
+        {
+            AddItem(menu, "📋 Pegar", () => RequestPaste?.Invoke());
+            menu.Items.Add(new Separator());
+        }
+
         if (ctx.LinkUrl is { } link)
             BuildLinkMenu(menu, link, ctx);
         else if (ctx.HasImage)
@@ -187,6 +197,10 @@ public class ContextMenuBuilder(
     public event Action<string>?        RequestForgetSite;
     public event Action?                RequestReaderMode;
     public event Action<string>?        RequestTemporaryContainer;
+
+    /// <summary>v2.4.16 — Raised when the user clicks "Pegar" on an editable target.
+    /// Host injects clipboard text into the focused field via JavaScript.</summary>
+    public event Action?                RequestPaste;
 }
 
 // ── Context model ─────────────────────────────────────────────────────────────
@@ -199,4 +213,5 @@ public record ContextMenuContext(
     string?  SelectedText,
     string   CurrentDomain,
     string   CurrentContainerId,
-    System.Windows.Point Location);
+    System.Windows.Point Location,
+    bool     IsEditableTarget = false);

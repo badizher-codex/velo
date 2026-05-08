@@ -157,7 +157,70 @@ public partial class BrowserTab : UserControl
     // 🤖 IA submenu. Falls back to the plain ContextMenuBuilder when null.
     private AIContextMenuBuilder? _aiContextMenuBuilder;
 
-    public void SetContextMenuBuilder(ContextMenuBuilder builder) => _contextMenuBuilder = builder;
+    public void SetContextMenuBuilder(ContextMenuBuilder builder)
+    {
+        _contextMenuBuilder = builder;
+        // v2.4.16 — subscribe RequestPaste so "📋 Pegar" in the menu
+        // actually pastes into the active editable element. Reads
+        // clipboard text on the UI thread (System.Windows.Clipboard
+        // requires STA), then injects via JS exec into the focused
+        // input/textarea/contentEditable. Fails silently when no text
+        // in clipboard or no editable target — never crashes the tab.
+        _contextMenuBuilder.RequestPaste += () =>
+        {
+            try
+            {
+                var text = System.Windows.Clipboard.ContainsText()
+                    ? System.Windows.Clipboard.GetText()
+                    : "";
+                if (string.IsNullOrEmpty(text)) return;
+                _ = PasteTextIntoFocusedEditableAsync(text);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] Paste failed: {ex.Message}");
+            }
+        };
+    }
+
+    /// <summary>
+    /// Injects <paramref name="text"/> into the page's focused editable element.
+    /// Handles three target shapes: native &lt;input&gt;/&lt;textarea&gt; (uses .value
+    /// + selection insert), contentEditable elements (document.execCommand
+    /// insertText), and as a last-resort fallback the deprecated execCommand
+    /// 'paste'. JSON-encodes the payload so quotes/newlines don't break.
+    /// </summary>
+    private async Task PasteTextIntoFocusedEditableAsync(string text)
+    {
+        if (!_webViewInitialized) return;
+        var jsonText = System.Text.Json.JsonSerializer.Serialize(text);
+        var script = $$"""
+            (() => {
+                const t = {{jsonText}};
+                const el = document.activeElement;
+                if (!el) return false;
+                const tag = (el.tagName || '').toUpperCase();
+                if (tag === 'INPUT' || tag === 'TEXTAREA') {
+                    const start = el.selectionStart ?? el.value.length;
+                    const end   = el.selectionEnd   ?? el.value.length;
+                    el.value = el.value.substring(0, start) + t + el.value.substring(end);
+                    el.selectionStart = el.selectionEnd = start + t.length;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    return true;
+                }
+                if (el.isContentEditable) {
+                    document.execCommand('insertText', false, t);
+                    return true;
+                }
+                return false;
+            })();
+            """;
+        try { await WebView.CoreWebView2.ExecuteScriptAsync(script); }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Paste-inject script failed: {ex.Message}");
+        }
+    }
     public void SetAIContextMenuBuilder(AIContextMenuBuilder builder) => _aiContextMenuBuilder = builder;
 
     // Fase 2: banking-mode flag (set by caller after Initialize)
@@ -1428,6 +1491,15 @@ public partial class BrowserTab : UserControl
             if (_aiContextMenuBuilder is not null || _contextMenuBuilder is not null)
             {
                 var target = e.ContextMenuTarget;
+                // v2.4.16 — WebView2's CoreWebView2ContextMenuTargetKind enum
+                // doesn't include `Editable`, so detect via the native menu
+                // contents instead: WebView2 only adds a "paste" command in
+                // editable contexts (input/textarea/contenteditable). Robust
+                // across locales because the Name property is the English
+                // identifier, not the localised label.
+                bool isEditableTarget = e.MenuItems.Any(mi =>
+                    string.Equals(mi.Name, "paste", StringComparison.OrdinalIgnoreCase));
+
                 var ctx = new ContextMenuContext(
                     LinkUrl:           target.HasLinkUri    ? target.LinkUri    : null,
                     LinkText:          target.HasLinkText   ? target.LinkText   : null,
@@ -1436,7 +1508,8 @@ public partial class BrowserTab : UserControl
                     SelectedText:      target.HasSelection  ? target.SelectionText : null,
                     CurrentDomain:     GetHost(_currentPageUrl),
                     CurrentContainerId: _currentContainerId ?? "none",
-                    Location:          new System.Windows.Point(e.Location.X, e.Location.Y));
+                    Location:          new System.Windows.Point(e.Location.X, e.Location.Y),
+                    IsEditableTarget:  isEditableTarget);
 
                 // AI builder wraps the inner ContextMenuBuilder via DI, so
                 // resolving from it gives us both the Phase 2 items and the

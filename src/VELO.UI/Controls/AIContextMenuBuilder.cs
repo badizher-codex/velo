@@ -72,13 +72,13 @@ public class AIContextMenuBuilder
             // misses fall through to the regular text actions below.
             if (CodeActions.LooksLikeCode(text))
             {
-                AddItem(menu, "💻 " + L.T("ctx.ai.code.explain"),       ctx, text,
+                AddItem(menu, "👾 " + L.T("ctx.ai.code.explain"),       ctx, text,
                     ct => _codeActions.ExplainAsync(text, ct));
-                AddItem(menu, "💻 " + L.T("ctx.ai.code.debug"),         ctx, text,
+                AddItem(menu, "👾 " + L.T("ctx.ai.code.debug"),         ctx, text,
                     ct => _codeActions.DebugAsync(text, ct));
-                AddItem(menu, "💻 " + L.T("ctx.ai.code.optimize"),      ctx, text,
+                AddItem(menu, "👾 " + L.T("ctx.ai.code.optimize"),      ctx, text,
                     ct => _codeActions.OptimizeAsync(text, ct));
-                AddItem(menu, "💻 " + L.T("ctx.ai.code.comment"),       ctx, text,
+                AddItem(menu, "👾 " + L.T("ctx.ai.code.comment"),       ctx, text,
                     ct => _codeActions.CommentAsync(text, ct));
                 added += 4;
             }
