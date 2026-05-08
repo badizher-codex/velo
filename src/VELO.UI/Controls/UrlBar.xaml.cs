@@ -22,6 +22,8 @@ public partial class UrlBar : UserControl
     public event EventHandler? ShieldScoreClicked;
     /// <summary>Fired when the user clicks the 🤖 IA indicator — caller opens VeloAgent chat.</summary>
     public event EventHandler? AgentChatRequested;
+    /// <summary>v2.4.12 — Fired when the user clicks the TL;DR badge in the URL bar.</summary>
+    public event EventHandler? TldrRequested;
 
     private bool _isLoading;
     private bool _isBookmarked;
@@ -88,6 +90,10 @@ public partial class UrlBar : UserControl
 
     public void SetCanGoBack(bool can) => BackButton.IsEnabled = can;
     public void SetCanGoForward(bool can) => ForwardButton.IsEnabled = can;
+
+    /// <summary>v2.4.12 — Toggle TL;DR badge visibility based on TldrService.IsEligible.</summary>
+    public void SetTldrAvailable(bool available)
+        => TldrBadge.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
 
     public void SetTlsStatus(TlsStatus status)
     {
@@ -181,6 +187,9 @@ public partial class UrlBar : UserControl
 
     private void BookmarkButton_Click(object sender, RoutedEventArgs e)
         => BookmarkRequested?.Invoke(this, EventArgs.Empty);
+
+    private void TldrBadge_Click(object sender, RoutedEventArgs e)
+        => TldrRequested?.Invoke(this, EventArgs.Empty);
 
     private void ReaderModeButton_Click(object sender, RoutedEventArgs e)
         => ReaderModeRequested?.Invoke(this, EventArgs.Empty);

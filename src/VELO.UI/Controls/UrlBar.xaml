@@ -66,6 +66,7 @@
                             <ColumnDefinition Width="Auto"/>   <!-- TLS -->
                             <ColumnDefinition Width="*"/>      <!-- URL field -->
                             <ColumnDefinition Width="Auto"/>   <!-- Zoom -->
+                            <ColumnDefinition Width="Auto"/>   <!-- TL;DR badge (v2.4.12) -->
                             <ColumnDefinition Width="Auto"/>   <!-- Reader mode -->
                             <ColumnDefinition Width="Auto"/>   <!-- Bookmark -->
                         </Grid.ColumnDefinitions>
@@ -95,14 +96,33 @@
                                 Visibility="Collapsed"
                                 Click="ZoomReset_Click"/>
 
-                        <Button x:Name="ReaderModeButton" Grid.Column="3"
+                        <!-- TL;DR badge (Sprint 9C, wired in v2.4.12). Visible only on
+                             pages eligible per TldrService.IsEligible (>600 words,
+                             non-login URL). Click → spawns AI summary modal. -->
+                        <Button x:Name="TldrBadge" Grid.Column="3"
+                                FontSize="11" Padding="7,3"
+                                Background="#1A00E5FF" Foreground="#FF00E5FF"
+                                BorderBrush="#3300E5FF" BorderThickness="1"
+                                Margin="2,0,4,0" Cursor="Hand"
+                                Visibility="Collapsed"
+                                Click="TldrBadge_Click"
+                                ToolTip="Resumen TL;DR de esta página">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="3"/>
+                                </Style>
+                            </Button.Resources>
+                            <TextBlock Text="📄 TL;DR" FontWeight="SemiBold"/>
+                        </Button>
+
+                        <Button x:Name="ReaderModeButton" Grid.Column="4"
                                 Style="{StaticResource IconButton}"
                                 Content="📖" FontSize="13"
                                 Visibility="Collapsed"
                                 Click="ReaderModeButton_Click"
                                 ToolTip="Modo Lector (F9)"/>
 
-                        <Button x:Name="BookmarkButton" Grid.Column="4"
+                        <Button x:Name="BookmarkButton" Grid.Column="5"
                                 Style="{StaticResource IconButton}"
                                 Content="☆" FontSize="15"
                                 Click="BookmarkButton_Click"

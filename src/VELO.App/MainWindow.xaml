@@ -45,7 +45,8 @@
                        ReloadRequested="UrlBar_ReloadRequested"
                        StopRequested="UrlBar_StopRequested"
                        MenuRequested="UrlBar_MenuRequested"
-                       AgentChatRequested="UrlBar_AgentChatRequested"/>
+                       AgentChatRequested="UrlBar_AgentChatRequested"
+                       TldrRequested="UrlBar_TldrRequested"/>
 
             <!-- Find bar (Ctrl+F) -->
             <Border x:Name="FindBarPanel"

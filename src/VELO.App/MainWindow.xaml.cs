@@ -879,7 +879,7 @@ public partial class MainWindow : Window
 
     private void OnBrowserLoadingChanged(string tabId, bool loading)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.Invoke(async () =>
         {
             _tabManager.UpdateTab(tabId, t => t.IsLoading = loading);
             if (IsUiDrivingTab(tabId))
@@ -887,7 +887,39 @@ public partial class MainWindow : Window
                 UrlBarControl.SetLoading(loading);
                 // Recompute shield score once the page finishes loading
                 if (!loading)
+                {
                     RefreshShieldScore(tabId);
+
+                    // v2.4.12 — Sprint 9C: page is fully loaded; check whether
+                    // it's TL;DR-eligible (≥600 words, non-login URL) and
+                    // toggle the URL bar badge. Skip when not the active UI
+                    // tab, when the BrowserTab is gone, or when content
+                    // extraction fails — all defensive paths set the badge
+                    // to hidden so it doesn't get stuck visible from an
+                    // earlier nav.
+                    try
+                    {
+                        if (!_browserTabs.TryGetValue(tabId, out var bt))
+                        {
+                            UrlBarControl.SetTldrAvailable(false);
+                            return;
+                        }
+                        var (url, _, content) = await bt.GetPageContentAsync();
+                        var tldr = _services.GetRequiredService<VELO.Agent.TldrService>();
+                        var eligible = tldr.IsEligible(url, content);
+                        UrlBarControl.SetTldrAvailable(eligible);
+                    }
+                    catch
+                    {
+                        UrlBarControl.SetTldrAvailable(false);
+                    }
+                }
+                else
+                {
+                    // Hide while loading so the previous page's badge doesn't
+                    // linger over the new (possibly ineligible) page.
+                    UrlBarControl.SetTldrAvailable(false);
+                }
             }
         });
     }
@@ -1071,6 +1103,42 @@ public partial class MainWindow : Window
 
     private void UrlBar_AgentChatRequested(object? sender, EventArgs e)
         => AgentPanelControl.ToggleVisibility();
+
+    /// <summary>
+    /// v2.4.12 — Sprint 9C wire: user clicked the TL;DR badge in the URL bar.
+    /// Extract page content via reader.js, summarise via TldrService (which
+    /// caches per-URL with 24h TTL), and surface the result in AIResultWindow.
+    /// </summary>
+    private async void UrlBar_TldrRequested(object? sender, EventArgs e)
+    {
+        if (ActiveBrowserTab() is not { } bt) return;
+
+        var (url, title, content) = await bt.GetPageContentAsync();
+        if (string.IsNullOrEmpty(content))
+        {
+            MessageBox.Show(this,
+                LocalizationService.Current.T("tldr.no_content"),
+                "TL;DR", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var tldr = _services.GetRequiredService<VELO.Agent.TldrService>();
+        var aiActions = _services.GetRequiredService<VELO.Agent.AIContextActions>();
+
+        var win = new VELO.UI.Dialogs.AIResultWindow { Owner = this };
+        win.Show(
+            actionLabel: $"📄 TL;DR — {title}",
+            sourcePreview: url,
+            adapterName: aiActions.AdapterName,
+            isCloud: false,
+            generator: async ct =>
+            {
+                var summary = await tldr.GenerateSummaryAsync(url, content, ct);
+                return string.IsNullOrEmpty(summary.Text)
+                    ? LocalizationService.Current.T("tldr.failed")
+                    : summary.Text;
+            });
+    }
 
     private void UrlBar_MenuRequested(object? sender, EventArgs e)
     {
