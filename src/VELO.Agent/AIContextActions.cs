@@ -85,7 +85,8 @@ public class AIContextActions(ILogger<AIContextActions>? logger = null)
         var system =
             $"Summarise the following content in {maxLines} lines or fewer. Use " +
             "bullet points if helpful. Keep names, dates and numbers intact. Don't " +
-            "invent details that aren't present.";
+            "invent details that aren't present. " +
+            $"Reply in {LanguageName(ResponseLanguage)}.";
         return Chat(system, content, ct, fallback: TruncatePreview(content, 200));
     }
 
@@ -170,7 +171,7 @@ public class AIContextActions(ILogger<AIContextActions>? logger = null)
             "You assess the truthfulness of a claim. Reply with: 1) a short verdict " +
             "(supported/contested/likely false/insufficient info), 2) one or two " +
             "sentences of reasoning. Be conservative — say \"insufficient info\" if " +
-            "you don't have reliable knowledge. Reply in the same language as the claim.";
+            $"you don't have reliable knowledge. Reply in {LanguageName(ResponseLanguage)}.";
         var body = await Chat(system, $"Claim: \"{claim}\"", ct, fallback: $"[FactCheck offline] {claim}").ConfigureAwait(false);
 
         // Per § 3.4 always include the disclaimer so users don't take a model
@@ -187,9 +188,9 @@ public class AIContextActions(ILogger<AIContextActions>? logger = null)
     public Task<string> DefineAsync(string term, CancellationToken ct = default)
     {
         var system =
-            "Define the given term in 1-2 sentences plus one concrete example. Reply " +
-            "in the same language as the term. Don't invent — say \"unknown term\" if " +
-            "you don't have reliable knowledge.";
+            "Define the given term in 1-2 sentences plus one concrete example. " +
+            $"Reply in {LanguageName(ResponseLanguage)}. Don't invent — say \"unknown term\" " +
+            "if you don't have reliable knowledge.";
         return Chat(system, term, ct, fallback: $"[Define offline] {term}");
     }
 
@@ -199,8 +200,8 @@ public class AIContextActions(ILogger<AIContextActions>? logger = null)
     {
         var system =
             "Rewrite the text as if explaining to a 5-year-old. Use everyday words, " +
-            "concrete analogies, no jargon. Keep it short (3-5 sentences max). Reply " +
-            "in the same language as the input.";
+            "concrete analogies, no jargon. Keep it short (3-5 sentences max). " +
+            $"Reply in {LanguageName(ResponseLanguage)}.";
         return Chat(system, text, ct, fallback: $"[Simplify offline] {text}");
     }
 
@@ -310,7 +311,16 @@ public class AIContextActions(ILogger<AIContextActions>? logger = null)
     private static string TruncatePreview(string s, int max) =>
         s.Length <= max ? s : s[..max] + "…";
 
-    private static string LanguageName(string code) => code switch
+    /// <summary>
+    /// v2.4.17 — Two-letter locale code that AI replies should be in for any
+    /// action that doesn't take an explicit targetLang. Host (MainWindow)
+    /// sets this from LocalizationService.Current.Language at startup and
+    /// re-sets it on LanguageChanged so the user's UI language is the one
+    /// the model writes back in. Default "en" matches pre-v2.4.17 behaviour.
+    /// </summary>
+    public string ResponseLanguage { get; set; } = "en";
+
+    public static string LanguageName(string code) => code switch
     {
         "es" => "Spanish",
         "en" => "English",

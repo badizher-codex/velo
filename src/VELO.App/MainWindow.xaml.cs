@@ -151,6 +151,24 @@ public partial class MainWindow : Window
         aiActions.AdapterName = "Local";
         aiActions.SupportsVision = false;
 
+        // v2.4.17 — keep ResponseLanguage on AI services in sync with the
+        // user's current locale so model replies (Explain / Summarize / Code
+        // bug analysis / etc.) come back in the language the UI is showing.
+        // Pre-v2.4.17 the system prompts were hardcoded English; users on
+        // non-English locales got an awkward English reply on a Spanish
+        // (or whatever) UI. Single source of truth: LocalizationService.
+        void SyncResponseLanguage()
+        {
+            var lang = LocalizationService.Current.Language;
+            aiActions.ResponseLanguage = lang;
+            // CodeActions resolved later in this method — capture via closure.
+            var ca = _services.GetService<VELO.Agent.CodeActions>();
+            if (ca != null) ca.ResponseLanguage = lang;
+        }
+        SyncResponseLanguage();
+        LocalizationService.Current.LanguageChanged += SyncResponseLanguage;
+        Closed += (_, _) => LocalizationService.Current.LanguageChanged -= SyncResponseLanguage;
+
         var aiBuilder = _services.GetRequiredService<VELO.UI.Controls.AIContextMenuBuilder>();
         aiBuilder.AIActionRequested += (_, invocation) =>
         {

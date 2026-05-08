@@ -30,6 +30,15 @@ public sealed class CodeActions
     /// <summary>Maximum chars of code we forward to the model. Above this we truncate with a marker.</summary>
     public int MaxCodeChars { get; set; } = 4000;
 
+    /// <summary>
+    /// v2.4.17 — Two-letter locale code that natural-language replies (Explain,
+    /// Debug, Optimize) should be in. Code itself stays in the source language;
+    /// only the prose around it is localised. Host (MainWindow) sets this from
+    /// LocalizationService.Current.Language at startup and re-sets it on
+    /// LanguageChanged. Default "en" matches pre-v2.4.17 behaviour.
+    /// </summary>
+    public string ResponseLanguage { get; set; } = "en";
+
     private readonly ILogger<CodeActions> _logger;
 
     public CodeActions(ILogger<CodeActions>? logger = null)
@@ -50,7 +59,8 @@ public sealed class CodeActions
             "Three to five sentences. Lead with the high-level intent, then " +
             "name the key data structures or libraries used. Don't restate " +
             "syntax (\"this is a for loop\"). Don't invent behaviour the code " +
-            "doesn't show.";
+            "doesn't show. " +
+            $"Reply in {AIContextActions.LanguageName(ResponseLanguage)}.";
 
         var user = $"Language (detected): {lang}\n\nCode:\n```{lang}\n{Truncate(code)}\n```";
         return Chat(system, user, ct, fallback: $"```{lang}\n{Truncate(code)}\n```");
@@ -89,7 +99,8 @@ public sealed class CodeActions
             "Cover off-by-ones, null/None/undefined risks, type mismatches, " +
             "unhandled errors, race conditions and resource leaks. If the code " +
             "looks correct, say 'No obvious issues found' and stop. Do not " +
-            "suggest stylistic changes here — that's for /optimize.";
+            "suggest stylistic changes here — that's for /optimize. " +
+            $"Reply in {AIContextActions.LanguageName(ResponseLanguage)}.";
 
         var user = $"Language (detected): {lang}\n\nCode:\n```{lang}\n{Truncate(code)}\n```";
         return Chat(system, user, ct, fallback: "Bug analysis unavailable offline.");
@@ -107,7 +118,9 @@ public sealed class CodeActions
             "sections: 'Suggestions' (bulleted list) followed by 'Rewritten' " +
             "(a single fenced code block with the improved version). Don't " +
             "change behaviour, only how it's expressed. If nothing meaningful " +
-            "can be improved, say so and skip the rewritten section.";
+            "can be improved, say so and skip the rewritten section. " +
+            $"Write the suggestion text in {AIContextActions.LanguageName(ResponseLanguage)}; " +
+            "keep code identifiers in their original language.";
 
         var user = $"Language (detected): {lang}\n\nCode:\n```{lang}\n{Truncate(code)}\n```";
         return Chat(system, user, ct, fallback: "Optimization suggestions unavailable offline.");
@@ -124,7 +137,8 @@ public sealed class CodeActions
             "Add inline comments to the code. Comments should explain WHY, not " +
             "WHAT — assume the reader can read syntax. Don't change a single " +
             "character of the original code outside the comments. Output only " +
-            "a single fenced code block, no preamble, no commentary.";
+            "a single fenced code block, no preamble, no commentary. " +
+            $"Write the comments in {AIContextActions.LanguageName(ResponseLanguage)}.";
 
         var user = $"Language (detected): {lang}\n\nCode:\n```{lang}\n{Truncate(code)}\n```";
         return Chat(system, user, ct, fallback: $"```{lang}\n{Truncate(code)}\n```");
@@ -141,7 +155,8 @@ public sealed class CodeActions
             "Wrap the code in idiomatic error handling for its language. " +
             "Try/catch where appropriate, error returns where the language " +
             "uses them (Go, Rust). Don't change non-error logic. Output only " +
-            "a single fenced code block, no preamble.";
+            "a single fenced code block, no preamble. If you add error-message " +
+            $"strings, write them in {AIContextActions.LanguageName(ResponseLanguage)}.";
 
         var user = $"Language (detected): {lang}\n\nCode:\n```{lang}\n{Truncate(code)}\n```";
         return Chat(system, user, ct, fallback: $"```{lang}\n{Truncate(code)}\n```");
