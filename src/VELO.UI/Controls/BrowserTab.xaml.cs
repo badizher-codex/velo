@@ -160,27 +160,30 @@ public partial class BrowserTab : UserControl
     public void SetContextMenuBuilder(ContextMenuBuilder builder)
     {
         _contextMenuBuilder = builder;
-        // v2.4.16 — subscribe RequestPaste so "📋 Pegar" in the menu
-        // actually pastes into the active editable element. Reads
-        // clipboard text on the UI thread (System.Windows.Clipboard
-        // requires STA), then injects via JS exec into the focused
-        // input/textarea/contentEditable. Fails silently when no text
-        // in clipboard or no editable target — never crashes the tab.
-        _contextMenuBuilder.RequestPaste += () =>
+        // v2.4.19 — formerly subscribed RequestPaste here, but the builder
+        // is a DI singleton so every tab's handler stayed live; pegar in
+        // tab A also pasted into tab B if B had a focused editable. Now
+        // the paste callback is supplied per-build in OnContextMenuRequested,
+        // captured to *this* BrowserTab via closure. No event, no broadcast.
+    }
+
+    /// <summary>v2.4.16 — Reads the clipboard on the UI thread and injects the
+    /// text into this tab's focused editable element (and only this tab).
+    /// Called by ContextMenuBuilder via the per-build onPaste callback.</summary>
+    private void HandlePasteRequest()
+    {
+        try
         {
-            try
-            {
-                var text = System.Windows.Clipboard.ContainsText()
-                    ? System.Windows.Clipboard.GetText()
-                    : "";
-                if (string.IsNullOrEmpty(text)) return;
-                _ = PasteTextIntoFocusedEditableAsync(text);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"[VELO] Paste failed: {ex.Message}");
-            }
-        };
+            var text = System.Windows.Clipboard.ContainsText()
+                ? System.Windows.Clipboard.GetText()
+                : "";
+            if (string.IsNullOrEmpty(text)) return;
+            _ = PasteTextIntoFocusedEditableAsync(text);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Paste failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -1515,9 +1518,12 @@ public partial class BrowserTab : UserControl
                 // resolving from it gives us both the Phase 2 items and the
                 // 🤖 IA submenu (with the v2.4.13 💻 Code branch on selections
                 // that look like code).
+                // v2.4.19 — pass HandlePasteRequest as per-build onPaste so
+                // the paste lands in *this* tab only. Closure captures the
+                // current BrowserTab instance; no singleton-event broadcast.
                 var enrichedMenu = _aiContextMenuBuilder is not null
-                    ? _aiContextMenuBuilder.Build(ctx)
-                    : _contextMenuBuilder!.Build(ctx);
+                    ? _aiContextMenuBuilder.Build(ctx, onPaste: HandlePasteRequest)
+                    : _contextMenuBuilder!.Build(ctx, onPaste: HandlePasteRequest);
                 enrichedMenu.PlacementTarget = WebView;
                 enrichedMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
                 enrichedMenu.IsOpen = true;

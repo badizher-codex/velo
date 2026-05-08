@@ -24,7 +24,7 @@ public class ContextMenuBuilder(
     private readonly UrlCleaner          _urlCleaner = urlCleaner;
     private readonly TabManager          _tabManager = tabManager;
 
-    public ContextMenu Build(ContextMenuContext ctx)
+    public ContextMenu Build(ContextMenuContext ctx, Action? onPaste = null)
     {
         var menu = new ContextMenu();
 
@@ -32,9 +32,15 @@ public class ContextMenuBuilder(
         // editable element (input/textarea/contenteditable). Sits above the
         // contextual items so it's the first thing users see — most natural
         // place for it given mainstream-browser convention.
-        if (ctx.IsEditableTarget)
+        // v2.4.19 — onPaste is supplied by the originating BrowserTab so the
+        // paste lands ONLY in that tab. Was previously a broadcast event on
+        // the singleton builder, which fired in every tab whose handler had
+        // ever been wired (so a focused field in tab B received the paste
+        // when the user pegó in tab A). Per-build callback fixes it by
+        // construction.
+        if (ctx.IsEditableTarget && onPaste is not null)
         {
-            AddItem(menu, "📋 Pegar", () => RequestPaste?.Invoke());
+            AddItem(menu, "📋 Pegar", onPaste);
             menu.Items.Add(new Separator());
         }
 
@@ -197,10 +203,6 @@ public class ContextMenuBuilder(
     public event Action<string>?        RequestForgetSite;
     public event Action?                RequestReaderMode;
     public event Action<string>?        RequestTemporaryContainer;
-
-    /// <summary>v2.4.16 — Raised when the user clicks "Pegar" on an editable target.
-    /// Host injects clipboard text into the focused field via JavaScript.</summary>
-    public event Action?                RequestPaste;
 }
 
 // ── Context model ─────────────────────────────────────────────────────────────

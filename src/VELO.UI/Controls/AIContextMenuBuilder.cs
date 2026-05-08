@@ -44,9 +44,9 @@ public class AIContextMenuBuilder
         _codeActions = codeActions;
     }
 
-    public ContextMenu Build(ContextMenuContext ctx)
+    public ContextMenu Build(ContextMenuContext ctx, Action? onPaste = null)
     {
-        var menu = _inner.Build(ctx);
+        var menu = _inner.Build(ctx, onPaste);
 
         // Append a separator + the inline AI actions for the current context.
         if (menu.Items.Count > 0)
