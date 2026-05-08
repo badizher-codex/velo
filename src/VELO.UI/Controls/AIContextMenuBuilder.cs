@@ -17,15 +17,20 @@ public class AIContextMenuBuilder
 {
     private readonly ContextMenuBuilder _inner;
     private readonly AIContextActions   _actions;
+    private readonly CodeActions        _codeActions;
 
     /// <summary>Raised when an AI action is run and produces a result; host opens
     /// AIResultWindow with the supplied generator.</summary>
     public event EventHandler<AIActionInvocation>? AIActionRequested;
 
-    public AIContextMenuBuilder(ContextMenuBuilder inner, AIContextActions actions)
+    public AIContextMenuBuilder(
+        ContextMenuBuilder inner,
+        AIContextActions   actions,
+        CodeActions        codeActions)
     {
-        _inner   = inner;
-        _actions = actions;
+        _inner       = inner;
+        _actions     = actions;
+        _codeActions = codeActions;
     }
 
     public ContextMenu Build(ContextMenuContext ctx)
@@ -50,6 +55,42 @@ public class AIContextMenuBuilder
         if (!string.IsNullOrWhiteSpace(ctx.SelectedText))
         {
             var text = ctx.SelectedText!;
+
+            // v2.4.13 — Sprint 9A wire: when the selection looks like code
+            // (symbol density + indentation heuristic in CodeActions),
+            // promote a code-specific submenu BEFORE the prose actions.
+            // The prose actions stay available below in case the heuristic
+            // misfires on something edge-y. Detection is pure (no model
+            // call), so this costs nothing for non-code selections.
+            if (CodeActions.LooksLikeCode(text))
+            {
+                var codeSub = new MenuItem { Header = L.T("ctx.ai.code.menu") };
+                AddAction(codeSub, L.T("ctx.ai.code.explain"), ctx, lang, text,
+                    ct => _codeActions.ExplainAsync(text, ct));
+                AddAction(codeSub, L.T("ctx.ai.code.debug"), ctx, lang, text,
+                    ct => _codeActions.DebugAsync(text, ct));
+                AddAction(codeSub, L.T("ctx.ai.code.optimize"), ctx, lang, text,
+                    ct => _codeActions.OptimizeAsync(text, ct));
+                AddAction(codeSub, L.T("ctx.ai.code.comment"), ctx, lang, text,
+                    ct => _codeActions.CommentAsync(text, ct));
+                AddAction(codeSub, L.T("ctx.ai.code.error_handling"), ctx, lang, text,
+                    ct => _codeActions.AddErrorHandlingAsync(text, ct));
+                codeSub.Items.Add(new Separator());
+
+                // Translate-to-language nested menu — common targets only.
+                var translateSub = new MenuItem { Header = L.T("ctx.ai.code.translate") };
+                foreach (var target in new[] { "Python", "JavaScript", "TypeScript", "C#", "Go", "Rust", "Java" })
+                {
+                    var capturedTarget = target;
+                    AddAction(translateSub, capturedTarget, ctx, lang, text,
+                        ct => _codeActions.TranslateAsync(text, capturedTarget, ct));
+                }
+                codeSub.Items.Add(translateSub);
+
+                sub.Items.Add(codeSub);
+                sub.Items.Add(new Separator());
+            }
+
             AddAction(sub, L.T("ctx.ai.text.explain"),  ctx, lang, text,
                 ct => _actions.ExplainAsync(text, lang, ct));
             AddAction(sub, L.T("ctx.ai.text.summarize"), ctx, lang, text,
