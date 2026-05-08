@@ -1415,8 +1415,17 @@ public partial class BrowserTab : UserControl
 
         Dispatcher.InvokeAsync(() =>
         {
-            // ── Fase 2: use enriched ContextMenuBuilder if available ──────
-            if (_contextMenuBuilder is not null)
+            // ── v2.4.14: Use the enriched AI builder when wired, falling back
+            //    to the Phase 2 plain builder, falling back to the WebView2
+            //    native list. Previous gate required _contextMenuBuilder to
+            //    be non-null, but MainWindow only ever wires the AI builder
+            //    (which already composes ContextMenuBuilder via DI). Result:
+            //    the 🤖 IA submenu never appeared in production from Sprint 1E
+            //    (v2.1.0) all the way through v2.4.13. Bug latent for the
+            //    entire Phase 3 because the fallback path renders perfectly
+            //    fine WebView2 items and nobody noticed the IA menu was
+            //    missing.
+            if (_aiContextMenuBuilder is not null || _contextMenuBuilder is not null)
             {
                 var target = e.ContextMenuTarget;
                 var ctx = new ContextMenuContext(
@@ -1429,10 +1438,13 @@ public partial class BrowserTab : UserControl
                     CurrentContainerId: _currentContainerId ?? "none",
                     Location:          new System.Windows.Point(e.Location.X, e.Location.Y));
 
-                // Phase 3 / Sprint 1E — Prefer the AI-decorated builder when wired.
+                // AI builder wraps the inner ContextMenuBuilder via DI, so
+                // resolving from it gives us both the Phase 2 items and the
+                // 🤖 IA submenu (with the v2.4.13 💻 Code branch on selections
+                // that look like code).
                 var enrichedMenu = _aiContextMenuBuilder is not null
                     ? _aiContextMenuBuilder.Build(ctx)
-                    : _contextMenuBuilder.Build(ctx);
+                    : _contextMenuBuilder!.Build(ctx);
                 enrichedMenu.PlacementTarget = WebView;
                 enrichedMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
                 enrichedMenu.IsOpen = true;
