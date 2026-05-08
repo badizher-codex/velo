@@ -128,6 +128,8 @@ public partial class SettingsWindow : Window
         AiEndpointLabel.Text  = L.T("settings.ai.endpoint");
         AiModelLabel.Text     = L.T("settings.ai.model");
         TestOllamaButton.Content = L.T("settings.ai.test");
+        BookmarkAutoTagTitle.Text = L.T("settings.ai.bookmark_autotag");
+        BookmarkAutoTagDesc.Text  = L.T("settings.ai.bookmark_autotag.desc");
 
         // Search panel
         SearchTitle.Text       = L.T("settings.search.title");
@@ -224,6 +226,9 @@ public partial class SettingsWindow : Window
         CustomModelField.IsEnabled    = aiMode == "Custom";
         TestOllamaButton.IsEnabled    = aiMode == "Custom";
 
+        // v2.4.18 — Sprint 9B: BookmarkAI auto-tag
+        BookmarkAutoTagCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.BookmarkAutoTag, defaultValue: true);
+
         // Search
         var search = await _settings.GetAsync(SettingKeys.SearchEngine, "DuckDuckGo");
         SearchDDG.IsChecked    = search == "DuckDuckGo";
@@ -292,6 +297,9 @@ public partial class SettingsWindow : Window
             await _settings.SetAsync(SettingKeys.AiCustomEndpoint, CustomEndpointField.Text.Trim());
             await _settings.SetAsync(SettingKeys.AiClaudeModel, CustomModelField.Text.Trim());
         }
+
+        // v2.4.18 — Sprint 9B: BookmarkAI auto-tag
+        await _settings.SetBoolAsync(SettingKeys.BookmarkAutoTag, BookmarkAutoTagCheck.IsChecked == true);
 
         // Search
         var eng = SearchBrave.IsChecked  == true ? "BraveSearch"

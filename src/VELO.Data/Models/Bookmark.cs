@@ -18,4 +18,7 @@ public class Bookmark
     public string? ContainerId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public byte[]? FaviconBlob { get; set; }
+
+    /// <summary>v2.4.18 — comma-separated, lowercase tags produced by BookmarkAIService.</summary>
+    public string Tags { get; set; } = "";
 }

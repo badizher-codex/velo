@@ -47,6 +47,8 @@ public class VeloDatabase : IDisposable
             try { await _db.ExecuteAsync("ALTER TABLE history ADD COLUMN MalwareCount INTEGER DEFAULT 0"); } catch { }
             try { await _db.ExecuteAsync("ALTER TABLE history ADD COLUMN MonsterCaptured INTEGER DEFAULT 0"); } catch { }
             await _db.CreateTableAsync<Bookmark>();
+            // v2.4.18 — Sprint 9B: Tags column added for BookmarkAIService auto-tag.
+            try { await _db.ExecuteAsync("ALTER TABLE bookmarks ADD COLUMN Tags TEXT NOT NULL DEFAULT ''"); } catch { }
             await _db.CreateTableAsync<PasswordEntry>();
             await _db.CreateTableAsync<CachedVerdict>();
             await _db.CreateTableAsync<Container>();

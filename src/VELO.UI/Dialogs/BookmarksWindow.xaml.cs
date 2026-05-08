@@ -88,6 +88,12 @@ public partial class BookmarksWindow : Window
             TextTrimming = TextTrimming.CharacterEllipsis,
             Margin     = new Thickness(0, 2, 0, 0)
         });
+
+        // v2.4.18 — AI tag chips (Sprint 9B). Read-only first pass; click-to-filter
+        // is a follow-up.
+        if (!string.IsNullOrWhiteSpace(b.Tags))
+            info.Children.Add(BuildTagChips(b.Tags));
+
         Grid.SetColumn(info, 0);
         grid.Children.Add(info);
 
@@ -119,6 +125,37 @@ public partial class BookmarksWindow : Window
         return card;
     }
 
+    private WrapPanel BuildTagChips(string csv)
+    {
+        var chipsPanel = new WrapPanel
+        {
+            Margin = new Thickness(0, 6, 0, 0)
+        };
+
+        var tags = csv.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        foreach (var tag in tags.Take(5))
+        {
+            var chip = new Border
+            {
+                Background      = (Brush)FindResource("BackgroundDarkBrush"),
+                BorderBrush     = (Brush)FindResource("BorderBrush"),
+                BorderThickness = new Thickness(1),
+                CornerRadius    = new CornerRadius(8),
+                Padding         = new Thickness(7, 1, 7, 2),
+                Margin          = new Thickness(0, 0, 4, 0),
+                Child = new TextBlock
+                {
+                    Text       = tag,
+                    FontSize   = 10,
+                    Foreground = (Brush)FindResource("TextMutedBrush")
+                }
+            };
+            chipsPanel.Children.Add(chip);
+        }
+
+        return chipsPanel;
+    }
+
     private void Search_Changed(object sender, TextChangedEventArgs e)
     {
         var q = SearchBox.Text.Trim();
@@ -126,7 +163,8 @@ public partial class BookmarksWindow : Window
             ? _all
             : _all.Where(b =>
                 b.Title.Contains(q, StringComparison.OrdinalIgnoreCase) ||
-                b.Url.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+                b.Url.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                b.Tags.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
         Render(filtered);
     }
 }

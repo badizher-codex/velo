@@ -1811,8 +1811,58 @@ public partial class MainWindow : Window
         else
         {
             var title = _tabManager.ActiveTab?.Title ?? url;
-            await repo.SaveAsync(new VELO.Data.Models.Bookmark { Url = url, Title = title });
+            var bookmark = new VELO.Data.Models.Bookmark { Url = url, Title = title };
+            await repo.SaveAsync(bookmark);
             UrlBarControl.SetBookmarked(true);
+
+            // Sprint 9B (v2.4.18) — fire-and-forget AI auto-tagging. The bookmark
+            // is persisted immediately above so the star toggles on; tags arrive
+            // later (typically <2s on a local model, longer on Claude). Failure
+            // is silent on the user's hot path; logged for diagnostics.
+            _ = AutoTagBookmarkInBackgroundAsync(bookmark, ActiveBrowserTab());
+        }
+    }
+
+    private async Task AutoTagBookmarkInBackgroundAsync(VELO.Data.Models.Bookmark bookmark, BrowserTab? sourceTab)
+    {
+        try
+        {
+            var enabled = await _settings.GetBoolAsync(SettingKeys.BookmarkAutoTag, defaultValue: true);
+            if (!enabled) return;
+
+            var ai = _services.GetService<VELO.Agent.BookmarkAIService>();
+            if (ai is null || ai.ChatDelegate is null) return;
+
+            // Best-effort page-content extraction from the tab that was active
+            // when the user starred. Login pages, SPAs, etc. return empty
+            // content — the tagger then falls back to title + URL alone.
+            string content = "";
+            try
+            {
+                if (sourceTab is not null)
+                {
+                    var (extractedUrl, _, body) = await sourceTab.GetPageContentAsync();
+                    if (string.Equals(extractedUrl, bookmark.Url, StringComparison.OrdinalIgnoreCase))
+                        content = body;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "AutoTag: GetPageContentAsync failed for {Url}", bookmark.Url);
+            }
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var tags = await ai.GenerateTagsAsync(bookmark.Title, bookmark.Url, content, cts.Token);
+            if (tags.Count == 0) return;
+
+            bookmark.Tags = string.Join(",", tags);
+            var repo = _services.GetRequiredService<BookmarkRepository>();
+            await repo.SaveAsync(bookmark);
+            Log.Information("AutoTag: tagged {Url} with [{Tags}]", bookmark.Url, bookmark.Tags);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "AutoTag: failed for {Url}", bookmark.Url);
         }
     }
 

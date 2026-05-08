@@ -44,4 +44,6 @@ public static class SettingKeys
     /// <summary>v2.1.2 — Set to "yes" once the user has answered the first restore prompt so
     /// we don't keep asking on every launch.</summary>
     public const string SessionRestoreAsked     = "session.restore_asked";
+    /// <summary>v2.4.18 — When true, BookmarkAIService generates tags on save. Default true.</summary>
+    public const string BookmarkAutoTag         = "ai.bookmark_autotag";
 }
