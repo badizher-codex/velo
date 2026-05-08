@@ -62,15 +62,18 @@ public class ThreatsPanelViewModelTests
         vm.CurrentTabId = "T1";
 
         var uiUpdates = 0;
-        vm.InvokeOnUi = action => { uiUpdates++; action(); };
+        // Increment AFTER Recompute returns. Otherwise the poll exits as soon
+        // as InvokeOnUi enters the action — but Groups.Clear() has run and
+        // the foreach Add hasn't, so the assert sees Count=0. Caught on
+        // release CI run 25579893592 (commit f8d7927).
+        vm.InvokeOnUi = action => { action(); uiUpdates++; };
 
         // 12 events fired faster than the debounce window — should collapse
         // to a single UI recompute.
         for (int i = 0; i < 12; i++) bus.Publish(Block("T1", $"host{i}.example"));
 
-        // Poll until the debounce timer flushes. Capped to 2s so a runaway
-        // dispatcher fails fast. A fixed delay made this test flaky on slow
-        // GitHub runners (the timer occasionally lagged past 250ms).
+        // Poll until the debounce timer flushes AND Recompute completes.
+        // Capped to 2s so a runaway dispatcher fails fast.
         var sw = System.Diagnostics.Stopwatch.StartNew();
         while (uiUpdates == 0 && sw.ElapsedMilliseconds < 2000)
             await Task.Delay(20);
