@@ -68,7 +68,12 @@ public class ThreatsPanelViewModelTests
         // to a single UI recompute.
         for (int i = 0; i < 12; i++) bus.Publish(Block("T1", $"host{i}.example"));
 
-        await Task.Delay(250);
+        // Poll until the debounce timer flushes. Capped to 2s so a runaway
+        // dispatcher fails fast. A fixed delay made this test flaky on slow
+        // GitHub runners (the timer occasionally lagged past 250ms).
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (uiUpdates == 0 && sw.ElapsedMilliseconds < 2000)
+            await Task.Delay(20);
 
         Assert.Equal(1, uiUpdates);
         Assert.Equal(12, vm.Groups.Count);
