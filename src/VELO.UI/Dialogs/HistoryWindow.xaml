@@ -7,22 +7,9 @@
         Background="#181820"
         Foreground="#E2E2E8">
 
-    <!--
-        v2.4.10 — Complete rewrite. The previous HistoryWindow accumulated
-        7 hotfixes (v2.4.3 through v2.4.9) that all failed to surface 368
-        entries we knew were in the DB. The bug was somewhere between
-        `_all = entries` and the visual tree, hidden behind a stack of:
-        dual Loaded+Activated wiring, _isLoading dedupe, Dispatcher.InvokeAsync,
-        ApplyLanguage stomping on _all, and a DataTemplate with 4 chained
-        converters that bound to localisation keys via static Source
-        bindings. This rewrite throws all of that away and uses the
-        simplest WPF pattern that exists: ObservableCollection bound
-        directly via ItemsSource.
-    -->
-
     <DockPanel Margin="16">
 
-        <!-- Header row: title + reload + status + clear -->
+        <!-- Header row -->
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -30,20 +17,23 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Column="0" Text="History"
+            <TextBlock Grid.Column="0" x:Name="HeaderLabel"
+                       Text="History"
                        FontSize="22" FontWeight="SemiBold"
                        Foreground="#E2E2E8"
                        VerticalAlignment="Center"/>
 
             <Button Grid.Column="1" x:Name="ReloadButton"
-                    Content="↻ Reload" Padding="10,5"
+                    Content="↻"
+                    FontSize="14"
+                    Padding="10,5"
                     Background="#2A2A36" Foreground="#E2E2E8"
                     BorderBrush="#3A3A4A" BorderThickness="1"
                     Margin="0,0,8,0"
                     Click="Reload_Click"/>
 
             <Button Grid.Column="2" x:Name="ClearButton"
-                    Content="Clear all" Padding="10,5"
+                    Padding="10,5"
                     Background="#3A1A1A" Foreground="#FF6B6B"
                     BorderBrush="#5A2A2A" BorderThickness="1"
                     Click="Clear_Click"/>
@@ -62,14 +52,13 @@
                      TextChanged="SearchBox_TextChanged"/>
         </Border>
 
-        <!-- Footer: count + diagnostic -->
+        <!-- Footer -->
         <Grid DockPanel.Dock="Bottom" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" x:Name="StatusLabel"
-                       Text="Loading…"
                        Foreground="#888899" FontSize="12"
                        VerticalAlignment="Center"/>
             <TextBlock Grid.Column="1" x:Name="DiagLabel"
@@ -78,7 +67,13 @@
                        VerticalAlignment="Center"/>
         </Grid>
 
-        <!-- List — ItemsSource bound to ObservableCollection in code -->
+        <!--
+            List — bound to ObservableCollection<HistoryEntryRowView>.
+            All template bindings target plain CLR properties on the wrapper
+            (text + Visibility pre-computed). No converters, no Source-static
+            bindings. If anything goes wrong the row renders empty/literal,
+            never blank-with-no-error like the previous implementation.
+        -->
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <ItemsControl x:Name="HistoryList">
                 <ItemsControl.ItemTemplate>
@@ -97,18 +92,64 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
+                                <!-- Left column: title, url, security badges -->
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="{Binding Title}"
-                                               Foreground="#E2E2E8"
-                                               FontSize="13" FontWeight="Medium"
-                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- Title row with optional 👾 -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="👾 " FontSize="13"
+                                                   Visibility="{Binding MonsterVisibility}"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Title}"
+                                                   Foreground="#E2E2E8"
+                                                   FontSize="13" FontWeight="Medium"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <!-- URL row -->
                                     <TextBlock Text="{Binding Url}"
                                                Foreground="#888899"
                                                FontSize="11"
                                                TextTrimming="CharacterEllipsis"
                                                Margin="0,2,0,0"/>
+
+                                    <!-- Security badges row -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+
+                                        <!-- Blocked count (red) -->
+                                        <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                                Background="#33FF3D71"
+                                                Visibility="{Binding BlockedBadgeVisibility}">
+                                            <TextBlock Text="{Binding BlockedBadgeText}"
+                                                       FontSize="10" Foreground="#FF6B96"/>
+                                        </Border>
+
+                                        <!-- Trackers (amber) -->
+                                        <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                                Background="#33FFB300"
+                                                Visibility="{Binding TrackerBadgeVisibility}">
+                                            <TextBlock Text="{Binding TrackerBadgeText}"
+                                                       FontSize="10" Foreground="#FFB94A"/>
+                                        </Border>
+
+                                        <!-- Malware (red) -->
+                                        <Border CornerRadius="3" Padding="5,2" Margin="0,0,4,0"
+                                                Background="#44FF0000"
+                                                Visibility="{Binding MalwareBadgeVisibility}">
+                                            <TextBlock Text="{Binding MalwareBadgeText}"
+                                                       FontSize="10" Foreground="#FF6B6B"/>
+                                        </Border>
+
+                                        <!-- No threats (green) — only when all counts are zero -->
+                                        <TextBlock Text="{Binding NoThreatsText}"
+                                                   FontSize="10" Foreground="#4CAF50"
+                                                   VerticalAlignment="Center"
+                                                   Visibility="{Binding NoThreatsVisibility}"/>
+                                    </StackPanel>
                                 </StackPanel>
 
+                                <!-- Right column: time + delete -->
                                 <StackPanel Grid.Column="1" VerticalAlignment="Top"
                                             Margin="12,0,0,0">
                                     <TextBlock Text="{Binding VisitedAt, StringFormat='{}{0:dd/MM HH:mm}'}"

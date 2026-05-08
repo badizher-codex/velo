@@ -2,33 +2,25 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using VELO.Core.Localization;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
 
 namespace VELO.UI.Dialogs;
 
 /// <summary>
-/// v2.4.10 — Complete rewrite. Previous incarnation (Phase 2 + v2.4.4-v2.4.9
-/// hotfix accretion) had at least three layered defects that none of the
-/// hotfixes individually fixed:
-///   • Constructor's ApplyLanguage() called Render(_all) before _all was
-///     populated, leaving CountLabel pinned at "0 entries"
-///   • Loaded/Activated dual wiring + _isLoading dedupe didn't recover
-///     when the captured-context continuation didn't return to UI thread
-///   • DataTemplate bound to localisation keys via Source='history.badge.X'
-///     which the LocalizeKeyConverter handled silently — failures rendered
-///     as empty rows that the user perceived as "missing entries"
-/// We replace all of that with the simplest WPF pattern that works:
-/// ItemsControl.ItemsSource ← ObservableCollection&lt;HistoryEntry&gt;.
-/// One reload path. Synchronous to the user via the existing
-/// .GetAwaiter().GetResult() inside HistoryRepository (the underlying
-/// SQLite query is &lt;10ms for 500 rows). No converter chain. No
-/// localisation in the template (added back later if needed).
+/// v2.4.10 — Complete rewrite of the v2.4.x bug train (see project_phase3_state.md).
+/// v2.4.11 — Re-added security badges + 👾 monster + i18n via the
+/// <see cref="HistoryEntryRowView"/> wrapper. Localised strings are
+/// pre-computed when each row is constructed; the DataTemplate binds to
+/// plain CLR properties so a missing key surfaces as the literal key
+/// instead of a blank row (the failure mode that hid the original
+/// bug for seven hotfixes).
 /// </summary>
 public partial class HistoryWindow : Window
 {
     private readonly HistoryRepository _repo;
-    private readonly ObservableCollection<HistoryEntry> _items = new();
+    private readonly ObservableCollection<HistoryEntryRowView> _items = new();
     private List<HistoryEntry> _allCached = new();
 
     /// <summary>Raised when the user clicks an entry to navigate to its URL.</summary>
@@ -39,21 +31,42 @@ public partial class HistoryWindow : Window
         _repo = repo;
         InitializeComponent();
         HistoryList.ItemsSource = _items;
+
+        ApplyLanguage();
+        LocalizationService.Current.LanguageChanged += ApplyLanguage;
+        Closed += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
+
         Loaded += async (_, _) => await ReloadAsync();
+    }
+
+    // ── Localisation ────────────────────────────────────────────────────
+
+    private void ApplyLanguage()
+    {
+        var L = LocalizationService.Current;
+        Title             = L.T("title.history");
+        HeaderLabel.Text  = L.T("history.title");
+        SearchBox.Tag     = L.T("history.search");
+        ClearButton.Content = L.T("history.clearall");
+        ReloadButton.ToolTip = L.T("history.reload");
+        // If a reload already happened, rebuild the views so badge text
+        // re-localises. Cheap — at most 500 record allocations.
+        if (_allCached.Count > 0) ApplyToCollection(_allCached);
     }
 
     // ── Reload ──────────────────────────────────────────────────────────
 
     private async Task ReloadAsync()
     {
-        StatusLabel.Text = "Loading…";
+        var L = LocalizationService.Current;
+        StatusLabel.Text = L.T("history.loading");
         DiagLabel.Text = "";
         try
         {
             var rows = await _repo.GetRecentAsync(500);
             _allCached = rows;
             ApplyToCollection(rows);
-            StatusLabel.Text = $"{rows.Count} entries";
+            StatusLabel.Text = FormatCount(rows.Count);
             DiagLabel.Text = $"loaded {rows.Count} from DB";
             Serilog.Log.Information(
                 "HistoryWindow.ReloadAsync OK: {Count} entries; ItemsControl now has {ItemsCount} items",
@@ -67,16 +80,17 @@ public partial class HistoryWindow : Window
         }
     }
 
-    /// <summary>
-    /// Replaces the visible collection in-place. ObservableCollection
-    /// raises CollectionChanged for each Clear/Add so the ItemsControl
-    /// rebuilds its visual children correctly. Faster + more reliable
-    /// than ItemsSource = newList.
-    /// </summary>
     private void ApplyToCollection(IReadOnlyList<HistoryEntry> rows)
     {
         _items.Clear();
-        foreach (var row in rows) _items.Add(row);
+        foreach (var row in rows) _items.Add(HistoryEntryRowView.From(row));
+    }
+
+    private static string FormatCount(int count)
+    {
+        var L = LocalizationService.Current;
+        var word = count == 1 ? L.T("history.entry") : L.T("history.entries");
+        return $"{count} {word}";
     }
 
     // ── Search ──────────────────────────────────────────────────────────
@@ -87,7 +101,7 @@ public partial class HistoryWindow : Window
         if (string.IsNullOrEmpty(q))
         {
             ApplyToCollection(_allCached);
-            StatusLabel.Text = $"{_allCached.Count} entries";
+            StatusLabel.Text = FormatCount(_allCached.Count);
             return;
         }
 
@@ -95,7 +109,8 @@ public partial class HistoryWindow : Window
         {
             var rows = await _repo.SearchAsync(q);
             ApplyToCollection(rows);
-            StatusLabel.Text = $"{rows.Count} matches for \"{q}\"";
+            var L = LocalizationService.Current;
+            StatusLabel.Text = string.Format(L.T("history.matches"), rows.Count, q);
         }
         catch (Exception ex)
         {
@@ -111,9 +126,10 @@ public partial class HistoryWindow : Window
 
     private async void Clear_Click(object sender, RoutedEventArgs e)
     {
+        var L = LocalizationService.Current;
         var r = MessageBox.Show(this,
-            "Clear all browsing history?",
-            "Confirm",
+            L.T("history.confirm.clear"),
+            L.T("history.title"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (r != MessageBoxResult.Yes) return;
@@ -149,13 +165,13 @@ public partial class HistoryWindow : Window
             await _repo.DeleteAsync(id);
             _allCached.RemoveAll(h => h.Id == id);
             ApplyToCollection(_allCached);
-            StatusLabel.Text = $"{_allCached.Count} entries";
+            StatusLabel.Text = FormatCount(_allCached.Count);
         }
         catch (Exception ex)
         {
             StatusLabel.Text = $"Delete failed: {ex.Message}";
             Serilog.Log.Error(ex, "HistoryWindow.Delete failed for id {Id}", id);
         }
-        e.Handled = true; // prevent the row click from firing
+        e.Handled = true;
     }
 }
