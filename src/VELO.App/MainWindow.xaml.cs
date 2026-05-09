@@ -2795,6 +2795,32 @@ public partial class MainWindow : Window
 
         await _navController.ClearDataOnExitAsync();
 
+        // v2.4.20 — Wait for in-flight downloads to settle before tearing
+        // down WebView2s. Disposing a CoreWebView2 while a download is
+        // in-progress (or completed-but-not-acknowledged) makes Chromium
+        // roll the file back: the user sees the download "finish" in our
+        // UI but on close the file vanishes from Downloads. 30 s cap so a
+        // stuck download (where StateChanged never fires Completed and
+        // file polling never matches) doesn't trap the user. The polling
+        // fallback in BrowserTab.OnDownloadStarting normally trips first.
+        try
+        {
+            var dm = _services.GetRequiredService<VELO.Core.Downloads.DownloadManager>();
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            while (DateTime.UtcNow < deadline &&
+                   dm.Downloads.Any(d => d.State == VELO.Core.Downloads.DownloadState.InProgress))
+            {
+                await Task.Delay(250);
+            }
+            var stillInFlight = dm.Downloads.Count(d => d.State == VELO.Core.Downloads.DownloadState.InProgress);
+            if (stillInFlight > 0)
+                Serilog.Log.Warning("Window_Closing: {Count} downloads still in-progress after 30s wait — proceeding to close", stillInFlight);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Window_Closing download-wait failed: {ex.Message}");
+        }
+
         // v2.0.5 — Stop every WebView2 in this window BEFORE the window closes.
         // Without this, tear-off windows leak audio/video because their
         // CoreWebView2 child processes survive until GC. CloseTab() mutes,

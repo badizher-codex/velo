@@ -1451,13 +1451,62 @@ public partial class BrowserTab : UserControl
 
         op.StateChanged += (_, _) =>
         {
-            item.State = op.State switch
+            var newState = op.State switch
             {
                 CoreWebView2DownloadState.Completed   => DownloadState.Completed,
                 CoreWebView2DownloadState.Interrupted => DownloadState.Interrupted,
                 _                                     => DownloadState.InProgress
             };
+            Serilog.Log.Information("Download StateChanged: {File} → {State}", fileName, newState);
+            item.State = newState;
         };
+
+        // v2.4.20 — File-system polling fallback. With e.Handled=true above,
+        // WebView2's StateChanged event sometimes never fires Completed
+        // (the host is supposed to drive the lifecycle but we suppressed
+        // the default UI). Without a Completed transition the app shows
+        // "downloading…" forever AND on shutdown Chromium considers the
+        // download abandoned and *deletes the final file* — exactly the
+        // bug reported on v2.4.19. Polling the disk is authoritative:
+        // when <name>.crdownload disappears and <name>.<ext> is present
+        // with size == TotalBytes (or any bytes if TotalBytes unknown),
+        // the download is finished regardless of what the event says.
+        _ = Task.Run(async () =>
+        {
+            var partialPath = filePath + ".crdownload";
+            // 1-hour cap so a stuck download doesn't poll forever.
+            var deadline = DateTime.UtcNow.AddHours(1);
+            while (DateTime.UtcNow < deadline && item.State == DownloadState.InProgress)
+            {
+                await Task.Delay(500).ConfigureAwait(false);
+                try
+                {
+                    if (!File.Exists(filePath)) continue;
+                    if (File.Exists(partialPath)) continue;
+                    var len = new FileInfo(filePath).Length;
+                    if (item.TotalBytes > 0 && len < item.TotalBytes) continue;
+                    // File present, no .crdownload sibling, size matches (or
+                    // total unknown) → declare Completed.
+                    await Dispatcher.InvokeAsync(() =>
+                    {
+                        if (item.State == DownloadState.InProgress)
+                        {
+                            item.State = DownloadState.Completed;
+                            if (item.TotalBytes == 0) item.TotalBytes = len;
+                            item.ReceivedBytes = len;
+                            Serilog.Log.Information(
+                                "Download polled-Completed: {File} ({Bytes} bytes)",
+                                fileName, len);
+                        }
+                    });
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Debug(ex, "Download poll iteration failed for {File}", fileName);
+                }
+            }
+        });
     }
 
     private void NewTabPage_NavigationRequested(object? sender, string input)
