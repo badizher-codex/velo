@@ -201,6 +201,27 @@ public partial class MainWindow : Window
         aiChatRouter.WireAll(chatAdapter, onError: ex =>
             Log.Warning(ex, "AiChatRouter: failed to install delegate on a consumer"));
 
+        // v2.4.22 — Sprint 8C wire. BlockNarrationService raises NarrationReady
+        // for "interesting" blocks (skips routine blocklist hits, throttles
+        // per-host + per-minute). Surface each narration on the dedicated
+        // toast. Marshal to UI thread because the service raises the event
+        // on whichever thread invoked it (typically a security pipeline
+        // background task).
+        var narrationSvc = _services.GetRequiredService<VELO.Security.Threats.BlockNarrationService>();
+        narrationSvc.NarrationReady += narration =>
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                    BlockNarrationToastControl.ShowNarration(
+                        narration.Host, narration.Source, narration.Text));
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "BlockNarration toast invoke failed for {Host}", narration.Host);
+            }
+        };
+
         // VeloAgent panel wiring
         AgentPanelControl.SetServices(_agentLauncher, _agentSandbox);
 
@@ -499,6 +520,12 @@ public partial class MainWindow : Window
             // pattern from regressing.
             browserTab.SetPasteGuard(
                 _services.GetRequiredService<VELO.Security.Guards.PasteGuard>());
+
+            // v2.4.22 — Sprint 8A wire. SmartBlock async classifier so each
+            // tab can fire-and-forget classification on cache misses; the
+            // verdict is read sync by RequestGuard on the next request.
+            browserTab.SetSmartBlockClassifier(
+                _services.GetRequiredService<VELO.Security.Guards.SmartBlockClassifier>());
 
             // Phase 3 / Sprint 5 — autofill prompt + save-on-submit
             var autofill = _services.GetRequiredService<VELO.Vault.AutofillService>();

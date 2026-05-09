@@ -6,10 +6,20 @@ using VELO.Security.Rules;
 
 namespace VELO.Security.Guards;
 
-public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logger)
+public class RequestGuard(
+    BlocklistManager blocklist,
+    ILogger<RequestGuard> logger,
+    SmartBlockClassifier? smartBlock = null)
 {
     private readonly BlocklistManager _blocklist = blocklist;
     private readonly ILogger<RequestGuard> _logger = logger;
+    // v2.4.22 — Sprint 8A wire. SmartBlockClassifier is async by design,
+    // so we don't await here — sync Evaluate consults the classifier's
+    // existing cache for previously-seen hosts. The async classification
+    // is kicked off from the call-site (BrowserTab.OnWebResourceRequested)
+    // for hosts not yet classified, which populates the cache so the
+    // next request to the same host gets the verdict instantly.
+    private readonly SmartBlockClassifier? _smartBlock = smartBlock;
 
     private static readonly HashSet<string> _userWhitelist = [];
 
@@ -153,19 +163,36 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
         if (isMainFrame && (HasSuspiciousTld(host) || LooksLikeBrandImpersonation(host) || LooksRandomGenerated(host)))
             return SecurityVerdict.NeedsAI();
 
+        // 9 (v2.4.22). SmartBlock second-pass — async classifier verdict from a
+        //              previous request to this host. Caller (BrowserTab) fires
+        //              the async classification when the cache miss; on the
+        //              next request we read its verdict here.
+        var smartVerdict = _smartBlock?.TryGetCachedVerdict(host);
+        if (smartVerdict?.Verdict == SmartBlockClassifier.Verdict.Block)
+        {
+            _logger.LogInformation("SmartBlock blocked {Host}: {Reason} (conf {Conf:F2})",
+                host, smartVerdict.Reason, smartVerdict.Confidence);
+            return SecurityVerdict.Block(
+                $"SmartBlock: {smartVerdict.Reason}",
+                ThreatType.Tracker,
+                "SmartBlock");
+        }
+
         return SecurityVerdict.Allow();
     }
 
     public static void AddToWhitelist(string host) => _userWhitelist.Add(host.ToLowerInvariant());
     public static void RemoveFromWhitelist(string host) => _userWhitelist.Remove(host.ToLowerInvariant());
 
-    private static bool HasSuspiciousTld(string host)
+    /// <summary>v2.4.22 — exposed so AISecurityEngine can populate PhishingShield signals.</summary>
+    public static bool HasSuspiciousTld(string host)
     {
         var parts = host.Split('.');
         return parts.Length >= 2 && _suspiciousTlds.Contains(parts[^1]);
     }
 
-    private static bool LooksLikeBrandImpersonation(string host)
+    /// <summary>v2.4.22 — exposed so AISecurityEngine can populate PhishingShield signals.</summary>
+    public static bool LooksLikeBrandImpersonation(string host)
     {
         // e.g. paypa1.com, g00gle-login.net, microsoft-secure.xyz
         var lower = host.Replace("-", "").Replace(".", "");
@@ -181,7 +208,8 @@ public class RequestGuard(BlocklistManager blocklist, ILogger<RequestGuard> logg
         return false;
     }
 
-    private static bool LooksRandomGenerated(string host)
+    /// <summary>v2.4.22 — exposed so AISecurityEngine can populate PhishingShield signals.</summary>
+    public static bool LooksRandomGenerated(string host)
     {
         // Check the second-level domain (e.g. "toruftuiov" from my.toruftuiov.com or toruftuiov.com)
         var parts = host.Split('.');

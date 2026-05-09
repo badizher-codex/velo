@@ -247,9 +247,9 @@ public class WiringSmokeTests
     /// </summary>
     private static readonly HashSet<string> _knownDeferredServices = new(StringComparer.Ordinal)
     {
-        // Sprint 8C — narration toast WPF still pending. Service emits
-        // NarrationReady but no UI subscribes yet.
-        "VELO.Security.Threats.BlockNarrationService",
+        // Sprint 8C wired in v2.4.22 — toast subscriber lives in MainWindow.
+        // No deferred entries at the moment. Future sprints add services
+        // ahead of UI here with a comment naming the gating sprint.
     };
 
     /// <summary>

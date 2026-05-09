@@ -241,6 +241,13 @@ public partial class BrowserTab : UserControl
     private ShieldsAllowlist? _shieldsAllowlist;
     public void SetShieldsAllowlist(ShieldsAllowlist allow) => _shieldsAllowlist = allow;
 
+    // v2.4.22 — Sprint 8A wire. SmartBlockClassifier fires async on cache
+    // misses for sub-resource hosts; the verdict is read sync from the
+    // classifier's cache by RequestGuard on the next request. Fire-and-forget
+    // so the current request never waits for the model.
+    private SmartBlockClassifier? _smartBlock;
+    public void SetSmartBlockClassifier(SmartBlockClassifier classifier) => _smartBlock = classifier;
+
     // Phase 3 / Sprint 5 — Autofill
     private AutofillService? _autofill;
     /// <summary>Raised when the page reports a login form is present. Arg = host.</summary>
@@ -1043,6 +1050,35 @@ public partial class BrowserTab : UserControl
                     catch { /* never crash on AI timeout */ }
                 });
             }
+
+            // 3 (v2.4.22). SmartBlock async classification — fire-and-forget.
+            //              Skipped for main-frame requests (those already get
+            //              the AISecurityEngine treatment via NeedsAIAnalysis),
+            //              trusted-host CDNs, and sub-resources whose host is
+            //              already cached. The classifier owns its own budget
+            //              + cache; we just kick the work off and let the next
+            //              request to the same host read the verdict via
+            //              RequestGuard.TryGetCachedVerdict().
+            if (_smartBlock != null && verdict?.Verdict == VerdictType.Safe)
+            {
+                var host = GetHost(uri);
+                if (!string.IsNullOrEmpty(host)
+                    && !VELO.Security.Guards.RequestGuard.TrustedHosts.Contains(host)
+                    && !resourceType.Equals("Document", StringComparison.OrdinalIgnoreCase)
+                    && _smartBlock.TryGetCachedVerdict(host) is null)
+                {
+                    var refHost = string.IsNullOrEmpty(referrer) ? "" : GetHost(referrer);
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                            await _smartBlock.ClassifyAsync(host, resourceType, refHost, cts.Token);
+                        }
+                        catch { /* fire-and-forget; classifier logs its own warnings */ }
+                    });
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1052,6 +1088,7 @@ public partial class BrowserTab : UserControl
         {
             _ = ex; // Log in production
         }
+
         return Task.CompletedTask;
     }
 

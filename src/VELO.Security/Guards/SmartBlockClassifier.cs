@@ -127,6 +127,26 @@ public sealed class SmartBlockClassifier
         return result;
     }
 
+    /// <summary>
+    /// Sync cache lookup — returns the cached verdict for <paramref name="host"/>
+    /// when one exists within the TTL, otherwise null. Used by
+    /// <c>RequestGuard.Evaluate</c> (which is sync) to consult prior async
+    /// classifications without re-invoking the model. v2.4.22.
+    /// </summary>
+    public Result? TryGetCachedVerdict(string host)
+    {
+        if (string.IsNullOrEmpty(host)) return null;
+        lock (_lock)
+        {
+            if (_cache.TryGetValue(host, out var entry) &&
+                (DateTime.UtcNow - entry.At) < CacheTtl)
+            {
+                return entry.R with { FromCache = true };
+            }
+        }
+        return null;
+    }
+
     /// <summary>Test helper — clears the cache.</summary>
     public void ClearCache()
     {
