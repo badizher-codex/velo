@@ -498,7 +498,7 @@ public partial class MainWindow : Window
             // bug that took 6 months to surface. Smoke test now blocks the
             // pattern from regressing.
             browserTab.SetPasteGuard(
-                _services.GetRequiredService<VELO.Security.PasteGuard>());
+                _services.GetRequiredService<VELO.Security.Guards.PasteGuard>());
 
             // Phase 3 / Sprint 5 — autofill prompt + save-on-submit
             var autofill = _services.GetRequiredService<VELO.Vault.AutofillService>();
