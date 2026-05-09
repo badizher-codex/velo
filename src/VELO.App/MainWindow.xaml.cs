@@ -490,6 +490,16 @@ public partial class MainWindow : Window
             browserTab.SetShieldsAllowlist(
                 _services.GetRequiredService<VELO.Security.Guards.ShieldsAllowlist>());
 
+            // v2.4.21 — PasteGuard wiring caught by WiringSmokeTests. PasteGuard
+            // existed in DI since Phase 2 / Sprint 3 and BrowserTab.xaml.cs has
+            // both SetPasteGuard() and a `case "pasteguard"` branch in the JS
+            // message bridge — but MainWindow never called the setter, so the
+            // bridge was always inert. Same shape as the v2.4.14 IA-menu gate
+            // bug that took 6 months to surface. Smoke test now blocks the
+            // pattern from regressing.
+            browserTab.SetPasteGuard(
+                _services.GetRequiredService<VELO.Security.PasteGuard>());
+
             // Phase 3 / Sprint 5 — autofill prompt + save-on-submit
             var autofill = _services.GetRequiredService<VELO.Vault.AutofillService>();
             browserTab.SetAutofillService(autofill);
