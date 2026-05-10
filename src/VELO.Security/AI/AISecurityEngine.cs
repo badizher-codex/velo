@@ -92,9 +92,10 @@ public class AISecurityEngine(
     /// <see cref="ThreatContext"/>. The shield's quick gate already
     /// short-circuits to Safe when no flag is set and no login form is
     /// present, so the cost of building this is paid only on suspicious
-    /// pages. HasLoginForm/DomainAgeDays default to false/0 because
-    /// neither is currently surfaced by RequestGuard's pipeline; future
-    /// work can populate them from a DOM probe + RDAP cache.
+    /// pages. v2.4.24 now wires HasLoginForm via ctx.HasLoginForm
+    /// (populated by BrowserTab from autofill.js's password-input
+    /// detection). DomainAgeDays still defaults to 0 — RDAP cache is
+    /// future work.
     /// </summary>
     private static PhishingShield.Signals BuildPhishingSignals(ThreatContext context)
     {
@@ -103,7 +104,7 @@ public class AISecurityEngine(
         return new PhishingShield.Signals(
             Host:                       host,
             PageTitle:                  "",
-            HasLoginForm:               false,
+            HasLoginForm:               context.HasLoginForm,
             TlsValid:                   tls is null || !tls.IsSelfSigned,
             IsSelfSigned:               tls?.IsSelfSigned ?? false,
             LooksLikeBrandImpersonation: RequestGuard.LooksLikeBrandImpersonation(host),

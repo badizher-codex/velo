@@ -44,6 +44,11 @@ public partial class BrowserTab : UserControl
     private string _fingerprintLevel    = "Aggressive";
     private string _webRtcMode          = "Relay";
     private string _currentPageUrl      = "";
+    // v2.4.24 — Sprint 8B signal. Set true when the injected autofill.js
+    // reports a password-bearing form on the active page; reset on every
+    // navigation start. Surfaced to PhishingShield via ThreatContext so the
+    // model can use "this page asks for a password" as a risk amplifier.
+    private bool   _hasLoginFormOnCurrentPage = false;
     private string _currentContainerId  = "none";
 
     // Popup burst: tracks timestamps of recent new-window requests per tab
@@ -1034,7 +1039,11 @@ public partial class BrowserTab : UserControl
                     Referrer        = referrer,
                     // RequestGuard already flagged this domain as suspicious —
                     // set RiskScore=60 so AISecurityEngine passes the threshold gate
-                    RiskScore       = 60
+                    RiskScore       = 60,
+                    // v2.4.24 — surface autofill.js's "page has a password
+                    // input" signal so PhishingShield's quick-gate actually
+                    // fires on login pages.
+                    HasLoginForm    = _hasLoginFormOnCurrentPage,
                 };
                 var capturedEnv = WebView.CoreWebView2.Environment;
 
@@ -1145,6 +1154,11 @@ public partial class BrowserTab : UserControl
 
         // Track current page for cross-origin detection (update AFTER guard check)
         _currentPageUrl = navUri;
+        // v2.4.24 — clear has-login-form flag on every navigation; autofill.js
+        // will re-set it after DOMContentLoaded if the new page has a password
+        // field. Without this reset, leaving a login page to a safe one would
+        // keep PhishingShield seeing a stale "login present" signal.
+        _hasLoginFormOnCurrentPage = false;
 
         // Reset burst counter on user-initiated navigations (not iframes/subresources)
         if (e.IsUserInitiated && _downloadGuard != null)
@@ -1264,7 +1278,13 @@ public partial class BrowserTab : UserControl
                 {
                     var h = node["host"]?.GetValue<string>() ?? "";
                     if (!string.IsNullOrEmpty(h))
+                    {
+                        // v2.4.24 — flip the per-page flag so PhishingShield gets
+                        // HasLoginForm=true in the ThreatContext for subsequent
+                        // sub-resource evaluations on this page.
+                        _hasLoginFormOnCurrentPage = true;
                         Dispatcher.Invoke(() => AutofillFormDetected?.Invoke(this, h));
+                    }
                     break;
                 }
                 case "autofill-submit":
