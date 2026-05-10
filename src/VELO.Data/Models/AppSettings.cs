@@ -46,4 +46,6 @@ public static class SettingKeys
     public const string SessionRestoreAsked     = "session.restore_asked";
     /// <summary>v2.4.18 — When true, BookmarkAIService generates tags on save. Default true.</summary>
     public const string BookmarkAutoTag         = "ai.bookmark_autotag";
+    /// <summary>v2.4.23 — When true, the clipboard polling history captures recent copies. Default false (privacy).</summary>
+    public const string ClipboardHistoryEnabled = "clipboard.history_enabled";
 }

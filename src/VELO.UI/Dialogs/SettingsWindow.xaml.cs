@@ -160,6 +160,8 @@ public partial class SettingsWindow : Window
         DefBrowserTitle.Text      = L.T("settings.defbrowser.title");
         DefBrowserHelp.Text       = L.T("settings.defbrowser.help");
         SetDefaultBrowserButton.Content = L.T("settings.defbrowser.btn");
+        ClipboardHistoryTitle.Text = L.T("settings.clipboard.title");
+        ClipboardHistoryDesc.Text  = L.T("settings.clipboard.desc");
 
         // Language panel + bottom bar
         LangTitle.Text         = L.T("lang.title");
@@ -228,6 +230,9 @@ public partial class SettingsWindow : Window
 
         // v2.4.18 — Sprint 9B: BookmarkAI auto-tag
         BookmarkAutoTagCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.BookmarkAutoTag, defaultValue: true);
+
+        // v2.4.23 — Clipboard history
+        ClipboardHistoryCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.ClipboardHistoryEnabled, defaultValue: false);
 
         // Search
         var search = await _settings.GetAsync(SettingKeys.SearchEngine, "DuckDuckGo");
@@ -300,6 +305,9 @@ public partial class SettingsWindow : Window
 
         // v2.4.18 — Sprint 9B: BookmarkAI auto-tag
         await _settings.SetBoolAsync(SettingKeys.BookmarkAutoTag, BookmarkAutoTagCheck.IsChecked == true);
+
+        // v2.4.23 — Clipboard history (applies on next VELO restart)
+        await _settings.SetBoolAsync(SettingKeys.ClipboardHistoryEnabled, ClipboardHistoryCheck.IsChecked == true);
 
         // Search
         var eng = SearchBrave.IsChecked  == true ? "BraveSearch"

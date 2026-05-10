@@ -309,6 +309,11 @@ public partial class MainWindow : Window
 
     private async Task OnLoadedAsync()
     {
+        // v2.4.23 — Start clipboard polling if the user opted in. Fire-and-
+        // forget so a clipboard locked by another app doesn't gate WebView2
+        // boot.
+        _ = MaybeStartClipboardPollingAsync();
+
         // Initialize WebView2 environment with zero-telemetry flags
         var options = new CoreWebView2EnvironmentOptions
         {
@@ -1903,6 +1908,76 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── Clipboard history (v2.4.23) ──────────────────────────────────────
+
+    private System.Windows.Threading.DispatcherTimer? _clipboardPollTimer;
+    private string? _lastClipboardSeen;
+
+    /// <summary>
+    /// v2.4.23 — Starts the in-memory clipboard polling loop when the user
+    /// has the feature enabled. 800 ms cadence — visible-but-invisible
+    /// trade-off: fast enough to catch quick copy-paste flows, slow enough
+    /// to be free on the CPU budget. Called from constructor after settings
+    /// load.
+    /// </summary>
+    private async Task MaybeStartClipboardPollingAsync()
+    {
+        try
+        {
+            var enabled = await _settings.GetBoolAsync(SettingKeys.ClipboardHistoryEnabled, defaultValue: false);
+            if (!enabled) return;
+            StartClipboardPolling();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ClipboardHistory: failed to read enable setting");
+        }
+    }
+
+    private void StartClipboardPolling()
+    {
+        if (_clipboardPollTimer is { IsEnabled: true }) return;
+        var history = _services.GetRequiredService<VELO.Core.Clipboard.ClipboardHistory>();
+        _clipboardPollTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(800),
+        };
+        _clipboardPollTimer.Tick += (_, _) =>
+        {
+            try
+            {
+                if (!System.Windows.Clipboard.ContainsText()) return;
+                var text = System.Windows.Clipboard.GetText();
+                if (string.IsNullOrEmpty(text)) return;
+                if (text == _lastClipboardSeen) return;
+                _lastClipboardSeen = text;
+                history.TryAdd(text);
+            }
+            catch { /* clipboard occasionally locked by another app; skip tick */ }
+        };
+        _clipboardPollTimer.Start();
+        Log.Information("ClipboardHistory: polling started");
+    }
+
+    private void StopClipboardPolling()
+    {
+        _clipboardPollTimer?.Stop();
+        _clipboardPollTimer = null;
+        Log.Information("ClipboardHistory: polling stopped");
+    }
+
+    private void OpenClipboardHistory()
+    {
+        var history = _services.GetRequiredService<VELO.Core.Clipboard.ClipboardHistory>();
+        var win = new VELO.UI.Dialogs.ClipboardHistoryWindow(history) { Owner = this };
+        win.PasteRequested += async (_, text) =>
+        {
+            if (ActiveBrowserTab() is { } bt)
+                await bt.PasteTextAsync(text);
+        };
+        win.ShowDialog();
+    }
+
     private void OpenHistory()
     {
         var repo = _services.GetRequiredService<HistoryRepository>();
@@ -2110,6 +2185,12 @@ public partial class MainWindow : Window
             // Downloads
             case Key.J when ctrl:
                 OpenDownloads();
+                e.Handled = true;
+                break;
+
+            // Clipboard history (v2.4.23)
+            case Key.V when ctrl && shift:
+                OpenClipboardHistory();
                 e.Handled = true;
                 break;
 
@@ -2823,6 +2904,7 @@ public partial class MainWindow : Window
         try
         {
             _sessionTimer?.Stop();
+            StopClipboardPolling();
             await SaveSessionSnapshotAsync(cleanShutdown: true);
         }
         catch (Exception ex)

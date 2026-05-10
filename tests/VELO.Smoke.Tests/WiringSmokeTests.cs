@@ -300,6 +300,17 @@ public class WiringSmokeTests
         {
             "PropertyChanged",
         },
+
+        // EntryAdded — Sprint 9D v2.4.23. The clipboard history is a single
+        // process-wide buffer; broadcasting "new entry" to every subscriber
+        // is correct (the dialog refreshes its list when open, future
+        // subscribers like a tray indicator would just append). Open the
+        // history dialog isn't subscribed when closed — handler is detached
+        // on Window.Closed.
+        ["ClipboardHistory"] = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "EntryAdded",
+        },
     };
 
     // ── Helpers ──────────────────────────────────────────────────────────

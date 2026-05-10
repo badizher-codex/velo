@@ -187,6 +187,13 @@ public partial class BrowserTab : UserControl
     }
 
     /// <summary>
+    /// v2.4.23 — exposed so the clipboard-history dialog can paste an entry
+    /// into the page's focused editable without going through the system
+    /// clipboard a second time.
+    /// </summary>
+    public Task PasteTextAsync(string text) => PasteTextIntoFocusedEditableAsync(text);
+
+    /// <summary>
     /// Injects <paramref name="text"/> into the page's focused editable element.
     /// Handles three target shapes: native &lt;input&gt;/&lt;textarea&gt; (uses .value
     /// + selection insert), contentEditable elements (document.execCommand

@@ -377,6 +377,18 @@
                             Click="SetDefaultBrowser_Click"/>
                     <TextBlock x:Name="DefaultBrowserStatus" Margin="0,8,0,0"
                                FontSize="11" Visibility="Collapsed" TextWrapping="Wrap"/>
+
+                    <!-- v2.4.23 — clipboard history toggle -->
+                    <Border Background="{StaticResource BorderBrush}" Height="1" Margin="0,20,0,16"/>
+                    <CheckBox x:Name="ClipboardHistoryCheck" Margin="0,0,0,4">
+                        <StackPanel>
+                            <TextBlock x:Name="ClipboardHistoryTitle" Text="Historial del portapapeles" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ClipboardHistoryDesc"
+                                       Text="Captura los últimos 20 textos copiados. Solo en memoria; se borra al cerrar VELO. Atajo: Ctrl+Shift+V."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
 
                 <!-- ── IDIOMA ── -->

@@ -149,6 +149,11 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Agent.BookmarkAIService>();
         services.AddSingleton<VELO.Agent.TldrService>();
 
+        // v2.4.23 — Clipboard history (Sprint 9D follow-up to v2.4.16 paste).
+        // In-memory ring buffer; the polling timer that feeds it lives in
+        // MainWindow and only ticks while the user has the feature enabled.
+        services.AddSingleton<VELO.Core.Clipboard.ClipboardHistory>();
+
         // v2.1.5.1 — Per-site shields allowlist (relax fingerprint/WebRTC on
         // anti-bot login endpoints so users can sign in to homedepot, banks,
         // etc. without false "wrong password" rejections).
