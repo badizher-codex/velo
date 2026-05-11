@@ -309,6 +309,12 @@ public partial class MainWindow : Window
 
     private async Task OnLoadedAsync()
     {
+        // v2.4.28 — register the keyboard-shortcut table now that the view
+        // tree is alive (handlers reference UrlBarControl etc.). If the
+        // dictionary has a duplicate key, this throws — we want that loud at
+        // boot rather than silently shadowing a shortcut.
+        InitKeyboardShortcuts();
+
         // v2.4.23 — Start clipboard polling if the user opted in. Fire-and-
         // forget so a clipboard locked by another app doesn't gate WebView2
         // boot.
@@ -2023,174 +2029,155 @@ public partial class MainWindow : Window
 
     // ── Keyboard shortcuts ───────────────────────────────────────────────
 
+    // ── Keyboard shortcuts (Sprint 10b chunk 5, v2.4.28) ─────────────────
+    //
+    // Declarative binding table replaces a 150-line switch. The controller
+    // throws ArgumentException at boot on duplicate keys — that caught a
+    // bug introduced in v2.4.23 where Ctrl+Shift+V was bound twice (the
+    // second binding for Security Inspector silently never fired). Moved
+    // the Inspector to Ctrl+Shift+I (Chromium convention for Inspector).
+    private VELO.App.Controllers.KeyboardShortcutsController? _shortcuts;
+
+    private void InitKeyboardShortcuts()
+    {
+        const ModifierKeys ctrl  = ModifierKeys.Control;
+        const ModifierKeys shift = ModifierKeys.Shift;
+        const ModifierKeys alt   = ModifierKeys.Alt;
+        const ModifierKeys none  = ModifierKeys.None;
+        static VELO.App.Controllers.KeyboardShortcutsController.ShortcutKey Sc(Key k, ModifierKeys m) => new(k, m);
+
+        _shortcuts = new VELO.App.Controllers.KeyboardShortcutsController(
+            bindings: new Dictionary<VELO.App.Controllers.KeyboardShortcutsController.ShortcutKey, Action>
+            {
+                // Tabs
+                [Sc(Key.T,   ctrl)]         = () => _tabManager.CreateTab(),
+                [Sc(Key.W,   ctrl)]         = CloseActiveTab,
+                [Sc(Key.Tab, ctrl)]         = () => SwitchTabByOffset(+1),
+                [Sc(Key.Tab, ctrl | shift)] = () => SwitchTabByOffset(-1),
+
+                // Navigation
+                [Sc(Key.L,     ctrl)]         = () => UrlBarControl.FocusUrlBar(),
+                [Sc(Key.R,     ctrl)]         = ReloadActive,
+                [Sc(Key.F5,    none)]         = ReloadActive,
+                [Sc(Key.R,     ctrl | shift)] = HardReloadActive,
+                [Sc(Key.F5,    ctrl)]         = HardReloadActive,
+                [Sc(Key.Left,  alt)]          = () => ActiveBrowserTab()?.GoBack(),
+                [Sc(Key.Right, alt)]          = () => ActiveBrowserTab()?.GoForward(),
+
+                // Find / Reader / Escape
+                [Sc(Key.F,      ctrl)] = OpenFindBar,
+                [Sc(Key.F9,     none)] = ToggleReaderMode,
+                [Sc(Key.Escape, none)] = OnEscape,
+
+                // Zoom
+                [Sc(Key.OemPlus,  ctrl)] = () => ActiveBrowserTab()?.ZoomIn(),
+                [Sc(Key.Add,      ctrl)] = () => ActiveBrowserTab()?.ZoomIn(),
+                [Sc(Key.OemMinus, ctrl)] = () => ActiveBrowserTab()?.ZoomOut(),
+                [Sc(Key.Subtract, ctrl)] = () => ActiveBrowserTab()?.ZoomOut(),
+                [Sc(Key.D0,       ctrl)] = ResetZoom,
+                [Sc(Key.NumPad0,  ctrl)] = ResetZoom,
+
+                // History / Downloads / Bookmark
+                [Sc(Key.H, ctrl)] = OpenHistory,
+                [Sc(Key.J, ctrl)] = OpenDownloads,
+                [Sc(Key.D, ctrl)] = () => _ = ToggleBookmarkAsync(),
+
+                // Clipboard history (v2.4.23) — Ctrl+Shift+V matches the
+                // Windows-wide convention.
+                [Sc(Key.V, ctrl | shift)] = OpenClipboardHistory,
+
+                // Security Inspector — moved from Ctrl+Shift+V to Ctrl+Shift+I
+                // in v2.4.28 to fix the silent duplicate with clipboard history
+                // introduced in v2.4.23. Ctrl+Shift+I matches the Chromium
+                // Inspector convention.
+                [Sc(Key.I, ctrl | shift)] = OpenSecurityInspector,
+
+                // VeloAgent panel
+                [Sc(Key.A, ctrl | shift)] = () => AgentPanelControl.ToggleVisibility(),
+
+                // Split view toggle
+                [Sc(Key.OemBackslash, ctrl)] = () => TabSidebar_SplitRequested(this, EventArgs.Empty),
+
+                // Command palette
+                [Sc(Key.K, ctrl)] = () => _ = ShowCommandBarAsync(),
+            },
+            tabNumberHandler: SwitchToTabByNumber);
+    }
+
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
         base.OnPreviewKeyDown(e);
+        if (_shortcuts is null) return;
 
-        var ctrl  = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
-        var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
-        var alt   = Keyboard.Modifiers.HasFlag(ModifierKeys.Alt);
+        var mods = Keyboard.Modifiers;
+        var ctrl = mods.HasFlag(ModifierKeys.Control);
+        var alt  = mods.HasFlag(ModifierKeys.Alt);
 
-        // Don't steal text input from URL bar or other text fields
+        // Don't steal text input from URL bar / other text fields. Pure-letter
+        // keystrokes without Ctrl/Alt are user typing; only intercept the
+        // dedicated keys (F5/F9/Escape) and the one Ctrl-less letter binding
+        // we still expose (none today; the guard keeps the historical
+        // behaviour where Ctrl+F was the only Ctrl-letter that worked while
+        // a textbox had focus).
         if (!ctrl && !alt && e.Key != Key.F5 && e.Key != Key.F9 && e.Key != Key.Escape && e.Key != Key.F) return;
 
-        switch (e.Key)
+        if (_shortcuts.HandleKeyDown(e.Key, mods))
+            e.Handled = true;
+    }
+
+    // ── Shortcut handlers ────────────────────────────────────────────────
+
+    private void CloseActiveTab()
+    {
+        if (_tabManager.ActiveTab is { } t) _tabManager.CloseTab(t.Id);
+    }
+
+    private void ReloadActive() => ActiveBrowserTab()?.Reload();
+
+    private void HardReloadActive()
+    {
+        if (ActiveBrowserTab() is { } bt)
         {
-            // Find in page
-            case Key.F when ctrl:
-                FindBarPanel.Visibility = Visibility.Visible;
-                FindTextBox.Focus();
-                FindTextBox.SelectAll();
-                e.Handled = true;
-                break;
-            // New tab
-            case Key.T when ctrl:
-                _tabManager.CreateTab();
-                e.Handled = true;
-                break;
-
-            // Close tab
-            case Key.W when ctrl:
-                if (_tabManager.ActiveTab is { } t)
-                    _tabManager.CloseTab(t.Id);
-                e.Handled = true;
-                break;
-
-            // Focus URL bar
-            case Key.L when ctrl:
-                UrlBarControl.FocusUrlBar();
-                e.Handled = true;
-                break;
-
-            // Reload
-            case Key.R when ctrl && !shift:
-            case Key.F5 when !ctrl:
-                ActiveBrowserTab()?.Reload();
-                e.Handled = true;
-                break;
-
-            // Hard reload (bypass cache)
-            case Key.R when ctrl && shift:
-            case Key.F5 when ctrl:
-                if (ActiveBrowserTab() is { } bt)
-                {
-                    bt.Stop();
-                    bt.Reload();
-                }
-                e.Handled = true;
-                break;
-
-            // Reader mode
-            case Key.F9:
-                if (ActiveBrowserTab() is { } readerBt)
-                    _ = readerBt.ToggleReaderModeAsync();
-                e.Handled = true;
-                break;
-
-            // Stop / close find bar
-            case Key.Escape:
-                if (FindBarPanel.Visibility == Visibility.Visible)
-                    CloseFindBar();
-                else
-                    ActiveBrowserTab()?.Stop();
-                e.Handled = true;
-                break;
-
-            // Back / Forward
-            case Key.Left  when alt: ActiveBrowserTab()?.GoBack();    e.Handled = true; break;
-            case Key.Right when alt: ActiveBrowserTab()?.GoForward(); e.Handled = true; break;
-
-            // History
-            case Key.H when ctrl:
-                OpenHistory();
-                e.Handled = true;
-                break;
-
-            // Downloads
-            case Key.J when ctrl:
-                OpenDownloads();
-                e.Handled = true;
-                break;
-
-            // Clipboard history (v2.4.23)
-            case Key.V when ctrl && shift:
-                OpenClipboardHistory();
-                e.Handled = true;
-                break;
-
-            // Zoom in  (Ctrl++ or Ctrl+=)
-            case Key.OemPlus  when ctrl:
-            case Key.Add      when ctrl:
-                ActiveBrowserTab()?.ZoomIn();
-                e.Handled = true;
-                break;
-
-            // Zoom out (Ctrl+-)
-            case Key.OemMinus when ctrl:
-            case Key.Subtract when ctrl:
-                ActiveBrowserTab()?.ZoomOut();
-                e.Handled = true;
-                break;
-
-            // Reset zoom (Ctrl+0)
-            case Key.D0 when ctrl:
-            case Key.NumPad0 when ctrl:
-                var bt0 = ActiveBrowserTab();
-                if (bt0 != null) { bt0.ResetZoom(); UrlBarControl.SetZoom(1.0); }
-                e.Handled = true;
-                break;
-
-            // Bookmark toggle
-            case Key.D when ctrl:
-                _ = ToggleBookmarkAsync();
-                e.Handled = true;
-                break;
-
-            // VeloAgent panel toggle
-            case Key.A when ctrl && shift:
-                AgentPanelControl.ToggleVisibility();
-                e.Handled = true;
-                break;
-
-            // Security Inspector (Ctrl+Shift+V)
-            case Key.V when ctrl && shift:
-                OpenSecurityInspector();
-                e.Handled = true;
-                break;
-
-            // Split view toggle (Ctrl+\)
-            case Key.OemBackslash when ctrl:
-                TabSidebar_SplitRequested(this, EventArgs.Empty);
-                e.Handled = true;
-                break;
-
-            // Command palette
-            case Key.K when ctrl:
-                _ = ShowCommandBarAsync();
-                e.Handled = true;
-                break;
-
-            // Next / Previous tab
-            case Key.Tab when ctrl && !shift:
-                SwitchTabByOffset(+1);
-                e.Handled = true;
-                break;
-            case Key.Tab when ctrl && shift:
-                SwitchTabByOffset(-1);
-                e.Handled = true;
-                break;
-
-            // Switch to tab 1-8 by number, 9 = last
-            case >= Key.D1 and <= Key.D9 when ctrl:
-            {
-                var n = e.Key - Key.D1;
-                var tabs = _tabManager.Tabs;
-                var idx  = e.Key == Key.D9 ? tabs.Count - 1 : Math.Min(n, tabs.Count - 1);
-                if (idx >= 0) _tabManager.ActivateTab(tabs[idx].Id);
-                e.Handled = true;
-                break;
-            }
+            bt.Stop();
+            bt.Reload();
         }
+    }
+
+    private void OpenFindBar()
+    {
+        FindBarPanel.Visibility = Visibility.Visible;
+        FindTextBox.Focus();
+        FindTextBox.SelectAll();
+    }
+
+    private void ToggleReaderMode()
+    {
+        if (ActiveBrowserTab() is { } bt) _ = bt.ToggleReaderModeAsync();
+    }
+
+    private void OnEscape()
+    {
+        if (FindBarPanel.Visibility == Visibility.Visible)
+            CloseFindBar();
+        else
+            ActiveBrowserTab()?.Stop();
+    }
+
+    private void ResetZoom()
+    {
+        if (ActiveBrowserTab() is { } bt)
+        {
+            bt.ResetZoom();
+            UrlBarControl.SetZoom(1.0);
+        }
+    }
+
+    private void SwitchToTabByNumber(int zeroBasedIndex)
+    {
+        var tabs = _tabManager.Tabs;
+        // Ctrl+9 special-cases to "last tab" (matches Chrome/Firefox).
+        var idx = zeroBasedIndex == 8 ? tabs.Count - 1 : Math.Min(zeroBasedIndex, tabs.Count - 1);
+        if (idx >= 0) _tabManager.ActivateTab(tabs[idx].Id);
     }
 
     private BrowserTab? ActiveBrowserTab()
