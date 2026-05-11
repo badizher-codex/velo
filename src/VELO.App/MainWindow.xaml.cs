@@ -2227,114 +2227,27 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── CommandBar ────────────────────────────────────────────────────────
+    // ── CommandBar (Sprint 10b chunk 4, v2.4.29) ─────────────────────────
+    //
+    // BuildCommandResultsAsync lives in CommandPaletteController now. This
+    // class composes the controller lazily on first use (after _services and
+    // _tabManager are ready) and keeps BuiltInCommands + handlers here
+    // because those touch private MainWindow state.
+
+    private VELO.App.Controllers.CommandPaletteController? _commandPalette;
+
+    private VELO.App.Controllers.CommandPaletteController GetCommandPalette() =>
+        _commandPalette ??= new VELO.App.Controllers.CommandPaletteController(
+            openTabsProvider:         () => _tabManager.Tabs,
+            bookmarks:                _services.GetRequiredService<BookmarkRepository>(),
+            history:                  _services.GetRequiredService<HistoryRepository>(),
+            builtInCommandsProvider:  BuiltInCommands,
+            logger:                   _services.GetService<Microsoft.Extensions.Logging.ILogger<VELO.App.Controllers.CommandPaletteController>>());
 
     private async Task ShowCommandBarAsync(string query = "")
     {
-        var results = await BuildCommandResultsAsync(query);
+        var results = await GetCommandPalette().BuildResultsAsync(query);
         CommandBarControl.Show(results);
-    }
-
-    private async Task<List<CommandResult>> BuildCommandResultsAsync(string query)
-    {
-        var q      = query.Trim();
-        var list   = new List<CommandResult>();
-        var isBlank = string.IsNullOrEmpty(q);
-
-        // ── Open tabs ─────────────────────────────────────────────────────
-        foreach (var tab in _tabManager.Tabs)
-        {
-            if (!isBlank &&
-                !Contains(tab.Title, q) &&
-                !Contains(tab.Url, q)) continue;
-
-            list.Add(new CommandResult
-            {
-                Kind     = CommandResultKind.Tab,
-                Icon     = tab.IsLoading ? "⏳" : "🌐",
-                Title    = string.IsNullOrWhiteSpace(tab.Title) ? tab.Url : tab.Title,
-                Subtitle = tab.Url,
-                Badge    = "pestaña",
-                Tag      = tab.Id,
-            });
-        }
-
-        // ── Bookmarks ─────────────────────────────────────────────────────
-        try
-        {
-            var bookmarkRepo = _services.GetRequiredService<BookmarkRepository>();
-            var bookmarks    = await bookmarkRepo.GetAllAsync();
-            foreach (var bm in bookmarks)
-            {
-                if (!isBlank && !Contains(bm.Title, q) && !Contains(bm.Url, q)) continue;
-                list.Add(new CommandResult
-                {
-                    Kind     = CommandResultKind.Bookmark,
-                    Icon     = "⭐",
-                    Title    = bm.Title,
-                    Subtitle = bm.Url,
-                    Badge    = "marcador",
-                    Tag      = bm.Url,
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Debug(ex, "CommandBar: bookmark search failed (showing remaining sources)");
-        }
-
-        // ── History ────────────────────────────────────────────────────────
-        try
-        {
-            var historyRepo = _services.GetRequiredService<HistoryRepository>();
-            var entries = isBlank
-                ? await historyRepo.GetRecentAsync(30)
-                : await historyRepo.SearchAsync(q);
-
-            var seen = new HashSet<string>();
-            foreach (var h in entries)
-            {
-                if (!seen.Add(h.Url)) continue;
-                if (list.Count >= 60) break;
-                list.Add(new CommandResult
-                {
-                    Kind     = CommandResultKind.History,
-                    Icon     = "🕒",
-                    Title    = string.IsNullOrWhiteSpace(h.Title) ? h.Url : h.Title,
-                    Subtitle = h.Url,
-                    Badge    = "historial",
-                    Tag      = h.Url,
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Debug(ex, "CommandBar: history search failed (showing remaining sources)");
-        }
-
-        // ── Built-in commands ─────────────────────────────────────────────
-        var commands = BuiltInCommands();
-        foreach (var cmd in commands)
-        {
-            if (!isBlank && !Contains(cmd.Title, q)) continue;
-            list.Add(cmd);
-        }
-
-        // ── Navigate to typed URL / search query ───────────────────────────
-        if (!isBlank && list.Count == 0)
-        {
-            list.Add(new CommandResult
-            {
-                Kind     = CommandResultKind.Navigate,
-                Icon     = "↗",
-                Title    = q,
-                Subtitle = "Navegar o buscar",
-                Badge    = "ir",
-                Tag      = q,
-            });
-        }
-
-        return list;
     }
 
     private IEnumerable<CommandResult> BuiltInCommands() =>
@@ -2380,12 +2293,9 @@ public partial class MainWindow : Window
                 Badge = "comando", Tag = (Action)(() => OpenSecurityInspector()) },
     ];
 
-    private static bool Contains(string? source, string query)
-        => source?.Contains(query, StringComparison.OrdinalIgnoreCase) == true;
-
     private async void CommandBar_QueryChanged(object? sender, string query)
     {
-        var results = await BuildCommandResultsAsync(query);
+        var results = await GetCommandPalette().BuildResultsAsync(query);
         CommandBarControl.SetResults(results);
     }
 
