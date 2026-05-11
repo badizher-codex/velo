@@ -1523,117 +1523,65 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Session restore (Phase 3 / Sprint 3) ─────────────────────────────
+    // ── Session restore (Phase 3 / Sprint 3, refactored to controller in v2.4.27) ─
 
-    private System.Windows.Threading.DispatcherTimer? _sessionTimer;
-    private bool _sessionRestoreSkippedDueToSecurityMode;
+    private VELO.App.Controllers.SessionPersistenceController? _sessionController;
 
     /// <summary>
-    /// Starts the periodic snapshot heartbeat (every 30s with WasCleanShutdown=false).
-    /// Also performs the one-shot restore prompt when applicable.
+    /// v2.4.27 — Boots the SessionPersistenceController. The controller now
+    /// owns the heartbeat timer, fingerprint cache, restore prompt and
+    /// snapshot serialization; this method just composes its dependencies
+    /// and subscribes to its RestoreRequested event so tab hydration still
+    /// happens here (where _initialUrl and _browserTabs live).
     /// </summary>
     private async Task InitSessionRestoreAsync()
     {
-        var settings = _services.GetRequiredService<SettingsRepository>();
-        var secMode  = await settings.GetAsync(SettingKeys.SecurityMode, "Normal");
-        _sessionRestoreSkippedDueToSecurityMode =
-            secMode is "Paranoid" or "Bunker";
+        var settings  = _services.GetRequiredService<SettingsRepository>();
+        var sessionSvc = _services.GetRequiredService<VELO.Core.Sessions.SessionService>();
 
-        if (_sessionRestoreSkippedDueToSecurityMode)
-        {
-            // Per spec § 6.3: never write a snapshot in these modes.
-            // Also wipe any stale snapshot so a previous Normal-mode session
-            // doesn't leak into a paranoid relaunch.
-            await _services.GetRequiredService<VELO.Core.Sessions.SessionService>().ClearAsync();
-            return;
-        }
+        _sessionController = new VELO.App.Controllers.SessionPersistenceController(
+            sessionSvc, settings, this,
+            buildSnapshot: BuildSnapshotForController,
+            logger: _services.GetService<Microsoft.Extensions.Logging.ILogger<VELO.App.Controllers.SessionPersistenceController>>());
 
-        // Restore (best-effort). Runs before we start writing fresh snapshots.
-        await TryRestoreSessionAsync(settings);
-
-        // Heartbeat: every 30s save a "we were running just before this point"
-        // snapshot. If the process dies hard the next launch will see clean=false.
-        _sessionTimer = new System.Windows.Threading.DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(30),
-        };
-        _sessionTimer.Tick += async (_, _) =>
-        {
-            try { await SaveSessionSnapshotAsync(cleanShutdown: false); }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"[VELO] session heartbeat failed: {ex.Message}");
-            }
-        };
-        _sessionTimer.Start();
+        _sessionController.RestoreRequested += RestoreSnapshot;
+        await _sessionController.InitializeAsync();
     }
 
-    private async Task TryRestoreSessionAsync(SettingsRepository settings)
+    private VELO.Core.Sessions.SessionSnapshot BuildSnapshotForController()
     {
-        var svc = _services.GetRequiredService<VELO.Core.Sessions.SessionService>();
-        var snap = await svc.LoadLastAsync();
-        if (snap == null || snap.TotalTabs == 0) return;
-
-        bool restore;
-        if (!snap.WasCleanShutdown)
-        {
-            // Crash-recovery path always asks.
-            var loc = VELO.Core.Localization.LocalizationService.Current;
-            var ans = MessageBox.Show(this,
-                string.Format(loc.T("session.recover.body"), snap.TotalTabs),
-                loc.T("session.recover.title"),
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-            restore = ans == MessageBoxResult.Yes;
-        }
-        else
-        {
-            // Clean shutdown → respect the saved preference. Ask once if no
-            // preference exists yet.
-            var alwaysRestore = await settings.GetBoolAsync(SettingKeys.SessionRestoreAlways, false);
-            var asked         = await settings.GetBoolAsync(SettingKeys.SessionRestoreAsked,  false);
-
-            if (alwaysRestore)
+        var tabs = _tabManager.Tabs
+            .Where(t => VELO.Core.Sessions.SessionService.IsSafeForSnapshot(t.ContainerId))
+            .Select(t => new VELO.Core.Sessions.TabSnapshot
             {
-                restore = true;
-            }
-            else if (!asked)
-            {
-                var loc = VELO.Core.Localization.LocalizationService.Current;
-                var ans = MessageBox.Show(this,
-                    string.Format(loc.T("session.restore.body"), snap.TotalTabs),
-                    loc.T("session.restore.title"),
-                    MessageBoxButton.YesNoCancel,
-                    MessageBoxImage.Question);
-                await settings.SetBoolAsync(SettingKeys.SessionRestoreAsked, true);
-                if (ans == MessageBoxResult.Yes)
-                {
-                    restore = true;
-                    await settings.SetBoolAsync(SettingKeys.SessionRestoreAlways, true);
-                }
-                else if (ans == MessageBoxResult.Cancel)
-                {
-                    restore = true;  // Cancel = restore-just-this-once
-                }
-                else
-                {
-                    restore = false;
-                }
-            }
-            else
-            {
-                restore = false;
-            }
-        }
+                Id          = t.Id,
+                Url         = t.Url ?? "",
+                Title       = t.Title ?? "",
+                ContainerId = t.ContainerId,
+                WorkspaceId = t.WorkspaceId,
+                ScrollY     = 0,  // hooked from BrowserTab in a future sprint
+                LastActiveAtUtc = DateTime.UtcNow,
+            })
+            .ToList();
 
-        if (restore)
+        var window = new VELO.Core.Sessions.WindowSnapshot
         {
-            RestoreSnapshot(snap);
-        }
+            Left        = Left,
+            Top         = Top,
+            Width       = ActualWidth,
+            Height      = ActualHeight,
+            IsMaximised = WindowState == WindowState.Maximized,
+            ActiveTabId = _tabManager.ActiveTab?.Id ?? "",
+            Tabs        = tabs,
+        };
 
-        // Wipe regardless — either we restored everything or the user said no.
-        // Keeping the file would re-prompt forever.
-        await svc.ClearAsync();
+        return new VELO.Core.Sessions.SessionSnapshot
+        {
+            Version          = 1,
+            SavedAtUtc       = DateTime.UtcNow,
+            WasCleanShutdown = false, // controller flips this on flush
+            Windows          = [window],
+        };
     }
 
     /// <summary>
@@ -1680,69 +1628,6 @@ public partial class MainWindow : Window
         Log.Information("Session restore: hydrated {Count} tabs from snapshot saved at {SavedAt}",
             tabsToRestore.Count, snap.SavedAtUtc);
     }
-
-    /// <summary>
-    /// v2.1.4 — Cached fingerprint of the last snapshot so the 30-second
-    /// heartbeat can skip the disk write when nothing relevant has changed.
-    /// 120 unnecessary writes/hour add up on SSDs over time.
-    /// </summary>
-    private string _lastSessionFingerprint = "";
-
-    private async Task SaveSessionSnapshotAsync(bool cleanShutdown)
-    {
-        if (_sessionRestoreSkippedDueToSecurityMode) return;
-
-        var svc = _services.GetRequiredService<VELO.Core.Sessions.SessionService>();
-        var tabs = _tabManager.Tabs
-            .Where(t => VELO.Core.Sessions.SessionService.IsSafeForSnapshot(t.ContainerId))
-            .Select(t => new VELO.Core.Sessions.TabSnapshot
-            {
-                Id          = t.Id,
-                Url         = t.Url ?? "",
-                Title       = t.Title ?? "",
-                ContainerId = t.ContainerId,
-                WorkspaceId = t.WorkspaceId,
-                ScrollY     = 0,  // hooked from BrowserTab in a future sprint
-                LastActiveAtUtc = DateTime.UtcNow,
-            })
-            .ToList();
-
-        var window = new VELO.Core.Sessions.WindowSnapshot
-        {
-            Left        = Left,
-            Top         = Top,
-            Width       = ActualWidth,
-            Height      = ActualHeight,
-            IsMaximised = WindowState == WindowState.Maximized,
-            ActiveTabId = _tabManager.ActiveTab?.Id ?? "",
-            Tabs        = tabs,
-        };
-
-        var snap = new VELO.Core.Sessions.SessionSnapshot
-        {
-            Version          = 1,
-            SavedAtUtc       = DateTime.UtcNow,
-            WasCleanShutdown = cleanShutdown,
-            Windows          = [window],
-        };
-
-        // v2.1.4 — Skip the disk write when the heartbeat would produce the
-        // same content as before. Saves ~120 writes/hour on idle sessions.
-        // Always write on a clean shutdown so the WasCleanShutdown=true flag
-        // lands even if the user hasn't opened a new tab in 5 minutes.
-        var fingerprint = VELO.Core.Sessions.SessionFingerprint.Compute(window, cleanShutdown);
-        if (!cleanShutdown && fingerprint == _lastSessionFingerprint) return;
-        _lastSessionFingerprint = fingerprint;
-
-        await svc.SnapshotAsync(snap);
-    }
-
-    /// <summary>
-    /// Cheap, allocation-light hash of the per-tab (id|url|title|container|
-    /// workspace) tuples plus active-tab id and window bounds. Two heartbeats
-    /// with identical browsing state produce identical strings; anything that
-    /// would change the on-disk JSON also changes this.
-    /// </summary>
 
     /// <summary>
     /// Phase 3 — Bridges BlockExplanationService and AIContextActions to the
@@ -2945,9 +2830,9 @@ public partial class MainWindow : Window
         // session.restore_always=true) or stay quiet.
         try
         {
-            _sessionTimer?.Stop();
             StopClipboardPolling();
-            await SaveSessionSnapshotAsync(cleanShutdown: true);
+            if (_sessionController is not null)
+                await _sessionController.StopAndFlushAsync();
         }
         catch (Exception ex)
         {
