@@ -10,7 +10,8 @@ public class AISecurityEngine(
     LocalRuleEngine localRules,
     IAIAdapter aiAdapter,
     ILogger<AISecurityEngine> logger,
-    PhishingShield? phishingShield = null)
+    PhishingShield? phishingShield = null,
+    DomainAgeProbe? domainAgeProbe = null)
 {
     private readonly SecurityCache _cache = cache;
     private readonly LocalRuleEngine _localRules = localRules;
@@ -21,6 +22,11 @@ public class AISecurityEngine(
     // confidence phishing pages. Optional dependency so test fixtures
     // and pre-Sprint-8 wiring keep working.
     private readonly PhishingShield? _phishingShield = phishingShield;
+    // v2.4.25 — Optional IANA RDAP probe used to populate
+    // PhishingShield.Signals.DomainAgeDays. Off unless the user
+    // opted in via SettingKeys.PhishingShieldDomainAgeCheck (the
+    // probe owns its own Enabled flag, flipped by the host).
+    private readonly DomainAgeProbe? _domainAgeProbe = domainAgeProbe;
 
     public void SetAdapter(IAIAdapter adapter)
     {
@@ -53,7 +59,7 @@ public class AISecurityEngine(
         //               otherwise it returns Safe immediately and we proceed.
         if (_phishingShield != null)
         {
-            var signals = BuildPhishingSignals(context);
+            var signals = await BuildPhishingSignalsAsync(context, ct).ConfigureAwait(false);
             var phish = await _phishingShield.EvaluateAsync(signals, ct);
             if (phish.Verdict == PhishingShield.Verdict.Phishing)
             {
@@ -92,15 +98,26 @@ public class AISecurityEngine(
     /// <see cref="ThreatContext"/>. The shield's quick gate already
     /// short-circuits to Safe when no flag is set and no login form is
     /// present, so the cost of building this is paid only on suspicious
-    /// pages. v2.4.24 now wires HasLoginForm via ctx.HasLoginForm
-    /// (populated by BrowserTab from autofill.js's password-input
-    /// detection). DomainAgeDays still defaults to 0 — RDAP cache is
-    /// future work.
+    /// pages.
+    ///
+    /// v2.4.24 wired <c>HasLoginForm</c> via <c>ctx.HasLoginForm</c>
+    /// (populated by BrowserTab from autofill.js's password-input detection).
+    /// v2.4.25 added <c>DomainAgeDays</c> via IANA RDAP through
+    /// <see cref="DomainAgeProbe"/>, off unless the user opted in.
     /// </summary>
-    private static PhishingShield.Signals BuildPhishingSignals(ThreatContext context)
+    private async Task<PhishingShield.Signals> BuildPhishingSignalsAsync(
+        ThreatContext context, CancellationToken ct)
     {
         var host = context.Domain ?? "";
         var tls  = context.TLSInfo;
+
+        int ageDays = 0;
+        if (_domainAgeProbe is { Enabled: true } && !string.IsNullOrEmpty(host))
+        {
+            try { ageDays = await _domainAgeProbe.GetDomainAgeDaysAsync(host, ct).ConfigureAwait(false); }
+            catch (Exception ex) { _logger.LogDebug(ex, "DomainAgeProbe lookup failed for {Host}", host); }
+        }
+
         return new PhishingShield.Signals(
             Host:                       host,
             PageTitle:                  "",
@@ -110,6 +127,6 @@ public class AISecurityEngine(
             LooksLikeBrandImpersonation: RequestGuard.LooksLikeBrandImpersonation(host),
             LooksRandomGenerated:        RequestGuard.LooksRandomGenerated(host),
             HasSuspiciousTld:            RequestGuard.HasSuspiciousTld(host),
-            DomainAgeDays:              0);
+            DomainAgeDays:              ageDays);
     }
 }

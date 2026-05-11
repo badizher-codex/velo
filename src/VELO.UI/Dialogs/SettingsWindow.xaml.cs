@@ -20,6 +20,10 @@ public partial class SettingsWindow : Window
     // Track active nav button
     private Button? _activeNav;
 
+    /// <summary>v2.4.25 — Raised after Save when the user toggles the RDAP
+    /// domain-age check so the host can flip DomainAgeProbe.Enabled live.</summary>
+    public event EventHandler<bool>? DomainAgeCheckChanged;
+
     public SettingsWindow(SettingsRepository settings, VaultService vault)
     {
         _settings = settings;
@@ -130,6 +134,8 @@ public partial class SettingsWindow : Window
         TestOllamaButton.Content = L.T("settings.ai.test");
         BookmarkAutoTagTitle.Text = L.T("settings.ai.bookmark_autotag");
         BookmarkAutoTagDesc.Text  = L.T("settings.ai.bookmark_autotag.desc");
+        DomainAgeTitle.Text       = L.T("settings.ai.domain_age");
+        DomainAgeDesc.Text        = L.T("settings.ai.domain_age.desc");
 
         // Search panel
         SearchTitle.Text       = L.T("settings.search.title");
@@ -234,6 +240,9 @@ public partial class SettingsWindow : Window
         // v2.4.23 — Clipboard history
         ClipboardHistoryCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.ClipboardHistoryEnabled, defaultValue: false);
 
+        // v2.4.25 — PhishingShield domain-age (RDAP)
+        DomainAgeCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.PhishingShieldDomainAgeCheck, defaultValue: false);
+
         // Search
         var search = await _settings.GetAsync(SettingKeys.SearchEngine, "DuckDuckGo");
         SearchDDG.IsChecked    = search == "DuckDuckGo";
@@ -308,6 +317,10 @@ public partial class SettingsWindow : Window
 
         // v2.4.23 — Clipboard history (applies on next VELO restart)
         await _settings.SetBoolAsync(SettingKeys.ClipboardHistoryEnabled, ClipboardHistoryCheck.IsChecked == true);
+
+        // v2.4.25 — PhishingShield domain-age (RDAP). Persist + apply hot.
+        await _settings.SetBoolAsync(SettingKeys.PhishingShieldDomainAgeCheck, DomainAgeCheck.IsChecked == true);
+        DomainAgeCheckChanged?.Invoke(this, DomainAgeCheck.IsChecked == true);
 
         // Search
         var eng = SearchBrave.IsChecked  == true ? "BraveSearch"

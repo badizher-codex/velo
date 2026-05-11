@@ -314,6 +314,11 @@ public partial class MainWindow : Window
         // boot.
         _ = MaybeStartClipboardPollingAsync();
 
+        // v2.4.25 — Apply the RDAP domain-age opt-in to the probe service.
+        // Fire-and-forget; the probe stays Enabled=false until this lands,
+        // so worst case the user gets a few seconds without the signal.
+        _ = ApplyDomainAgeSettingAtStartupAsync();
+
         // Initialize WebView2 environment with zero-telemetry flags
         var options = new CoreWebView2EnvironmentOptions
         {
@@ -1214,7 +1219,10 @@ public partial class MainWindow : Window
         {
             var s = _services.GetRequiredService<SettingsRepository>();
             var v = _services.GetRequiredService<VaultService>();
-            new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this }.ShowDialog();
+            var settingsWin = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
+            settingsWin.DomainAgeCheckChanged += OnDomainAgeCheckChanged;
+            settingsWin.ShowDialog();
+            settingsWin.DomainAgeCheckChanged -= OnDomainAgeCheckChanged;
             var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
             await bootstrapper.ConfigureAIAdapterAsync();
             await bootstrapper.ConfigureAgentAdaptersAsync();
@@ -1908,6 +1916,37 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── PhishingShield domain-age probe (v2.4.25) ────────────────────────
+
+    private void OnDomainAgeCheckChanged(object? sender, bool enabled)
+    {
+        try
+        {
+            var probe = _services.GetRequiredService<VELO.Security.Guards.DomainAgeProbe>();
+            probe.Enabled = enabled;
+            Log.Information("DomainAgeProbe.Enabled toggled to {Enabled} via Settings", enabled);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to toggle DomainAgeProbe.Enabled");
+        }
+    }
+
+    private async Task ApplyDomainAgeSettingAtStartupAsync()
+    {
+        try
+        {
+            var enabled = await _settings.GetBoolAsync(SettingKeys.PhishingShieldDomainAgeCheck, defaultValue: false);
+            var probe   = _services.GetRequiredService<VELO.Security.Guards.DomainAgeProbe>();
+            probe.Enabled = enabled;
+            if (enabled) Log.Information("DomainAgeProbe: enabled at startup");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "DomainAgeProbe: startup setting read failed");
+        }
+    }
+
     // ── Clipboard history (v2.4.23) ──────────────────────────────────────
 
     private System.Windows.Threading.DispatcherTimer? _clipboardPollTimer;
@@ -2439,7 +2478,10 @@ public partial class MainWindow : Window
                 {
                     var s = _services.GetRequiredService<SettingsRepository>();
                     var v = _services.GetRequiredService<VaultService>();
-                    new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this }.ShowDialog();
+                    var sw = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
+                    sw.DomainAgeCheckChanged += OnDomainAgeCheckChanged;
+                    sw.ShowDialog();
+                    sw.DomainAgeCheckChanged -= OnDomainAgeCheckChanged;
                     var bs = _services.GetRequiredService<AppBootstrapper>();
                     await bs.ConfigureAIAdapterAsync();
                     await bs.ConfigureAgentAdaptersAsync();

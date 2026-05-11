@@ -138,6 +138,10 @@ public static class DependencyConfig
         services.AddSingleton<VELO.Security.Guards.SmartBlockClassifier>();
         services.AddSingleton<VELO.Security.Guards.PhishingShield>();
         services.AddSingleton<VELO.Security.Threats.BlockNarrationService>();
+        // v2.4.25 — IANA RDAP probe for domain-age PhishingShield signal.
+        // Disabled by default (privacy). MainWindow flips Enabled based on
+        // the user setting at startup and after Save in SettingsWindow.
+        services.AddSingleton<VELO.Security.Guards.DomainAgeProbe>();
 
         // Phase 3 / Sprint 9 — AI Productivity Pack:
         //   • CodeActions      — right-click code-block actions (Explain,

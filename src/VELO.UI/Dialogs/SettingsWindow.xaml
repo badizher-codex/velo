@@ -284,6 +284,17 @@
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
+
+                    <!-- v2.4.25 — PhishingShield domain-age (RDAP) opt-in -->
+                    <CheckBox x:Name="DomainAgeCheck" Margin="0,12,0,4">
+                        <StackPanel>
+                            <TextBlock x:Name="DomainAgeTitle" Text="Verificar edad del dominio (RDAP)" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="DomainAgeDesc"
+                                       Text="Consulta IANA RDAP en páginas ya marcadas como sospechosas para detectar dominios recién registrados. Cero lookups en sites buenos."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
 
                 <!-- ── BÚSQUEDA ── -->

@@ -48,4 +48,6 @@ public static class SettingKeys
     public const string BookmarkAutoTag         = "ai.bookmark_autotag";
     /// <summary>v2.4.23 — When true, the clipboard polling history captures recent copies. Default false (privacy).</summary>
     public const string ClipboardHistoryEnabled = "clipboard.history_enabled";
+    /// <summary>v2.4.25 — When true, PhishingShield queries IANA RDAP for domain age on suspicious pages. Default false (privacy: leaks the suspect domain to its RDAP server).</summary>
+    public const string PhishingShieldDomainAgeCheck = "phishing.domain_age_check";
 }
