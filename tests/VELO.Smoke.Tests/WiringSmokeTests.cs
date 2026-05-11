@@ -31,22 +31,35 @@ public class WiringSmokeTests
     // ── Test 1 — every BrowserTab setter has at least one call-site ──────
 
     [Fact]
-    public void BrowserTab_setter_methods_must_be_called_from_MainWindow()
+    public void BrowserTab_setter_methods_must_be_called_from_host()
     {
         // Lesson #8: BrowserTab.SetContextMenuBuilder existed and the
         // builder was DI-registered, but MainWindow never called it.
         // Assert that every BrowserTab.SetX(Y) public method has a
-        // matching ".SetX(" call in MainWindow.xaml.cs (case-sensitive).
+        // matching ".SetX(" call in the host (MainWindow.xaml.cs) or in
+        // any per-tab controller under src/VELO.App/Controllers/. The
+        // search widened after v2.4.30 extracted the wiring ladder to
+        // BrowserTabHost — the principle of the check is unchanged.
 
-        var srcRoot     = LocateSrcRoot();
-        var browserTab  = Path.Combine(srcRoot, "VELO.UI", "Controls", "BrowserTab.xaml.cs");
-        var mainWindow  = Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs");
+        var srcRoot      = LocateSrcRoot();
+        var browserTab   = Path.Combine(srcRoot, "VELO.UI", "Controls", "BrowserTab.xaml.cs");
+        var mainWindow   = Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs");
+        var controllerDir = Path.Combine(srcRoot, "VELO.App", "Controllers");
 
         Assert.True(File.Exists(browserTab),  $"BrowserTab not found at {browserTab}");
         Assert.True(File.Exists(mainWindow),  $"MainWindow not found at {mainWindow}");
 
+        var hostSources = new List<string> { File.ReadAllText(mainWindow) };
+        if (Directory.Exists(controllerDir))
+        {
+            hostSources.AddRange(
+                Directory.GetFiles(controllerDir, "*.cs", SearchOption.AllDirectories)
+                    .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+                    .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+                    .Select(File.ReadAllText));
+        }
+
         var btContent = File.ReadAllText(browserTab);
-        var mwContent = File.ReadAllText(mainWindow);
 
         // Match `public void SetXxx(...)` declarations on BrowserTab.
         var setterRx = new Regex(
@@ -63,15 +76,16 @@ public class WiringSmokeTests
         var orphans = new List<string>();
         foreach (var setter in setters)
         {
-            // Look for a call-site like `.SetXxx(` in MainWindow.
+            // Look for a call-site like `.SetXxx(` in MainWindow or any
+            // controller under src/VELO.App/Controllers/.
             var callRx = new Regex($@"\.{Regex.Escape(setter)}\s*\(", RegexOptions.Compiled);
-            if (!callRx.IsMatch(mwContent))
+            if (!hostSources.Any(callRx.IsMatch))
                 orphans.Add(setter);
         }
 
         Assert.True(orphans.Count == 0,
-            $"BrowserTab declares {orphans.Count} setter(s) with no call-site in MainWindow:\n  " +
-            string.Join("\n  ", orphans.Select(s => $"BrowserTab.{s}(...) — never called from MainWindow")));
+            $"BrowserTab declares {orphans.Count} setter(s) with no call-site in MainWindow or any controller:\n  " +
+            string.Join("\n  ", orphans.Select(s => $"BrowserTab.{s}(...) — never called from the host")));
     }
 
     // ── Test 2 — every DI-registered AI service is resolved somewhere ────

@@ -469,91 +469,55 @@ public partial class MainWindow : Window
 
     // ── Tab events ───────────────────────────────────────────────────────
 
+    // v2.4.30 — Tab-wiring extracted to BrowserTabHost (Sprint 10b chunk 2).
+    private VELO.App.Controllers.BrowserTabHost? _tabHost;
+
+    private VELO.App.Controllers.BrowserTabHost GetTabHost() =>
+        _tabHost ??= new VELO.App.Controllers.BrowserTabHost(_services);
+
     private void OnTabCreated(TabCreatedEvent e)
     {
         Dispatcher.Invoke(async () =>
         {
             var tab = _tabManager.GetTab(e.TabId)!;
-            var browserTab = new BrowserTab();
-            browserTab.Initialize(e.TabId, _aiEngine, _requestGuard, _tlsGuard, _downloadGuard, _downloadManager, _fingerprintLevel, _webRtcMode);
-            browserTab.TlsStatusChanged += (_, status) => Dispatcher.Invoke(() =>
-            {
-                // Store per-tab (used by Security Inspector)
-                _tabTlsStatus[e.TabId] = status;
-
-                if (IsUiDrivingTab(e.TabId))
-                {
-                    UrlBarControl.SetTlsStatus(status);
-                    // Recompute shield score after TLS status is known
-                    RefreshShieldScore(e.TabId);
-                }
-            });
-            browserTab.Visibility = Visibility.Collapsed;
-
-            browserTab.UrlChanged += (_, url) => OnBrowserUrlChanged(e.TabId, url);
-            browserTab.TitleChanged += (_, title) => OnBrowserTitleChanged(e.TabId, title);
-            browserTab.LoadingChanged += (_, loading) => OnBrowserLoadingChanged(e.TabId, loading);
-            browserTab.NavigationStateChanged += (_, state) => OnNavigationStateChanged(e.TabId, state);
-            browserTab.SecurityVerdictReceived += (_, verdict) => OnSecurityVerdict(e.TabId, verdict);
-            browserTab.ZoomChanged += (_, factor) => Dispatcher.Invoke(() =>
-            {
-                if (IsUiDrivingTab(e.TabId))
-                    UrlBarControl.SetZoom(factor);
-            });
-
-            browserTab.GlanceLinkHovered += (_, url) => Dispatcher.Invoke(() =>
-            {
-                if (!IsUiDrivingTab(e.TabId)) return;   // only primary pane drives Glance
-                if (string.IsNullOrEmpty(url))
-                    GlancePopupControl.HidePreview();
-                else
-                    ShowGlanceAt(url);
-            });
-
-            // Sprint 6: inject history repo so NewTab v2 can show top sites
-            var histRepo = _services.GetRequiredService<HistoryRepository>();
-            browserTab.SetHistoryRepository(histRepo);
-
-            // Phase 3 / Sprint 1E — wire the AI context-menu builder so the
-            // 🤖 IA submenu appears on right-click.
-            browserTab.SetAIContextMenuBuilder(
-                _services.GetRequiredService<VELO.UI.Controls.AIContextMenuBuilder>());
-            // v2.4.16 — also wire the inner ContextMenuBuilder so the tab can
-            // subscribe to its events (e.g. RequestPaste needs WebView access).
-            browserTab.SetContextMenuBuilder(
-                _services.GetRequiredService<VELO.UI.Controls.ContextMenuBuilder>());
-
-            // v2.1.5.1 — Shields allowlist (per-site fingerprint/WebRTC relax).
-            browserTab.SetShieldsAllowlist(
-                _services.GetRequiredService<VELO.Security.Guards.ShieldsAllowlist>());
-
-            // v2.4.21 — PasteGuard wiring caught by WiringSmokeTests. PasteGuard
-            // existed in DI since Phase 2 / Sprint 3 and BrowserTab.xaml.cs has
-            // both SetPasteGuard() and a `case "pasteguard"` branch in the JS
-            // message bridge — but MainWindow never called the setter, so the
-            // bridge was always inert. Same shape as the v2.4.14 IA-menu gate
-            // bug that took 6 months to surface. Smoke test now blocks the
-            // pattern from regressing.
-            browserTab.SetPasteGuard(
-                _services.GetRequiredService<VELO.Security.Guards.PasteGuard>());
-
-            // v2.4.22 — Sprint 8A wire. SmartBlock async classifier so each
-            // tab can fire-and-forget classification on cache misses; the
-            // verdict is read sync by RequestGuard on the next request.
-            browserTab.SetSmartBlockClassifier(
-                _services.GetRequiredService<VELO.Security.Guards.SmartBlockClassifier>());
-
-            // Phase 3 / Sprint 5 — autofill prompt + save-on-submit
             var autofill = _services.GetRequiredService<VELO.Vault.AutofillService>();
-            browserTab.SetAutofillService(autofill);
 
-            browserTab.AutofillFormDetected += (_, host) =>
-                _ = OnAutofillFormDetectedAsync(e.TabId, host, autofill);
+            // Callbacks captured per tab. The inline lambdas marshal to the
+            // UI dispatcher themselves where needed (same semantics as the
+            // pre-v2.4.30 inline subscriptions).
+            var handlers = new VELO.App.Controllers.BrowserTabHost.TabWiringHandlers(
+                OnUrlChanged:             (tabId, url)     => OnBrowserUrlChanged(tabId, url),
+                OnTitleChanged:           (tabId, title)   => OnBrowserTitleChanged(tabId, title),
+                OnLoadingChanged:         (tabId, loading) => OnBrowserLoadingChanged(tabId, loading),
+                OnNavigationStateChanged: (tabId, state)   => OnNavigationStateChanged(tabId, state),
+                OnSecurityVerdict:        (tabId, verdict) => OnSecurityVerdict(tabId, verdict),
+                OnTlsStatusChanged:       (tabId, status)  => Dispatcher.Invoke(() =>
+                {
+                    _tabTlsStatus[tabId] = status;
+                    if (IsUiDrivingTab(tabId))
+                    {
+                        UrlBarControl.SetTlsStatus(status);
+                        RefreshShieldScore(tabId);
+                    }
+                }),
+                OnZoomChanged:            (tabId, factor) => Dispatcher.Invoke(() =>
+                {
+                    if (IsUiDrivingTab(tabId)) UrlBarControl.SetZoom(factor);
+                }),
+                OnGlanceLinkHovered:      (tabId, url) => Dispatcher.Invoke(() =>
+                {
+                    if (!IsUiDrivingTab(tabId)) return;
+                    if (string.IsNullOrEmpty(url)) GlancePopupControl.HidePreview();
+                    else ShowGlanceAt(url);
+                }),
+                OnAutofillFormDetected:   (tabId, host)    => _ = OnAutofillFormDetectedAsync(tabId, host, autofill),
+                OnAutofillFormSubmitted:  (tabId, payload) => _ = OnAutofillFormSubmittedAsync(tabId, payload, autofill));
 
-            browserTab.AutofillFormSubmitted += (_, payload) =>
-                _ = OnAutofillFormSubmittedAsync(e.TabId, payload, autofill);
+            var browserTab = GetTabHost().BuildAndWire(
+                e.TabId, _aiEngine, _requestGuard, _tlsGuard, _downloadGuard, _downloadManager,
+                _fingerprintLevel, _webRtcMode, handlers);
 
-            // Add to panel (keeps WebView2 HWND alive across tab switches)
+            // Add to panel (keeps WebView2 HWND alive across tab switches).
             BrowserContent.Children.Add(browserTab);
             _browserTabs[e.TabId] = browserTab;
             TabSidebarControl.AddTab(tab);
