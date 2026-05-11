@@ -49,6 +49,11 @@ public partial class BrowserTab : UserControl
     // navigation start. Surfaced to PhishingShield via ThreatContext so the
     // model can use "this page asks for a password" as a risk amplifier.
     private bool   _hasLoginFormOnCurrentPage = false;
+    // v2.4.26 — Last DocumentTitle reported by WebView2. Reset on every
+    // navigation start, updated by OnTitleChanged. Surfaced to PhishingShield
+    // via ThreatContext.PageTitle so the model can spot "PayPal — Sign in"
+    // titled pages on non-PayPal hosts (highest-yield phishing signal).
+    private string _currentPageTitle    = "";
     private string _currentContainerId  = "none";
 
     // Popup burst: tracks timestamps of recent new-window requests per tab
@@ -1044,6 +1049,9 @@ public partial class BrowserTab : UserControl
                     // input" signal so PhishingShield's quick-gate actually
                     // fires on login pages.
                     HasLoginForm    = _hasLoginFormOnCurrentPage,
+                    // v2.4.26 — current <title> for PhishingShield's prompt.
+                    // Truncation to MaxTitleChars happens inside BuildPrompt.
+                    PageTitle       = _currentPageTitle,
                 };
                 var capturedEnv = WebView.CoreWebView2.Environment;
 
@@ -1159,6 +1167,12 @@ public partial class BrowserTab : UserControl
         // field. Without this reset, leaving a login page to a safe one would
         // keep PhishingShield seeing a stale "login present" signal.
         _hasLoginFormOnCurrentPage = false;
+        // v2.4.26 — clear page-title cache on every navigation. OnTitleChanged
+        // re-populates as soon as Chromium parses the new <title>. Without
+        // this reset, PhishingShield could see the previous page's title in
+        // sub-resource ThreatContexts during the gap between commit and
+        // DocumentTitleChanged.
+        _currentPageTitle = "";
 
         // Reset burst counter on user-initiated navigations (not iframes/subresources)
         if (e.IsUserInitiated && _downloadGuard != null)
@@ -1329,7 +1343,12 @@ public partial class BrowserTab : UserControl
 
     private void OnTitleChanged(object? sender, object e)
         => Dispatcher.Invoke(() =>
-            TitleChanged?.Invoke(this, WebView.CoreWebView2.DocumentTitle));
+        {
+            // v2.4.26 — cache the title so ThreatContext.PageTitle picks it up
+            // without round-tripping to WebView2 on every sub-resource request.
+            _currentPageTitle = WebView.CoreWebView2.DocumentTitle ?? "";
+            TitleChanged?.Invoke(this, _currentPageTitle);
+        });
 
     private void OnLaunchingExternalUriScheme(object? sender, CoreWebView2LaunchingExternalUriSchemeEventArgs e)
     {

@@ -22,6 +22,16 @@ public class ThreatContext
     /// Defaults to false so callers that don't set it preserve old behavior.
     /// </summary>
     public bool HasLoginForm { get; set; }
+
+    /// <summary>
+    /// v2.4.26 — The current page's &lt;title&gt; as last reported by
+    /// WebView2.DocumentTitleChanged. Surfaced to PhishingShield so the
+    /// model can spot brand-named titles served from non-brand hosts
+    /// ("PayPal — Sign in" on paypal-secure.xyz). Empty when the page
+    /// has not produced a title yet or when the caller has not wired
+    /// the field.
+    /// </summary>
+    public string PageTitle { get; set; } = "";
 }
 
 public class TLSInfo

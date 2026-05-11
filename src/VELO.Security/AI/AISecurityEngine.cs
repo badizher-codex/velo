@@ -120,7 +120,9 @@ public class AISecurityEngine(
 
         return new PhishingShield.Signals(
             Host:                       host,
-            PageTitle:                  "",
+            // v2.4.26 — page title wired from BrowserTab.OnTitleChanged via
+            // ThreatContext. Shield's BuildPrompt truncates to MaxTitleChars.
+            PageTitle:                  context.PageTitle ?? "",
             HasLoginForm:               context.HasLoginForm,
             TlsValid:                   tls is null || !tls.IsSelfSigned,
             IsSelfSigned:               tls?.IsSelfSigned ?? false,
