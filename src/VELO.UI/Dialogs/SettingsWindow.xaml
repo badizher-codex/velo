@@ -38,13 +38,13 @@
                 </Setter>
             </Style>
             <Style x:Key="NavButtonActive" TargetType="Button" BasedOn="{StaticResource NavButton}">
-                <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource AccentPurpleLightBrush}"/>
             </Style>
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid Background="{StaticResource BackgroundDarkBrush}">
+    <Grid Background="{StaticResource BackgroundDarkestBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="180"/>
             <ColumnDefinition Width="*"/>
@@ -56,11 +56,12 @@
 
         <!-- Sidebar -->
         <Border Grid.Column="0" Grid.RowSpan="2"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                Background="{StaticResource SurfaceDarkBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
             <StackPanel Margin="8,16,8,8">
-                <TextBlock Text="VELO" FontSize="18" FontWeight="Light"
-                           Foreground="{StaticResource AccentBlueBrush}"
-                           Margin="16,0,0,20"/>
+                <TextBlock Text="VELO" FontSize="20" FontWeight="SemiBold"
+                           Foreground="{StaticResource AccentPurpleLightBrush}"
+                           Margin="16,0,0,22"/>
 
                 <Button x:Name="NavPrivacidad" Content="🔒  Privacidad"
                         Style="{StaticResource NavButtonActive}"

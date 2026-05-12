@@ -11,6 +11,47 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.33] — 2026-05-12 — Phase 5.1 (info-dense dialogs re-skin)
+
+### Added
+
+- **Phase 5.1 lands** — 5 information-dense dialogs migrated to the new visual language adopted in v2.4.32 (Phase 5.0). All re-skinned per their corresponding prototype frames; same data, same code-behind contracts, same bindings, all `x:Name` preserved. Visual refresh only — no layout, paradigm or information-flow changes.
+
+### Changed
+
+- **HistoryWindow.xaml** re-skinned per frame 4. The 25 hardcoded hex colors (worst offender of the dialog catalogue) are all replaced with theme tokens. Header gains a larger title and uses `IconButton` + `GhostButton` for reload/clear actions. Search bar gets the rounded `SurfaceLight` shell with magnifier icon + purple caret. Each history row becomes a 12-px corner-radius card on `SurfaceMid`. Status badges (blocked / trackers / malware / no-threats) all consume the new `StatusPill` style + `BadgeXxxBgBrush`/`BadgeXxxBrush` token pairs.
+- **BookmarksWindow.xaml** follows the History pattern (the analysis flagged this dialog had no prototype frame and instructed to inherit History's layout language). Background → `BackgroundDarkest`, search bar gets the same shell + magnifier as History, header title bumped to 22 px SemiBold.
+- **MalwaredexWindow.xaml** re-skinned per frame 5. Header gets a circular icon surface (purple-tinted `BadgeVioletBg` with `AccentPurple` border) housing the 👾 mascot, with subtitle moved into the header for density. Empty state gets the same circular purple-glow icon treatment as Downloads (frame 7) — consistent visual language across empty states. Stars decision (drop vs. derive from `ThreatType`) deferred to implementation; the existing footer line covers it for now.
+- **SecurityInspectorWindow.xaml** re-skinned per frame 6. Local `SectionBorder` / `SectionTitle` / `DataLabel` / `DataValue` / `ActionButton` styles migrated from hardcoded colors to theme tokens. `SectionBorder` now `BasedOn="{StaticResource Card}"` so every section inherits the 12-px corner radius and `SurfaceMid` background consistently. Shield badge becomes a pill (`CornerRadius=99`) — note that the green/yellow/red/gold colours stay hardcoded as defaults because the code-behind repaints them dynamically based on `ShieldLevel`. Header / action bar move from solid `#FF111111` to `SurfaceDarkBrush`. Action buttons now use the `GhostButton` aesthetic via `BasedOn`.
+- **SettingsWindow.xaml** — palette + spacing pass only, no layout changes (per Phase 5 analysis directive). `BackgroundDarkBrush` → `BackgroundDarkestBrush`, `AccentBlueBrush` → `AccentPurpleLightBrush` (sidebar nav active state + VELO logo), `BackgroundLightBrush` → `SurfaceLightBrush`, `BorderBrush` → `BorderSubtleBrush` on the sidebar separator. Sidebar gains its own `SurfaceDark` background for a cleaner two-column visual split.
+
+### Tests
+
+- 355/355 tests pass (49 Core + 122 Security + 136 Agent + 18 Vault + 8 Import + 5 Smoke).
+- Smoke test #1 (`Every_StaticResource_Reference_Has_A_Definition_Somewhere`) confirms every new `{StaticResource X}` reference resolves cleanly — that's the early-warning that the migration didn't miss any token.
+
+### Migration scope
+
+Hardcoded `#color` count across the now-migrated dialogs:
+
+  * HistoryWindow.xaml: 25 → 0 (clean migration).
+  * BookmarksWindow.xaml: 0 → 0 (clean from before — only key bindings updated).
+  * MalwaredexWindow.xaml: 0 → 1 (legitimate DropShadowEffect `Color`).
+  * SecurityInspectorWindow.xaml: ~26 hex inlined → 4 (Shield level defaults that code-behind overrides — kept by design).
+  * SettingsWindow.xaml: 0 → 0 (palette refs updated, no hex changes).
+
+Remaining v2.4-palette surfaces, all part of Phase 5.2:
+
+  * NewTabPage, UrlBar, TabSidebar, AgentPanel (+ chat history), MainWindow chrome (title bar, splitter), AutofillToast, BlockNarrationToast, PrivacyReceiptToast, AIResultWindow, OnboardingWizard, command palette result rows, context menu styling polish.
+  * VaultWindow EditScreen (add/edit form) — separate from Phase 5.1 because frame 3 only covers the unlock dialog; the add/edit form picks up a re-skin in 5.2.
+
+### Known follow-ups
+
+- Stars in MalwaredexWindow card grid (per prototype frame 5) — decision deferred. Default behaviour: drop them; if the maintainer asks for them, the cleanest mapping is `ThreatType` → stars (Malware = 3, Tracker = 1, etc.).
+- VaultWindow `EditScreen` and `VaultScreen` (post-unlock) still on the v2.4 palette. Picked up in Phase 5.2.
+
+---
+
 ## [2.4.32] — 2026-05-12 — Phase 5.0 (theme + Vault/ClearData/Downloads re-skin)
 
 ### Added
