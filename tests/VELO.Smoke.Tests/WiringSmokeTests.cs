@@ -38,16 +38,31 @@ public class WiringSmokeTests
         // Assert that every BrowserTab.SetX(Y) public method has a
         // matching ".SetX(" call in the host (MainWindow.xaml.cs) or in
         // any per-tab controller under src/VELO.App/Controllers/. The
-        // search widened after v2.4.30 extracted the wiring ladder to
-        // BrowserTabHost — the principle of the check is unchanged.
+        // host-side search widened after v2.4.30 extracted the wiring
+        // ladder to BrowserTabHost.
+        //
+        // The BrowserTab-side scan widened after v2.4.31 split BrowserTab.xaml.cs
+        // into partial classes (BrowserTab.{xaml,PublicApi,Events,Helpers}.cs).
+        // SetContainer now lives in BrowserTab.PublicApi.cs; any new setter
+        // landing in a sibling partial must still be enumerable here.
 
-        var srcRoot      = LocateSrcRoot();
-        var browserTab   = Path.Combine(srcRoot, "VELO.UI", "Controls", "BrowserTab.xaml.cs");
-        var mainWindow   = Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs");
-        var controllerDir = Path.Combine(srcRoot, "VELO.App", "Controllers");
+        var srcRoot          = LocateSrcRoot();
+        var browserTabDir    = Path.Combine(srcRoot, "VELO.UI", "Controls");
+        var mainWindow       = Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs");
+        var controllerDir    = Path.Combine(srcRoot, "VELO.App", "Controllers");
 
-        Assert.True(File.Exists(browserTab),  $"BrowserTab not found at {browserTab}");
-        Assert.True(File.Exists(mainWindow),  $"MainWindow not found at {mainWindow}");
+        Assert.True(Directory.Exists(browserTabDir), $"BrowserTab dir not found at {browserTabDir}");
+        Assert.True(File.Exists(mainWindow),         $"MainWindow not found at {mainWindow}");
+
+        // Read all BrowserTab partial sources (BrowserTab.xaml.cs +
+        // BrowserTab.PublicApi.cs + BrowserTab.Events.cs + BrowserTab.Helpers.cs).
+        // Generated .g.cs partials from XAML are excluded.
+        var browserTabFiles = Directory
+            .GetFiles(browserTabDir, "BrowserTab*.cs", SearchOption.TopDirectoryOnly)
+            .Where(p => !p.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase))
+            .Where(p => !p.EndsWith(".g.i.cs", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        Assert.NotEmpty(browserTabFiles);
 
         var hostSources = new List<string> { File.ReadAllText(mainWindow) };
         if (Directory.Exists(controllerDir))
@@ -59,7 +74,7 @@ public class WiringSmokeTests
                     .Select(File.ReadAllText));
         }
 
-        var btContent = File.ReadAllText(browserTab);
+        var btContent = string.Concat(browserTabFiles.Select(File.ReadAllText));
 
         // Match `public void SetXxx(...)` declarations on BrowserTab.
         var setterRx = new Regex(

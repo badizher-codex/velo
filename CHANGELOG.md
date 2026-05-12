@@ -4,6 +4,34 @@ All notable changes to VELO Browser are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
 
+> **Note:** Releases v2.1.0 through v2.4.30 are summarised in
+> [`memory/project_phase3_state.md`](memory/project_phase3_state.md) and the
+> GitHub release notes; per-release CHANGELOG entries resume from v2.4.31
+> (Phase 3 / Sprint 10b chunk 6 — partial-class refactor).
+
+---
+
+## [2.4.31] — 2026-05-12 — Phase 3 / Sprint 10b chunk 6
+
+### Changed
+
+- **`BrowserTab.xaml.cs` split into four `partial class` files** (Phase 3 / Sprint 10b chunk 6):
+  - `BrowserTab.xaml.cs` — core: UserControl declaration, public events, private state, DI setters, constructor, `Initialize`, `EnsureWebViewInitializedAsync` (subscribes the handlers). 1878 → 314 lines.
+  - `BrowserTab.PublicApi.cs` (new, 390 lines) — host-facing methods: `NavigateAsync`, `GoBack/Forward/Reload/Stop`, `ZoomIn/Out/ResetZoom`, `FindAsync/Clear`, `CloseTab`, `AllowOnce`, `ExecuteScriptAsync`, `ClearBrowsingDataAsync`, `GetPageContentAsync`, `ToggleReaderModeAsync`, paste cluster (`HandlePasteRequest`/`PasteTextAsync`/`PasteTextIntoFocusedEditableAsync`), `FillCredentialAsync`, `OpenDevTools`, `SetContainer`, view-switching helpers (`ShowNewTabPage`/`ShowWebView`/`EnsureWebViewReadyAsync`).
+  - `BrowserTab.Events.cs` (new, 765 lines) — WebView2 event handlers: `OnWebResourceRequested` + `ProcessRequestAsync`, `OnNavigationStarting`, `OnServerCertificateError`, `OnWebMessageReceived`, `OnNavigationCompleted`, `OnTitleChanged`, `OnLaunchingExternalUriScheme`, `OnNewWindowRequested`, `OnDownloadStarting`, `NewTabPage_NavigationRequested`, `OnContextMenuRequested` + the WPF dark-theme menu fallback colors.
+  - `BrowserTab.Helpers.cs` (new, 492 lines) — pure helpers and constants: `IsExternalScheme`/`GetScheme`/`TryLaunchExternalUri` + the `_webSchemes`/`_allowedExternalSchemes`/`_lastLaunched*` external-launch cluster, `BuildAboutPage`/`BuildAboutPageTemplate`, `BuildReaderPage`, `IsSameEtld`/`GetEtld`, `ShortenUrl`, `GetHost`, `ConsentScript`, `LoadScriptResourceAsync`.
+- **No behavioural changes.** All members keep the same access modifiers, signatures, and call-sites. WebView2 event subscription order in `EnsureWebViewInitializedAsync` is preserved.
+- **`WiringSmokeTests.BrowserTab_setter_methods_must_be_called_from_host` widened** to scan every `BrowserTab*.cs` partial under `src/VELO.UI/Controls/`, not only `BrowserTab.xaml.cs` — a setter landing in any sibling partial (e.g. `SetContainer` in `BrowserTab.PublicApi.cs`) is still enumerated.
+
+### Why
+
+`BrowserTab.xaml.cs` had grown to 1878 lines and was the largest file in the repo. The split closes the Phase 3 / Sprint 10b refactor work (chunks 1, 2, 4, 5 had already been extracted from MainWindow.xaml.cs in v2.4.27–v2.4.30) and unblocks chunk 3 (TabEventController), which was previously dependent on the tighter shape the partials now expose. It is a prerequisite for Phase 4 (Council Mode) where four `BrowserTab` instances host the 2×2 panel layout.
+
+### Tests
+
+- 355/355 tests pass (49 Core + 122 Security + 136 Agent + 18 Vault + 8 Import + 5 Smoke).
+- Build verified for Debug and Release self-contained (lesson #16 — Release publish catches FQN regressions that Debug incremental misses).
+
 ---
 
 ## [2.0.0] — 2026-04-19 — Fase 2
