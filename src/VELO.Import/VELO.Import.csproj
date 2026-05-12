@@ -13,7 +13,7 @@
     <ProjectReference Include="..\VELO.Vault\VELO.Vault.csproj" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="*" />
     <PackageReference Include="sqlite-net-pcl" Version="*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="*" />
   </ItemGroup>
 

@@ -11,7 +11,7 @@
     <ProjectReference Include="..\VELO.Data\VELO.Data.csproj" />
     <ProjectReference Include="..\VELO.Core\VELO.Core.csproj" />
     <PackageReference Include="Anthropic.SDK" Version="*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
     <PackageReference Include="System.Text.Json" Version="*" />
   </ItemGroup>
 

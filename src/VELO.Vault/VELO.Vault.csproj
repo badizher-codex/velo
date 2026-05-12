@@ -11,7 +11,7 @@
     <ProjectReference Include="..\VELO.Data\VELO.Data.csproj" />
     <PackageReference Include="SQLitePCLRaw.bundle_sqlcipher" Version="*" />
     <PackageReference Include="sqlite-net-pcl" Version="*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
   </ItemGroup>
 
 </Project>
