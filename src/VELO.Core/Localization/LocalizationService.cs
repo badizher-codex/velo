@@ -412,6 +412,8 @@ public sealed class LocalizationService
         ["downloads.files"] = new() { ["es"]="archivos",["en"]="files",["pt"]="arquivos",["fr"]="fichiers",["de"]="Dateien",["zh"]="个文件",["ru"]="файлов",["ja"]="ファイル" },
         ["downloads.file"] = new() { ["es"]="archivo",["en"]="file",["pt"]="arquivo",["fr"]="fichier",["de"]="Datei",["zh"]="个文件",["ru"]="файл",["ja"]="ファイル" },
         ["downloads.inprogress"] = new() { ["es"]="en curso",["en"]="in progress",["pt"]="em andamento",["fr"]="en cours",["de"]="läuft",["zh"]="进行中",["ru"]="загружается",["ja"]="ダウンロード中" },
+        ["downloads.empty.title"]    = new() { ["es"]="No hay descargas aún",["en"]="No downloads yet",["pt"]="Ainda não há downloads",["fr"]="Pas encore de téléchargements",["de"]="Noch keine Downloads",["zh"]="还没有下载",["ru"]="Загрузок пока нет",["ja"]="ダウンロードはまだありません" },
+        ["downloads.empty.subtitle"] = new() { ["es"]="Las descargas que inicies aparecerán acá.",["en"]="Downloads you start will appear here.",["pt"]="Os downloads que você iniciar aparecerão aqui.",["fr"]="Les téléchargements que vous lancez apparaîtront ici.",["de"]="Hier erscheinen Downloads, die Sie starten.",["zh"]="您启动的下载将显示在这里。",["ru"]="Здесь будут появляться загрузки, которые вы начнёте.",["ja"]="開始したダウンロードがここに表示されます。" },
 
         // ── Malwaredex ─────────────────────────────────────────────────────
         ["malwaredex.loading"] = new() { ["es"]="Cargando…",["en"]="Loading…",["pt"]="Carregando…",["fr"]="Chargement…",["de"]="Lädt…",["zh"]="加载中…",["ru"]="Загрузка…",["ja"]="読込中…" },
@@ -422,6 +424,7 @@ public sealed class LocalizationService
 
         // ── Vault ──────────────────────────────────────────────────────────
         ["vault.unlock.subtitle"] = new() { ["es"]="Ingresa tu master password para continuar.",["en"]="Enter your master password to continue.",["pt"]="Digite sua senha mestra para continuar.",["fr"]="Entrez votre mot de passe maître.",["de"]="Master-Passwort eingeben.",["zh"]="输入主密码以继续。",["ru"]="Введите мастер-пароль.",["ja"]="マスターパスワードを入力してください。" },
+        ["vault.unlock.footer"] = new() { ["es"]="Bóveda cifrada local — tus datos no salen de este dispositivo.",["en"]="Local encrypted vault — your data stays on this device.",["pt"]="Cofre criptografado local — seus dados ficam neste dispositivo.",["fr"]="Coffre-fort chiffré local — vos données restent sur cet appareil.",["de"]="Lokal verschlüsselter Tresor — Ihre Daten bleiben auf diesem Gerät.",["zh"]="本地加密保险库 — 您的数据保留在此设备上。",["ru"]="Локально зашифрованное хранилище — ваши данные остаются на этом устройстве.",["ja"]="ローカル暗号化保管庫 — データはこのデバイス内に留まります。" },
         ["vault.unlock.btn"] = new() { ["es"]="Desbloquear",["en"]="Unlock",["pt"]="Desbloquear",["fr"]="Déverrouiller",["de"]="Entsperren",["zh"]="解锁",["ru"]="Разблокировать",["ja"]="ロック解除" },
         ["vault.master.label"] = new() { ["es"]="Master password:",["en"]="Master password:",["pt"]="Senha mestra:",["fr"]="Mot de passe maître :",["de"]="Master-Passwort:",["zh"]="主密码：",["ru"]="Мастер-пароль:",["ja"]="マスターパスワード：" },
         ["vault.wrong.password"] = new() { ["es"]="Contraseña incorrecta.",["en"]="Wrong password.",["pt"]="Senha incorreta.",["fr"]="Mot de passe incorrect.",["de"]="Falsches Passwort.",["zh"]="密码错误。",["ru"]="Неверный пароль.",["ja"]="パスワードが違います。" },

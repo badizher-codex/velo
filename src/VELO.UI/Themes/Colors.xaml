@@ -55,4 +55,69 @@
     <SolidColorBrush x:Key="VerdictWarnBrush"       Color="{StaticResource VerdictWarn}" />
     <SolidColorBrush x:Key="VerdictSafeBrush"       Color="{StaticResource VerdictSafe}" />
 
+    <!--
+        Phase 5 — UI Modernization (added 2026-05-12, v2.4.x → v2.5.0 series).
+        Additive only. Old keys above stay untouched so unmigrated XAML keeps
+        rendering with the v2.4 palette while migrated dialogs adopt the new
+        darker surfaces + purple accent. See docs/Phase5/UI_MODERNIZATION_ANALYSIS.md.
+    -->
+
+    <!-- New darker chrome + surfaces -->
+    <Color x:Key="BackgroundDarkest">#FF0A0A12</Color>
+    <Color x:Key="SurfaceDark">#FF111118</Color>
+    <Color x:Key="SurfaceMid">#FF16161F</Color>
+    <Color x:Key="SurfaceLight">#FF1F1F2C</Color>
+    <Color x:Key="BorderSubtle">#FF26263A</Color>
+    <Color x:Key="BorderEmphasis">#FF3A3A55</Color>
+
+    <!-- Purple accent (Phase 5 primary) -->
+    <Color x:Key="AccentPurple">#FF7C5CFF</Color>
+    <Color x:Key="AccentPurpleLight">#FF8A6BFF</Color>
+    <Color x:Key="AccentPurpleDark">#FF5A3FE0</Color>
+    <Color x:Key="AccentPurpleGlow">#33A48BFF</Color>
+
+    <!-- Status badges -->
+    <Color x:Key="BadgeGreen">#FF10B981</Color>
+    <Color x:Key="BadgeRed">#FFEF4444</Color>
+    <Color x:Key="BadgeBlue">#FF3B82F6</Color>
+    <Color x:Key="BadgeAmber">#FFF59E0B</Color>
+    <Color x:Key="BadgeViolet">#FFA78BFA</Color>
+
+    <!-- Brushes for the new palette -->
+    <SolidColorBrush x:Key="BackgroundDarkestBrush" Color="{StaticResource BackgroundDarkest}" />
+    <SolidColorBrush x:Key="SurfaceDarkBrush"       Color="{StaticResource SurfaceDark}" />
+    <SolidColorBrush x:Key="SurfaceMidBrush"        Color="{StaticResource SurfaceMid}" />
+    <SolidColorBrush x:Key="SurfaceLightBrush"      Color="{StaticResource SurfaceLight}" />
+    <SolidColorBrush x:Key="BorderSubtleBrush"      Color="{StaticResource BorderSubtle}" />
+    <SolidColorBrush x:Key="BorderEmphasisBrush"    Color="{StaticResource BorderEmphasis}" />
+
+    <SolidColorBrush x:Key="AccentPurpleBrush"      Color="{StaticResource AccentPurple}" />
+    <SolidColorBrush x:Key="AccentPurpleLightBrush" Color="{StaticResource AccentPurpleLight}" />
+    <SolidColorBrush x:Key="AccentPurpleDarkBrush"  Color="{StaticResource AccentPurpleDark}" />
+    <SolidColorBrush x:Key="AccentPurpleGlowBrush"  Color="{StaticResource AccentPurpleGlow}" />
+
+    <SolidColorBrush x:Key="BadgeGreenBrush"  Color="{StaticResource BadgeGreen}" />
+    <SolidColorBrush x:Key="BadgeRedBrush"    Color="{StaticResource BadgeRed}" />
+    <SolidColorBrush x:Key="BadgeBlueBrush"   Color="{StaticResource BadgeBlue}" />
+    <SolidColorBrush x:Key="BadgeAmberBrush"  Color="{StaticResource BadgeAmber}" />
+    <SolidColorBrush x:Key="BadgeVioletBrush" Color="{StaticResource BadgeViolet}" />
+
+    <!-- Semi-transparent badge backgrounds (for pill chip bg) -->
+    <SolidColorBrush x:Key="BadgeGreenBgBrush" Color="#2210B981" />
+    <SolidColorBrush x:Key="BadgeRedBgBrush"   Color="#22EF4444" />
+    <SolidColorBrush x:Key="BadgeBlueBgBrush"  Color="#223B82F6" />
+    <SolidColorBrush x:Key="BadgeAmberBgBrush" Color="#22F59E0B" />
+    <SolidColorBrush x:Key="BadgeVioletBgBrush" Color="#22A78BFA" />
+
+    <!-- Gradient brushes (primary CTA, hero highlights) -->
+    <LinearGradientBrush x:Key="AccentPurpleGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource AccentPurple}" Offset="0" />
+        <GradientStop Color="{StaticResource AccentPurpleLight}" Offset="1" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="DangerGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#FFDC2626" Offset="0" />
+        <GradientStop Color="#FFEF4444" Offset="1" />
+    </LinearGradientBrush>
+
 </ResourceDictionary>

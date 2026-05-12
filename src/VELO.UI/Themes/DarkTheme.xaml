@@ -390,4 +390,233 @@
         </Setter>
     </Style>
 
+    <!--
+        ============================================================
+        Phase 5 — UI Modernization styles (added 2026-05-12).
+        Additive. None of the existing styles above are touched, so
+        any control that hasn't been re-skinned yet keeps the v2.4
+        cyan-accent look. New dialogs opt in by setting Style="..."
+        explicitly. See docs/Phase5/UI_MODERNIZATION_ANALYSIS.md.
+        ============================================================
+    -->
+
+    <!-- PrimaryButton — purple gradient CTA. Use for "Unlock", "Continue", primary "OK". -->
+    <Style x:Key="PrimaryButton" TargetType="Button">
+        <Setter Property="Background"      Value="{StaticResource AccentPurpleGradientBrush}" />
+        <Setter Property="Foreground"      Value="White" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding"         Value="20,12" />
+        <Setter Property="FontWeight"      Value="SemiBold" />
+        <Setter Property="FontSize"        Value="13" />
+        <Setter Property="Cursor"          Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#7C5CFF" Opacity="0.35"
+                                              BlurRadius="16" ShadowDepth="0" />
+                        </Border.Effect>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.92" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.80" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.40" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- DangerButton — red gradient. Use for destructive CTAs like "Clear now", "Delete all". -->
+    <Style x:Key="DangerButton" TargetType="Button">
+        <Setter Property="Background"      Value="{StaticResource DangerGradientBrush}" />
+        <Setter Property="Foreground"      Value="White" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding"         Value="20,12" />
+        <Setter Property="FontWeight"      Value="SemiBold" />
+        <Setter Property="FontSize"        Value="13" />
+        <Setter Property="Cursor"          Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#EF4444" Opacity="0.30"
+                                              BlurRadius="14" ShadowDepth="0" />
+                        </Border.Effect>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.92" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.80" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.40" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- GhostButton — transparent with purple outline. Secondary actions, "Cancel" alt. -->
+    <Style x:Key="GhostButton" TargetType="Button">
+        <Setter Property="Background"      Value="Transparent" />
+        <Setter Property="Foreground"      Value="{StaticResource AccentPurpleLightBrush}" />
+        <Setter Property="BorderBrush"     Value="{StaticResource AccentPurpleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding"         Value="18,10" />
+        <Setter Property="FontWeight"      Value="SemiBold" />
+        <Setter Property="FontSize"        Value="13" />
+        <Setter Property="Cursor"          Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentPurpleGlowBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.80" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.40" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        StatusPill — Border style for inline status chips. Set Background
+        to one of the BadgeXxxBgBrush keys and TextBlock.Foreground inside
+        to the matching BadgeXxxBrush. Example:
+
+            <Border Style="{StaticResource StatusPill}"
+                    Background="{StaticResource BadgeGreenBgBrush}">
+              <TextBlock Text="No threats" Foreground="{StaticResource BadgeGreenBrush}" />
+            </Border>
+    -->
+    <Style x:Key="StatusPill" TargetType="Border">
+        <Setter Property="CornerRadius" Value="99" />
+        <Setter Property="Padding"      Value="10,3" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
+    <!--
+        Card — Border style for grouping content (settings sections, history rows,
+        malwaredex entries). Background defaults to SurfaceMid, subtle border, rounded.
+        Override Background or Padding inline as needed.
+    -->
+    <Style x:Key="Card" TargetType="Border">
+        <Setter Property="Background"      Value="{StaticResource SurfaceMidBrush}" />
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius"    Value="12" />
+        <Setter Property="Padding"         Value="16" />
+    </Style>
+
+    <!-- ElevatedCard — same shape as Card but lighter surface for emphasis. -->
+    <Style x:Key="ElevatedCard" TargetType="Border" BasedOn="{StaticResource Card}">
+        <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}" />
+    </Style>
+
+    <!--
+        ModernPasswordBox / ModernTextBox — purple focus accent. Opt-in by
+        setting Style="{StaticResource ModernTextBox}" on the control. The
+        global TextBox style above keeps the v2.4 cyan caret for unmigrated
+        screens.
+    -->
+    <Style x:Key="ModernTextBox" TargetType="TextBox">
+        <Setter Property="Background"      Value="{StaticResource SurfaceLightBrush}" />
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding"         Value="12,10" />
+        <Setter Property="FontSize"        Value="14" />
+        <Setter Property="CaretBrush"      Value="{StaticResource AccentPurpleBrush}" />
+        <Setter Property="SelectionBrush"  Value="{StaticResource AccentPurpleBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer x:Name="PART_ContentHost" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BorderEmphasisBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ModernPasswordBox" TargetType="PasswordBox">
+        <Setter Property="Background"      Value="{StaticResource SurfaceLightBrush}" />
+        <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush"     Value="{StaticResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding"         Value="12,10" />
+        <Setter Property="FontSize"        Value="14" />
+        <Setter Property="CaretBrush"      Value="{StaticResource AccentPurpleBrush}" />
+        <Setter Property="SelectionBrush"  Value="{StaticResource AccentPurpleBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="10"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer x:Name="PART_ContentHost" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BorderEmphasisBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

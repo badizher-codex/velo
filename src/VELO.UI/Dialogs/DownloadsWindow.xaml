@@ -3,16 +3,17 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:VELO.UI.Converters"
         Title="Descargas — VELO"
-        Width="620" Height="520"
+        Width="640" Height="560"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource BackgroundDarkBrush}"
+        Background="{StaticResource BackgroundDarkestBrush}"
         Foreground="{StaticResource TextPrimaryBrush}">
 
     <Window.Resources>
         <conv:LocalizeKeyConverter x:Key="L"/>
     </Window.Resources>
 
-    <Grid Margin="20">
+    <!-- Phase 5.0 re-skin — frame 7 right. -->
+    <Grid Margin="24,22,24,22">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -20,146 +21,190 @@
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <TextBlock x:Name="HeaderLabel" Grid.Row="0" FontSize="20" FontWeight="SemiBold"
-                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,16"/>
+        <TextBlock x:Name="HeaderLabel" Grid.Row="0"
+                   FontSize="22" FontWeight="SemiBold"
+                   Foreground="{StaticResource TextPrimaryBrush}"
+                   Margin="0,0,0,18"/>
 
-        <!-- List -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="DownloadList">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="{StaticResource BackgroundMidBrush}"
-                                BorderBrush="{StaticResource BorderBrush}"
-                                BorderThickness="1" CornerRadius="6"
-                                Margin="0,0,0,6" Padding="14,12">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
+        <!-- Body: empty state OR download list -->
+        <Grid Grid.Row="1">
 
-                                <!-- Row 0: filename + action buttons -->
-                                <Grid Grid.Row="0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+            <!-- Empty state: shown when DownloadList has no items -->
+            <StackPanel x:Name="EmptyState"
+                        VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Width="320">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Visible"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasItems, ElementName=DownloadList}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
 
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <!-- Icon depending on state -->
-                                        <TextBlock FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="⬇"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding State}" Value="Completed">
-                                                            <Setter Property="Text" Value="✓"/>
-                                                            <Setter Property="Foreground" Value="#4CAF50"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding State}" Value="Cancelled">
-                                                            <Setter Property="Text" Value="✕"/>
-                                                            <Setter Property="Foreground" Value="#FF3D71"/>
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding State}" Value="Interrupted">
-                                                            <Setter Property="Text" Value="⚠"/>
-                                                            <Setter Property="Foreground" Value="#FFB300"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <TextBlock Text="{Binding FileName}"
-                                                   FontSize="13" FontWeight="Medium"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   VerticalAlignment="Center"/>
-                                    </StackPanel>
+                <Border Width="92" Height="92" CornerRadius="46"
+                        HorizontalAlignment="Center"
+                        Background="{StaticResource SurfaceLightBrush}"
+                        BorderBrush="{StaticResource AccentPurpleBrush}"
+                        BorderThickness="2"
+                        Margin="0,0,0,20">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#7C5CFF" Opacity="0.45"
+                                          BlurRadius="32" ShadowDepth="0"/>
+                    </Border.Effect>
+                    <TextBlock Text="⬇" FontSize="40"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
 
-                                    <!-- Buttons -->
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                        <!-- Open/run file button — shown when completed -->
-                                        <Button Content="▶" FontSize="11" Padding="6"
-                                                ToolTip="{Binding Source='downloads.open', Converter={StaticResource L}}"
-                                                Click="OpenFile_Click"
-                                                Tag="{Binding FilePath}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding State}" Value="Completed">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-                                        <!-- Open folder button — always visible.
-                                             v2.0.5.11: removed the State/IsInProgress gate.
-                                             Matches Chrome/Edge behaviour: even while a file is
-                                             downloading the user can preview where it will land.
-                                             OpenFolder_Click handles non-existent paths by opening
-                                             the parent directory instead, so it never silently
-                                             does nothing when clicked early. -->
-                                        <Button Content="📂" FontSize="13" Padding="6"
-                                                Style="{StaticResource IconButton}"
-                                                ToolTip="{Binding Source='downloads.folder', Converter={StaticResource L}}"
-                                                Click="OpenFolder_Click"
-                                                Tag="{Binding FilePath}"/>
-                                        <!-- Remove button — shown when not in progress -->
-                                        <Button Content="✕" FontSize="10" Padding="6"
-                                                ToolTip="{Binding Source='downloads.remove', Converter={StaticResource L}}"
-                                                Click="Remove_Click"
-                                                Tag="{Binding Id}">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsInProgress}" Value="False">
-                                                            <Setter Property="Visibility" Value="Visible"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-                                    </StackPanel>
+                <TextBlock x:Name="EmptyTitle"
+                           FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center" Margin="0,0,0,6"/>
+                <TextBlock x:Name="EmptySubtitle"
+                           FontSize="12.5"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           HorizontalAlignment="Center" TextAlignment="Center"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <!-- Download list -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="DownloadList">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{StaticResource SurfaceMidBrush}"
+                                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                                    BorderThickness="1" CornerRadius="12"
+                                    Margin="0,0,0,8" Padding="16,14">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Row 0: filename + action buttons -->
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <!-- Icon depending on state -->
+                                            <TextBlock FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="⬇"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource AccentPurpleLightBrush}"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding State}" Value="Completed">
+                                                                <Setter Property="Text" Value="✓"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource BadgeGreenBrush}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding State}" Value="Cancelled">
+                                                                <Setter Property="Text" Value="✕"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource BadgeRedBrush}"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding State}" Value="Interrupted">
+                                                                <Setter Property="Text" Value="⚠"/>
+                                                                <Setter Property="Foreground" Value="{StaticResource BadgeAmberBrush}"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding FileName}"
+                                                       FontSize="13.5" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+
+                                        <!-- Buttons -->
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <!-- Open/run file button — shown when completed -->
+                                            <Button Content="▶" FontSize="11" Padding="6"
+                                                    ToolTip="{Binding Source='downloads.open', Converter={StaticResource L}}"
+                                                    Click="OpenFile_Click"
+                                                    Tag="{Binding FilePath}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding State}" Value="Completed">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <!-- Open folder button — always visible.
+                                                 v2.0.5.11: removed the State/IsInProgress gate.
+                                                 OpenFolder_Click handles non-existent paths by opening
+                                                 the parent directory instead. -->
+                                            <Button Content="📂" FontSize="13" Padding="6"
+                                                    Style="{StaticResource IconButton}"
+                                                    ToolTip="{Binding Source='downloads.folder', Converter={StaticResource L}}"
+                                                    Click="OpenFolder_Click"
+                                                    Tag="{Binding FilePath}"/>
+                                            <!-- Remove button — shown when not in progress -->
+                                            <Button Content="✕" FontSize="10" Padding="6"
+                                                    ToolTip="{Binding Source='downloads.remove', Converter={StaticResource L}}"
+                                                    Click="Remove_Click"
+                                                    Tag="{Binding Id}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsInProgress}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Row 1: progress bar — only while in progress (now purple) -->
+                                    <ProgressBar Grid.Row="1"
+                                                 Value="{Binding Progress, Mode=OneWay}"
+                                                 Maximum="100"
+                                                 Height="4"
+                                                 Margin="0,10,0,4"
+                                                 Background="{StaticResource BackgroundDarkestBrush}"
+                                                 Foreground="{StaticResource AccentPurpleBrush}"
+                                                 BorderThickness="0">
+                                        <ProgressBar.Style>
+                                            <Style TargetType="ProgressBar">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsInProgress}" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ProgressBar.Style>
+                                    </ProgressBar>
+
+                                    <!-- Row 2: status text -->
+                                    <TextBlock Grid.Row="2"
+                                               Text="{Binding StatusText}"
+                                               FontSize="11"
+                                               Foreground="{StaticResource TextMutedBrush}"/>
                                 </Grid>
-
-                                <!-- Row 1: progress bar — only while in progress -->
-                                <ProgressBar Grid.Row="1"
-                                             Value="{Binding Progress, Mode=OneWay}"
-                                             Maximum="100"
-                                             Height="4"
-                                             Margin="0,8,0,4"
-                                             Background="{StaticResource BackgroundDarkBrush}"
-                                             Foreground="#00E5FF"
-                                             BorderThickness="0">
-                                    <ProgressBar.Style>
-                                        <Style TargetType="ProgressBar">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsInProgress}" Value="False">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ProgressBar.Style>
-                                </ProgressBar>
-
-                                <!-- Row 2: status text -->
-                                <TextBlock Grid.Row="2"
-                                           Text="{Binding StatusText}"
-                                           FontSize="11"
-                                           Foreground="{StaticResource TextMutedBrush}"/>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
 
         <!-- Footer -->
-        <Grid Grid.Row="2" Margin="0,12,0,0">
+        <Grid Grid.Row="2" Margin="0,14,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -168,8 +213,8 @@
                        Foreground="{StaticResource TextMutedBrush}"
                        FontSize="12" VerticalAlignment="Center"/>
             <Button x:Name="ClearBtn" Grid.Column="1"
-                    Style="{StaticResource IconButton}"
-                    Padding="12,6" FontSize="12"
+                    Style="{StaticResource GhostButton}"
+                    Padding="14,8" FontSize="12"
                     Click="ClearCompleted_Click"/>
         </Grid>
     </Grid>

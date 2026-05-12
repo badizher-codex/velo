@@ -28,7 +28,17 @@ public partial class DownloadsWindow : Window
         Title = L.T("title.downloads");
         HeaderLabel.Text    = L.T("downloads.title");
         ClearBtn.Content    = L.T("downloads.clear");
+        // Phase 5.0 — empty state copy. Key falls back to the Spanish literal
+        // until downloads.empty.title / .subtitle are added to LocalizationService.
+        EmptyTitle.Text    = ResolveOrFallback(L, "downloads.empty.title",    "No hay descargas aún");
+        EmptySubtitle.Text = ResolveOrFallback(L, "downloads.empty.subtitle", "Las descargas que inicies aparecerán acá.");
         UpdateCount();
+    }
+
+    private static string ResolveOrFallback(LocalizationService L, string key, string fallback)
+    {
+        var v = L.T(key);
+        return string.IsNullOrEmpty(v) || v == key ? fallback : v;
     }
 
     private void UpdateCount()

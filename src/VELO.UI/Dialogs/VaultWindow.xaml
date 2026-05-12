@@ -17,34 +17,72 @@
 
     <Grid Background="{StaticResource BackgroundDarkBrush}">
 
-        <!-- ── LOCKED OVERLAY ── -->
-        <Grid x:Name="LockScreen">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="320">
-                <TextBlock Text="🔑" FontSize="40" HorizontalAlignment="Center" Margin="0,0,0,12"/>
-                <TextBlock Text="Password Vault" FontSize="22" FontWeight="Light"
-                           Foreground="{StaticResource AccentBlueBrush}"
-                           HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                <TextBlock x:Name="UnlockSubtitle"
-                           FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
-                           HorizontalAlignment="Center" TextWrapping="Wrap"
-                           TextAlignment="Center" Margin="0,0,0,24"/>
+        <!-- ── LOCKED OVERLAY (Phase 5.0 re-skin — frame 3) ── -->
+        <Grid x:Name="LockScreen"
+              Background="{StaticResource BackgroundDarkestBrush}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="380">
 
-                <TextBlock x:Name="MasterLabel" Margin="0,0,0,6"/>
+                <!-- Shield icon — circular surface with purple glow -->
+                <Border Width="92" Height="92" CornerRadius="46"
+                        HorizontalAlignment="Center"
+                        Background="{StaticResource SurfaceLightBrush}"
+                        BorderBrush="{StaticResource AccentPurpleBrush}"
+                        BorderThickness="2"
+                        Margin="0,0,0,22">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#7C5CFF" Opacity="0.55"
+                                          BlurRadius="36" ShadowDepth="0"/>
+                    </Border.Effect>
+                    <TextBlock Text="🛡" FontSize="46"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Title -->
+                <TextBlock Text="Password Vault" FontSize="26" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           HorizontalAlignment="Center" Margin="0,0,0,8"/>
+
+                <!-- Subtitle -->
+                <TextBlock x:Name="UnlockSubtitle"
+                           FontSize="13"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" TextWrapping="Wrap"
+                           TextAlignment="Center" Margin="0,0,0,30"/>
+
+                <!-- Master password label -->
+                <TextBlock x:Name="MasterLabel"
+                           FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="2,0,0,8"/>
+
+                <!-- Password input (purple focus border + rounded 10px) -->
                 <PasswordBox x:Name="UnlockPwd"
-                             Padding="10,8"
-                             Background="{StaticResource BackgroundLightBrush}"
-                             Foreground="{StaticResource TextPrimaryBrush}"
-                             BorderBrush="{StaticResource BorderBrush}"
-                             BorderThickness="1"
+                             Style="{StaticResource ModernPasswordBox}"
+                             FontSize="14"
                              KeyDown="UnlockPwd_KeyDown"/>
 
+                <!-- Error message -->
                 <TextBlock x:Name="UnlockError" Text=""
-                           Foreground="{StaticResource VerdictBlockBrush}"
-                           FontSize="11" Margin="0,6,0,0" Visibility="Collapsed"/>
+                           Foreground="{StaticResource BadgeRedBrush}"
+                           FontSize="12" Margin="2,8,0,0" Visibility="Collapsed"/>
 
-                <Button x:Name="UnlockBtn" Margin="0,14,0,0"
-                        Style="{StaticResource AccentButton}"
-                        Padding="0,10" Click="Unlock_Click"/>
+                <!-- Full-width gradient unlock button -->
+                <Button x:Name="UnlockBtn" Margin="0,20,0,0"
+                        Style="{StaticResource PrimaryButton}"
+                        HorizontalAlignment="Stretch"
+                        Click="Unlock_Click"/>
+
+                <!-- Footer: green dot + "Local encrypted vault" caption -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                            Margin="0,32,0,0">
+                    <Ellipse Width="8" Height="8"
+                             Fill="{StaticResource BadgeGreenBrush}"
+                             VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="VaultFooter"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="11.5" VerticalAlignment="Center"/>
+                </StackPanel>
+
             </StackPanel>
         </Grid>
 

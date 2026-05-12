@@ -43,6 +43,11 @@ public partial class VaultWindow : Window
         UnlockSubtitle.Text = L.T("vault.unlock.subtitle");
         MasterLabel.Text    = L.T("vault.master.label");
         UnlockBtn.Content   = L.T("vault.unlock.btn");
+        // v2.4.32 / Phase 5.0 — footer caption added with the frame-3 re-skin.
+        // Hardcoded fallback until vault.unlock.footer is added to the .resx files.
+        VaultFooter.Text    = L.T("vault.unlock.footer") is { } s && s != "vault.unlock.footer"
+            ? s
+            : "Bóveda cifrada local — tus datos no salen de este dispositivo.";
         // Main vault list
         AddBtn.Content      = L.T("vault.add");
         LockBtn.Content     = L.T("vault.lock");

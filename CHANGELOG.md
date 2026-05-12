@@ -11,6 +11,44 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.32] — 2026-05-12 — Phase 5.0 (theme + Vault/ClearData/Downloads re-skin)
+
+### Added
+
+- **Phase 5 — UI Modernization v0.0 lands.** New visual language adopted from the prototype Phase 0 analysis (`docs/Phase5/UI_MODERNIZATION_ANALYSIS.md`): darker base surfaces (`#0A0A12` chrome, `#111118` surfaces), purple accent (`#7C5CFF` primary), gradient CTAs, status pills, rounded card panels.
+- **Theme resources extended (additive, no breaking change).** `src/VELO.UI/Themes/Colors.xaml`: 11 new colors + 14 new brushes (surfaces, purple accent shades + glow, badges with semi-transparent backgrounds, gradient brushes for primary and danger CTAs).
+- **8 new styles in `DarkTheme.xaml`** — `PrimaryButton` (gradient purple CTA with glow), `DangerButton` (gradient red CTA), `GhostButton` (transparent + purple outline), `StatusPill` (rounded chip Border), `Card` + `ElevatedCard` (rounded surfaces), `ModernTextBox` + `ModernPasswordBox` (purple focus). All opt-in via `Style="{StaticResource X}"`; unmigrated controls keep the v2.4 cyan-accent look.
+- **`VaultWindow.xaml` LockScreen re-skinned per frame 3.** Circular shield icon with purple glow, large title, password input with purple focus, full-width gradient unlock button, "Local encrypted vault" footer with green dot indicator. VaultScreen + EditScreen left unchanged (different scope).
+- **`ClearDataWindow.xaml` re-skinned per frame 7 left.** Trash icon in red badge surface, checklist with each option wrapped in a `Card` for clear tappable rows, ghost/danger action pair at the bottom.
+- **`DownloadsWindow.xaml` re-skinned per frame 7 right.** New empty-state with circular icon + "No downloads yet" caption (visible when the list has no items), card-styled download rows, purple progress bar replacing the old cyan, ghost-button "Clear completed".
+- **3 new localization keys in 8 languages** — `vault.unlock.footer`, `downloads.empty.title`, `downloads.empty.subtitle`.
+
+### Changed
+
+- `Microsoft.Extensions.*` packages remain pinned at 10.0.7 (carry-over from v2.4.31 fix, see `b18bee1` / `eeb3d01`).
+- `BackgroundDarkBrush` (legacy `#0D0D0D`) is **untouched**. Dialogs not migrated continue to use it. Migrated dialogs reference `BackgroundDarkestBrush` (`#0A0A12`) for a slightly darker modal look.
+- No breaking change. Smoke test #1 (XAML resources) still verifies every `{StaticResource X}` reference resolves.
+
+### Tests
+
+- 355/355 tests pass (49 Core + 122 Security + 136 Agent + 18 Vault + 8 Import + 5 Smoke).
+- Build verified for Debug; smoke test #1 confirms no missing theme resources after the extension.
+
+### Migration scope
+
+- Hardcoded `#color` count post-Phase 5.0:
+  - VaultWindow.xaml: 4 (3 in EditScreen — future scope; 1 in DropShadowEffect — legitimate, `Color` not `Brush`).
+  - ClearDataWindow.xaml: 0 (clean migration).
+  - DownloadsWindow.xaml: 1 (DropShadowEffect — legitimate).
+- 17 dialogs / controls still on the v2.4 palette: HistoryWindow, MalwaredexWindow, SecurityInspectorWindow, BookmarksWindow, SettingsWindow → Phase 5.1; NewTabPage, UrlBar, TabSidebar, AgentPanel, MainWindow chrome, toasts → Phase 5.2.
+
+### Known follow-ups
+
+- VaultWindow `LockScreen` does not include the eye-toggle from prototype frame 3 (PasswordBox visibility requires a TextBox swap + 15 lines of code-behind). Functional gap, deferred to a follow-up.
+- VaultWindow EditScreen (add/edit password entry) still on the v2.4 palette. Will adopt the new look in Phase 5.1.
+
+---
+
 ## [2.4.31] — 2026-05-12 — Phase 3 / Sprint 10b chunk 6
 
 ### Changed
