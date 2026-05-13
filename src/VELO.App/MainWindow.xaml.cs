@@ -534,9 +534,19 @@ public partial class MainWindow : Window
                 OnAutofillFormDetected:   (tabId, host)    => _ = OnAutofillFormDetectedAsync(tabId, host, autofill),
                 OnAutofillFormSubmitted:  (tabId, payload) => _ = OnAutofillFormSubmittedAsync(tabId, payload, autofill));
 
+            // Phase 4.0 chunk D — per-container fingerprint override. Council
+            // containers (council-claude / -chatgpt / -grok / -ollama) drop
+            // to "Standard" to avoid tripping Cloudflare anti-bot at those
+            // providers; every other container keeps the user's global
+            // preference. Banking mode keeps its strict policy untouched.
+            var tabContainerId = tab?.ContainerId ?? "none";
+            var effectiveFingerprintLevel =
+                VELO.Core.Containers.CouncilContainerPolicy.ResolveFingerprintLevel(
+                    tabContainerId, _fingerprintLevel);
+
             var browserTab = GetTabHost().BuildAndWire(
                 e.TabId, _aiEngine, _requestGuard, _tlsGuard, _downloadGuard, _downloadManager,
-                _fingerprintLevel, _webRtcMode, handlers);
+                effectiveFingerprintLevel, _webRtcMode, handlers);
 
             // Add to panel (keeps WebView2 HWND alive across tab switches).
             BrowserContent.Children.Add(browserTab);
