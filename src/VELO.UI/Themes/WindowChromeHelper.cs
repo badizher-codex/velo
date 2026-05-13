@@ -65,18 +65,49 @@ public static class WindowChromeHelper
     private static extern int DwmSetWindowAttribute(
         IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
+    // Win 10 build 19041+ (20H1, May 2020) and Win 11: attribute 20.
+    // Win 10 build 18985-19041 (pre-20H1): attribute 19.
+    // Earlier builds: neither works, app falls back to system theme silently.
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_OLD = 19;
+
+    /// <summary>
+    /// Public entry point — call directly from a Window's
+    /// <c>OnSourceInitialized</c> override when the attached-property
+    /// path doesn't fire (e.g. third-party Window styles override the
+    /// implicit setter, ModernWpfUI's Window chrome, etc.).
+    /// </summary>
+    public static void ApplyToWindow(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd == IntPtr.Zero)
+        {
+            window.SourceInitialized += (_, _) =>
+            {
+                var h = new WindowInteropHelper(window).Handle;
+                if (h != IntPtr.Zero) ApplyDarkTitleBar(h);
+            };
+            return;
+        }
+        ApplyDarkTitleBar(hwnd);
+    }
 
     private static void ApplyDarkTitleBar(IntPtr hwnd)
     {
         int useDark = 1;
         try
         {
-            // HRESULT is ignored — older Windows builds return E_INVALIDARG
-            // for unrecognised attributes; the chrome stays light, the rest
-            // of the app keeps its dark theme. No user-visible failure mode.
-            DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
-                                  ref useDark, sizeof(int));
+            // Try the modern attribute first; if Windows doesn't recognise
+            // it (build pre-20H1), retry with the legacy attribute number.
+            // Both target the same setting; only the attribute ID changed
+            // between Windows 10 19041 and the older preview builds.
+            var hr = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE,
+                                           ref useDark, sizeof(int));
+            if (hr != 0)
+            {
+                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_OLD,
+                                      ref useDark, sizeof(int));
+            }
         }
         catch
         {

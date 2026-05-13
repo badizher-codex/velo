@@ -11,6 +11,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.36] — 2026-05-12 — Phase 5.3 hotfix (icons tofu + title bar fallback)
+
+### Fixed
+
+- **URL bar icons rendering as tofu.** v2.4.35 used `FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"` (comma-separated fallback) which WPF does not honour reliably for icon glyphs, AND used `U+E72A` for the Forward arrow which does not exist in either font. Hotfix: switch to a single `FontFamily="Segoe MDL2 Assets"` (universal across Windows 10+) and the correct documented code points: `E72B` Back, **`E72D`** Forward, `E72C` Refresh, `E712` More. Icons now render as Microsoft-designed glyphs instead of empty rectangles.
+- **Dark title bar not applying.** v2.4.35 wired `DwmSetWindowAttribute` only through the implicit Window style's attached-property setter, which races with ModernWpfUI's own Window style and can silently lose. Hotfix: (a) `WindowChromeHelper.ApplyToWindow` is now a **public method** callable explicitly from a Window's constructor — `MainWindow.xaml.cs` invokes it right after `InitializeComponent()`. (b) The P/Invoke now retries the legacy attribute `19` if the modern attribute `20` returns a non-zero HRESULT (covers Windows 10 builds 18985–19041 in addition to 20H1+).
+
+### Tests
+
+- 355/355 still pass; no behavioural change beyond the corrected glyph code points + the new explicit chrome call.
+
+---
+
 ## [2.4.35] — 2026-05-12 — Phase 5.3 polish (dark title bar + Fluent icons)
 
 ### Added

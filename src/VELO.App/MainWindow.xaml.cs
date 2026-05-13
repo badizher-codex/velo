@@ -102,6 +102,12 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
+        // v2.4.36 — apply dark Win32 chrome explicitly. The attached property
+        // path in DarkTheme.xaml works for most windows but ModernWpfUI's
+        // implicit Window style can race with our setter; making the call
+        // explicit here guarantees the chrome flip on the most-visible window.
+        VELO.UI.Themes.WindowChromeHelper.ApplyToWindow(this);
+
         _eventBus.Subscribe<TabCreatedEvent>(OnTabCreated);
         _eventBus.Subscribe<TabClosedEvent>(OnTabClosed);
         _eventBus.Subscribe<TabActivatedEvent>(OnTabActivated);

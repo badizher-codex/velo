@@ -34,25 +34,27 @@
                         AutomationProperties.Name="Shield Score"
                         ShieldClicked="ShieldBadge_Click"/>
 
-                <!-- v2.4.35: nav icons swap to Segoe Fluent Icons (the Windows 11
-                     native icon font). Edge / Settings / Office all use this same
-                     family; VELO now blends with the OS instead of rendering
-                     unicode arrows that look unstyled. Segoe MDL2 Assets is the
-                     Windows 10 fallback (same code points). -->
+                <!-- v2.4.36: nav icons use Segoe MDL2 Assets (Windows 10+
+                     universal font for system icons). Single font family —
+                     WPF's comma-separated fallback isn't reliable for icon
+                     glyphs. Code points published by Microsoft for MDL2:
+                       E72B = Back, E72D = Forward, E72C = Refresh, E712 = More.
+                     The previous v2.4.35 used E72A for Forward which doesn't
+                     exist in MDL2 (rendered as tofu). -->
                 <Button x:Name="BackButton" Grid.Column="1"
                         Style="{StaticResource IconButton}"
                         Content="&#xE72B;"
-                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
-                        FontSize="14"
+                        FontFamily="Segoe MDL2 Assets"
+                        FontSize="13"
                         Click="BackButton_Click"
                         IsEnabled="False"
                         ToolTip="Atrás"/>
 
                 <Button x:Name="ForwardButton" Grid.Column="2"
                         Style="{StaticResource IconButton}"
-                        Content="&#xE72A;"
-                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
-                        FontSize="14"
+                        Content="&#xE72D;"
+                        FontFamily="Segoe MDL2 Assets"
+                        FontSize="13"
                         Click="ForwardButton_Click"
                         IsEnabled="False"
                         ToolTip="Adelante"/>
@@ -60,8 +62,8 @@
                 <Button x:Name="ReloadButton" Grid.Column="3"
                         Style="{StaticResource IconButton}"
                         Content="&#xE72C;"
-                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
-                        FontSize="14"
+                        FontFamily="Segoe MDL2 Assets"
+                        FontSize="13"
                         Click="ReloadButton_Click"
                         ToolTip="Recargar"/>
 
@@ -182,8 +184,8 @@
                 <Button x:Name="MenuButton" Grid.Column="7"
                         Style="{StaticResource IconButton}"
                         Content="&#xE712;"
-                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
-                        FontSize="14"
+                        FontFamily="Segoe MDL2 Assets"
+                        FontSize="15"
                         Click="MenuButton_Click"
                         ToolTip="Menú"/>
             </Grid>
