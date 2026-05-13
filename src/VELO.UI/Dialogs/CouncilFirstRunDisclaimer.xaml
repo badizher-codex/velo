@@ -1,0 +1,242 @@
+<Window x:Class="VELO.UI.Dialogs.CouncilFirstRunDisclaimer"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="VELO — Council Mode"
+        Width="640" Height="720"
+        MinWidth="560" MinHeight="600"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundDarkestBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <!-- Phase 4.0 chunk G — Council first-run disclaimer.
+         Shown the very first time the user activates Council Mode.
+         Sets council.disclaimer_accepted + per-provider toggles in Settings. -->
+    <Grid Margin="32,28,32,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>   <!-- Header (badge + title) -->
+            <RowDefinition Height="Auto"/>   <!-- Subtitle -->
+            <RowDefinition Height="Auto"/>   <!-- Providers section header -->
+            <RowDefinition Height="*"/>      <!-- Providers list -->
+            <RowDefinition Height="Auto"/>   <!-- Preflight status card -->
+            <RowDefinition Height="Auto"/>   <!-- Action buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal"
+                    HorizontalAlignment="Center" Margin="0,0,0,12">
+            <Border Width="60" Height="60" CornerRadius="30"
+                    Background="{StaticResource BadgeVioletBgBrush}"
+                    BorderBrush="{StaticResource AccentPurpleBrush}"
+                    BorderThickness="1"
+                    Margin="0,0,16,0">
+                <Border.Effect>
+                    <DropShadowEffect Color="#7C5CFF" Opacity="0.55"
+                                      BlurRadius="22" ShadowDepth="0"/>
+                </Border.Effect>
+                <TextBlock Text="🤝" FontSize="28"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Council Mode" FontSize="22" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="Primera activación" FontSize="12"
+                           Foreground="{StaticResource AccentPurpleLightBrush}"
+                           Margin="0,2,0,0"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Subtitle -->
+        <TextBlock Grid.Row="1"
+                   Text="Council consulta cuatro modelos de IA en paralelo y sintetiza la respuesta localmente. La pregunta que escribas se enviará a cada servicio que tengas habilitado."
+                   FontSize="13"
+                   Foreground="{StaticResource TextSecondaryBrush}"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   HorizontalAlignment="Center"
+                   MaxWidth="500"
+                   Margin="0,0,0,22"/>
+
+        <!-- Providers section header -->
+        <TextBlock Grid.Row="2"
+                   Text="PROVEEDORES"
+                   FontSize="10.5" FontWeight="SemiBold"
+                   Foreground="{StaticResource TextMutedBrush}"
+                   Margin="0,0,0,10"/>
+
+        <!-- Providers list -->
+        <StackPanel Grid.Row="3">
+
+            <!-- Claude -->
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                            Background="#22D97757" Margin="0,0,12,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="A" FontSize="17" FontWeight="Bold"
+                                   Foreground="#FFD97757"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Claude" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="Anthropic — vía claude.ai. Datos cifrados en tránsito; tu prompt llega a sus servidores."
+                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <CheckBox x:Name="ChkClaude" Grid.Column="2"
+                              IsChecked="True"
+                              VerticalAlignment="Center"
+                              Margin="14,0,0,0"
+                              Checked="Provider_Toggled" Unchecked="Provider_Toggled"/>
+                </Grid>
+            </Border>
+
+            <!-- ChatGPT -->
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                            Background="#2210A37F" Margin="0,0,12,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="G" FontSize="17" FontWeight="Bold"
+                                   Foreground="#FF10A37F"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="ChatGPT" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="OpenAI — vía chat.openai.com. Tu prompt va a sus servidores y entra a su pipeline."
+                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <CheckBox x:Name="ChkChatGpt" Grid.Column="2"
+                              IsChecked="True"
+                              VerticalAlignment="Center"
+                              Margin="14,0,0,0"
+                              Checked="Provider_Toggled" Unchecked="Provider_Toggled"/>
+                </Grid>
+            </Border>
+
+            <!-- Grok -->
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                            Background="#221DA1F2" Margin="0,0,12,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="X" FontSize="16" FontWeight="Bold"
+                                   Foreground="#FF1DA1F2"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Grok" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="xAI — vía grok.com. Necesita sesión activa de X/Twitter; los prompts entran a su pipeline."
+                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <CheckBox x:Name="ChkGrok" Grid.Column="2"
+                              IsChecked="True"
+                              VerticalAlignment="Center"
+                              Margin="14,0,0,0"
+                              Checked="Provider_Toggled" Unchecked="Provider_Toggled"/>
+                </Grid>
+            </Border>
+
+            <!-- Ollama -->
+            <Border Style="{StaticResource Card}" Padding="14,12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
+                            Background="{StaticResource BadgeVioletBgBrush}" Margin="0,0,12,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="🧠" FontSize="17"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Ollama (local)" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock Text="100% local. Tu prompt nunca sale del equipo. También se usa para la síntesis final."
+                                   FontSize="11" Foreground="{StaticResource BadgeGreenBrush}"
+                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <CheckBox x:Name="ChkOllama" Grid.Column="2"
+                              IsChecked="True"
+                              VerticalAlignment="Center"
+                              Margin="14,0,0,0"
+                              Checked="Provider_Toggled" Unchecked="Provider_Toggled"/>
+                </Grid>
+            </Border>
+
+        </StackPanel>
+
+        <!-- Pre-flight status card -->
+        <Border Grid.Row="4" Style="{StaticResource Card}"
+                Background="{StaticResource SurfaceDarkBrush}"
+                Padding="14,12" Margin="0,18,0,18">
+            <StackPanel>
+                <TextBlock Text="SÍNTESIS LOCAL"
+                           FontSize="10.5" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Margin="0,0,0,8"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="PreflightIcon" Text="⏳" FontSize="18"
+                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="PreflightMessage"
+                               Text="Comprobando Ollama y qwen3:32b…"
+                               FontSize="12.5"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Actions -->
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="CancelButton" Grid.Column="0"
+                    Style="{StaticResource GhostButton}"
+                    Content="Cancelar"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,0,6,0"
+                    Click="OnCancelClick"/>
+            <Button x:Name="AcceptButton" Grid.Column="1"
+                    Style="{StaticResource PrimaryButton}"
+                    Content="Aceptar y abrir Council"
+                    HorizontalAlignment="Stretch"
+                    Margin="6,0,0,0"
+                    IsEnabled="False"
+                    Click="OnAcceptClick"/>
+        </Grid>
+    </Grid>
+</Window>

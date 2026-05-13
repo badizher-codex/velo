@@ -50,4 +50,15 @@ public static class SettingKeys
     public const string ClipboardHistoryEnabled = "clipboard.history_enabled";
     /// <summary>v2.4.25 — When true, PhishingShield queries IANA RDAP for domain age on suspicious pages. Default false (privacy: leaks the suspect domain to its RDAP server).</summary>
     public const string PhishingShieldDomainAgeCheck = "phishing.domain_age_check";
+
+    // ── Council Mode (Phase 4.0) ─────────────────────────────────────────
+    /// <summary>Phase 4.0 — set to "yes" once the user has accepted the first-run disclaimer
+    /// (acknowledges that the master prompt is sent to each enabled provider).</summary>
+    public const string CouncilDisclaimerAccepted = "council.disclaimer_accepted";
+    /// <summary>Phase 4.0 — per-provider opt-in. Each defaults true once disclaimer is accepted;
+    /// user can disable a provider from Settings → Council to skip its panel.</summary>
+    public const string CouncilEnabledClaude      = "council.enabled.claude";
+    public const string CouncilEnabledChatGpt     = "council.enabled.chatgpt";
+    public const string CouncilEnabledGrok        = "council.enabled.grok";
+    public const string CouncilEnabledOllama      = "council.enabled.ollama";
 }
