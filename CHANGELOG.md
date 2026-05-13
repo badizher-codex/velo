@@ -11,6 +11,38 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.37] — 2026-05-12 — Phase 5.3 v3: vector icons + active-tab glow + focus ring
+
+Iteration on Phase 5.3 after maintainer feedback on v2.4.36: icons still felt off, separators too flat, "metele amor wey algo que llame la atención". Pure visual polish — no layout or contract changes.
+
+### Changed
+
+- **URL bar nav icons → WPF `Path` geometry inside `Viewbox`.** No more dependency on a system icon font (Segoe Fluent Icons / Segoe MDL2 Assets), no more code-point guessing. Each icon is hand-traced SVG-style strokes drawn in a 24×24 canvas, scaled to 14–15 px via `Viewbox`. Look identical on Windows 10, Windows 11, and any DPI. Geometry inspired by Lucide (MIT):
+  - Back: chevron-left `M 15,6 L 9,12 L 15,18`
+  - Forward: chevron-right `M 9,6 L 15,12 L 9,18`
+  - Reload: 3/4 circular arc + corner arrow `M 20,12 A 8,8 0 1 1 6.5,6 L 4,8 M 4,4 L 4,8 L 8,8`
+  - Stop (loading state): clean X `M 6,6 L 18,18 M 6,18 L 18,6`
+  - Menu: three stacked dots as `Ellipse` elements in a vertical `StackPanel`
+  All strokes use `StrokeLineJoin="Round"`, `StrokeCap="Round"` with 2 px thickness — same look-and-feel as Edge / Settings nav icons.
+- **`SetLoading` toggle**: instead of swapping `Button.Content` between two unicode glyphs, the XAML now ships *both* icons inside the Reload button and the code-behind flips `Visibility` of `ReloadIcon` ↔ `StopIcon`. Cleaner, no font lookup involved.
+- **Active tab → purple glow.** TabSidebar's `IsActive=True` DataTrigger now also sets `Effect` to a soft `DropShadowEffect` (`#7C5CFF` @ 0.55 opacity, 16 px blur, 0 depth). Same treatment in collapsed sidebar mode (14 px blur). The active tab now reads as the *focus point* of the window, not just a tab with a coloured outline. Corner radius bumped 4 → 6 to match the new glow's soft feel.
+- **URL pill → focus ring.** When keyboard focus is anywhere inside the pill (typing in the URL field), the border switches to `AccentPurpleBrush` and a soft purple `DropShadowEffect` activates (`#7C5CFF` @ 0.45 opacity, 14 px blur). Auto-revert on blur via WPF style triggers; no code-behind plumbing.
+- **`WindowChromeHelper` → rounded corners (Windows 11).** Adds an explicit call to `DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2)` right after the dark title bar flip. Windows 10 returns `E_INVALIDARG` and we ignore; Windows 11 picks up the explicit "round" preference. Resolves the v2.4.36 maintainer ask "la barra puede redondearse".
+
+### What didn't change
+
+- Phase 5 palette / tokens — untouched.
+- Existing surfaces re-skinned in v2.4.32/.33/.34 — untouched.
+- Layout, bindings, event handlers, behaviour — zero changes.
+- Settings dialog content — untouched (separate scope if maintainer wants it).
+
+### Tests
+
+- 355/355 still green (5 Smoke + 49 Core + 122 Security + 136 Agent + 18 Vault + 8 Import).
+- Smoke test #1 confirms every new `{StaticResource X}` reference resolves.
+
+---
+
 ## [2.4.36] — 2026-05-12 — Phase 5.3 hotfix (icons tofu + title bar fallback)
 
 ### Fixed

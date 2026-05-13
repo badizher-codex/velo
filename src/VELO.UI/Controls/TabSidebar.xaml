@@ -87,6 +87,15 @@
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                                 <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
                                                 <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
+                                                <!-- v2.4.37 — glow also in collapsed mode. -->
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect Color="#7C5CFF"
+                                                                          Opacity="0.55"
+                                                                          BlurRadius="14"
+                                                                          ShadowDepth="0"/>
+                                                    </Setter.Value>
+                                                </Setter>
                                             </DataTrigger>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter Property="BorderBrush" Value="{StaticResource BorderEmphasisBrush}"/>
@@ -143,7 +152,17 @@
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                                 <Setter Property="BorderThickness" Value="2"/>
                                                 <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
-                                                <Setter Property="CornerRadius" Value="4"/>
+                                                <Setter Property="CornerRadius" Value="6"/>
+                                                <!-- v2.4.37 — soft purple glow on the active tab so it
+                                                     reads as the focus point, not just a coloured ring. -->
+                                                <Setter Property="Effect">
+                                                    <Setter.Value>
+                                                        <DropShadowEffect Color="#7C5CFF"
+                                                                          Opacity="0.55"
+                                                                          BlurRadius="16"
+                                                                          ShadowDepth="0"/>
+                                                    </Setter.Value>
+                                                </Setter>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>

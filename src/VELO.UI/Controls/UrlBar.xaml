@@ -3,6 +3,22 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:VELO.UI.Controls">
 
+    <UserControl.Resources>
+        <!-- v2.4.37 — vector nav icons.
+             Stroke-only paths (no Fill) drawn in a 24x24 SVG-like viewBox
+             then Viewbox-scaled to 14px. Independent of any system icon
+             font; same look on every Windows version. Geometry inspired
+             by Lucide (MIT). -->
+        <Style x:Key="NavIconPath" TargetType="Path">
+            <Setter Property="Stroke"             Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="StrokeThickness"    Value="2"/>
+            <Setter Property="StrokeLineJoin"     Value="Round"/>
+            <Setter Property="StrokeStartLineCap" Value="Round"/>
+            <Setter Property="StrokeEndLineCap"   Value="Round"/>
+            <Setter Property="Fill"               Value="Transparent"/>
+        </Style>
+    </UserControl.Resources>
+
     <!-- Phase 5.2 re-skin — frame 1 URL row. Layout / functions preserved. -->
     <Grid>
         <Grid.RowDefinitions>
@@ -34,47 +50,89 @@
                         AutomationProperties.Name="Shield Score"
                         ShieldClicked="ShieldBadge_Click"/>
 
-                <!-- v2.4.36: nav icons use Segoe MDL2 Assets (Windows 10+
-                     universal font for system icons). Single font family —
-                     WPF's comma-separated fallback isn't reliable for icon
-                     glyphs. Code points published by Microsoft for MDL2:
-                       E72B = Back, E72D = Forward, E72C = Refresh, E712 = More.
-                     The previous v2.4.35 used E72A for Forward which doesn't
-                     exist in MDL2 (rendered as tofu). -->
+                <!-- v2.4.37: nav icons are pure WPF Path geometry inside a
+                     Viewbox. No system font dependency, identical render on
+                     every Windows version. Geometry inspired by Lucide (MIT). -->
                 <Button x:Name="BackButton" Grid.Column="1"
                         Style="{StaticResource IconButton}"
-                        Content="&#xE72B;"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="13"
                         Click="BackButton_Click"
                         IsEnabled="False"
-                        ToolTip="Atrás"/>
+                        ToolTip="Atrás">
+                    <Viewbox Width="14" Height="14" Stretch="Uniform">
+                        <Canvas Width="24" Height="24">
+                            <Path
+                                Style="{StaticResource NavIconPath}"
+                                Data="M 15,6 L 9,12 L 15,18"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
 
                 <Button x:Name="ForwardButton" Grid.Column="2"
                         Style="{StaticResource IconButton}"
-                        Content="&#xE72D;"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="13"
                         Click="ForwardButton_Click"
                         IsEnabled="False"
-                        ToolTip="Adelante"/>
+                        ToolTip="Adelante">
+                    <Viewbox Width="14" Height="14" Stretch="Uniform">
+                        <Canvas Width="24" Height="24">
+                            <Path
+                                Style="{StaticResource NavIconPath}"
+                                Data="M 9,6 L 15,12 L 9,18"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
 
                 <Button x:Name="ReloadButton" Grid.Column="3"
                         Style="{StaticResource IconButton}"
-                        Content="&#xE72C;"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="13"
                         Click="ReloadButton_Click"
-                        ToolTip="Recargar"/>
+                        ToolTip="Recargar">
+                    <Grid>
+                        <Viewbox x:Name="ReloadIcon" Width="15" Height="15" Stretch="Uniform">
+                            <Canvas Width="24" Height="24">
+                                <!-- Circular arrow (refresh). 3/4 arc CCW + arrow corner. -->
+                                <Path
+                                    Style="{StaticResource NavIconPath}"
+                                    Data="M 20,12 A 8,8 0 1 1 6.5,6 L 4,8 M 4,4 L 4,8 L 8,8"/>
+                            </Canvas>
+                        </Viewbox>
+                        <Viewbox x:Name="StopIcon" Width="13" Height="13" Stretch="Uniform"
+                                 Visibility="Collapsed">
+                            <Canvas Width="24" Height="24">
+                                <!-- Cancel X -->
+                                <Path
+                                    Style="{StaticResource NavIconPath}"
+                                    Data="M 6,6 L 18,18 M 6,18 L 18,6"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                </Button>
 
-                <!-- URL pill: TLS + field + bookmark + zoom -->
+                <!-- URL pill: TLS + field + bookmark + zoom.
+                     v2.4.37 — soft purple focus ring when keyboard focus
+                     is inside the pill (typing in UrlField). -->
                 <Border Grid.Column="4"
                         Background="{StaticResource SurfaceMidBrush}"
-                        BorderBrush="{StaticResource BorderEmphasisBrush}"
                         BorderThickness="1"
                         CornerRadius="10"
                         Margin="6,5,6,5"
                         Padding="4,0">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{StaticResource BorderEmphasisBrush}"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
+                                    <Setter Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect Color="#7C5CFF"
+                                                              Opacity="0.45"
+                                                              BlurRadius="14"
+                                                              ShadowDepth="0"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>   <!-- TLS -->
@@ -183,11 +241,14 @@
 
                 <Button x:Name="MenuButton" Grid.Column="7"
                         Style="{StaticResource IconButton}"
-                        Content="&#xE712;"
-                        FontFamily="Segoe MDL2 Assets"
-                        FontSize="15"
                         Click="MenuButton_Click"
-                        ToolTip="Menú"/>
+                        ToolTip="Menú">
+                    <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Ellipse Width="3" Height="3" Fill="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                        <Ellipse Width="3" Height="3" Fill="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                        <Ellipse Width="3" Height="3" Fill="{StaticResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Button>
             </Grid>
         </Border>
 

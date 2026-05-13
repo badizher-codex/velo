@@ -68,8 +68,14 @@ public static class WindowChromeHelper
     // Win 10 build 19041+ (20H1, May 2020) and Win 11: attribute 20.
     // Win 10 build 18985-19041 (pre-20H1): attribute 19.
     // Earlier builds: neither works, app falls back to system theme silently.
-    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE     = 20;
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE_OLD = 19;
+
+    // Win 11 only — round window corners explicitly (default is "round 8px"
+    // on Win 11 but worth being explicit because some Windows themes / DPI
+    // configurations end up square otherwise). Win 10 ignores silently.
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWCP_ROUND = 2;
 
     /// <summary>
     /// Public entry point — call directly from a Window's
@@ -108,6 +114,12 @@ public static class WindowChromeHelper
                 DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_OLD,
                                       ref useDark, sizeof(int));
             }
+
+            // v2.4.37 — explicitly request rounded corners on Windows 11.
+            // Win 10 returns E_INVALIDARG which we ignore.
+            int round = DWMWCP_ROUND;
+            DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE,
+                                  ref round, sizeof(int));
         }
         catch
         {

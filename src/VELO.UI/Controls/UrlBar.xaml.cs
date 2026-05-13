@@ -65,8 +65,9 @@ public partial class UrlBar : UserControl
     {
         _isLoading = loading;
         var L = LocalizationService.Current;
-        // v2.4.35 — Segoe Fluent Icons:  = Cancel (X),  = Refresh
-        ReloadButton.Content = loading ? "" : "";
+        // v2.4.37 — toggle visibility between the two Viewbox icons.
+        ReloadIcon.Visibility = loading ? Visibility.Collapsed : Visibility.Visible;
+        StopIcon.Visibility   = loading ? Visibility.Visible   : Visibility.Collapsed;
         ReloadButton.ToolTip = loading ? L.T("urlbar.stop") : L.T("nav.reload");
 
         if (loading)
