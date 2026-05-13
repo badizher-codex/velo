@@ -524,6 +524,7 @@ public partial class SettingsWindow : Window
         NavIA.Style         = (Style)Resources["NavButton"];
         NavBusqueda.Style   = (Style)Resources["NavButton"];
         NavVault.Style      = (Style)Resources["NavButton"];
+        NavCouncil.Style    = (Style)Resources["NavButton"];
         NavIdioma.Style     = (Style)Resources["NavButton"];
         NavGeneral.Style    = (Style)Resources["NavButton"];
 
@@ -536,7 +537,71 @@ public partial class SettingsWindow : Window
         PanelIA.Visibility         = tag == "IA"         ? Visibility.Visible : Visibility.Collapsed;
         PanelBusqueda.Visibility   = tag == "Busqueda"   ? Visibility.Visible : Visibility.Collapsed;
         PanelVault.Visibility      = tag == "Vault"      ? Visibility.Visible : Visibility.Collapsed;
+        PanelCouncil.Visibility    = tag == "Council"    ? Visibility.Visible : Visibility.Collapsed;
         PanelIdioma.Visibility     = tag == "Idioma"     ? Visibility.Visible : Visibility.Collapsed;
         PanelGeneral.Visibility    = tag == "General"    ? Visibility.Visible : Visibility.Collapsed;
+
+        // Phase 4.0 chunk H — load Council settings the first time the
+        // panel is opened. Toggles are read-only (disabled until v2.5.x);
+        // the load just reflects whatever the disclaimer wrote so the user
+        // can see what's currently opted in.
+        if (tag == "Council") _ = LoadCouncilStateAsync();
+    }
+
+    // ── Council Mode panel (Phase 4.0 chunk H) ───────────────────────────
+
+    private async Task LoadCouncilStateAsync()
+    {
+        CouncilEnabledClaudeCheck.IsChecked  = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledClaude);
+        CouncilEnabledChatGptCheck.IsChecked = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledChatGpt);
+        CouncilEnabledGrokCheck.IsChecked    = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledGrok);
+        CouncilEnabledOllamaCheck.IsChecked  = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledOllama);
+
+        var accepted = (await _settings.GetAsync(SettingKeys.CouncilDisclaimerAccepted, "no")) == "yes";
+        CouncilDisclaimerStatus.Text = accepted
+            ? "Disclaimer aceptado. Council se abrirá sin volver a preguntar."
+            : "Disclaimer pendiente — se mostrará la primera vez que abras Council.";
+    }
+
+    private async Task<bool> GetCouncilBoolAsync(string key)
+        => (await _settings.GetAsync(key, "no")) == "yes";
+
+    private async void CheckCouncilStatus_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn) btn.IsEnabled = false;
+        CouncilStatusIcon.Text   = "⏳";
+        CouncilStatusText.Text   = "Comprobando Ollama y qwen3:32b…";
+
+        try
+        {
+            // CouncilPreflightService construction is cheap — local HttpClient,
+            // reads endpoint from Settings each call. Constructed on demand so
+            // we don't drag the dependency into SettingsWindow's ctor.
+            var preflight = new VELO.Core.AI.CouncilPreflightService(_settings);
+            var result    = await preflight.CheckAsync();
+
+            if (result.IsHealthy)
+            {
+                CouncilStatusIcon.Text = "✓";
+                CouncilStatusText.Text = result.ContextSize.HasValue
+                    ? $"Ollama listo: qwen3:32b cargado ({result.ContextSize.Value} tokens)."
+                    : "Ollama listo: qwen3:32b detectado.";
+            }
+            else
+            {
+                CouncilStatusIcon.Text = result.EndpointReachable ? "⚠" : "✕";
+                CouncilStatusText.Text = result.FailureReason ?? "Ollama no está disponible.";
+            }
+        }
+        finally
+        {
+            if (sender is Button b) b.IsEnabled = true;
+        }
+    }
+
+    private async void ResetCouncilDisclaimer_Click(object sender, RoutedEventArgs e)
+    {
+        await _settings.SetAsync(SettingKeys.CouncilDisclaimerAccepted, "no");
+        await LoadCouncilStateAsync();
     }
 }

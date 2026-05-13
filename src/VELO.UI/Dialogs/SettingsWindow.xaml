@@ -78,6 +78,9 @@
                 <Button x:Name="NavVault" Content="🔑  Vault"
                         Style="{StaticResource NavButton}"
                         Click="Nav_Click" Tag="Vault" Margin="0,2"/>
+                <Button x:Name="NavCouncil" Content="🤝  Council"
+                        Style="{StaticResource NavButton}"
+                        Click="Nav_Click" Tag="Council" Margin="0,2"/>
                 <Button x:Name="NavIdioma" Content="🌍  Idioma"
                         Style="{StaticResource NavButton}"
                         Click="Nav_Click" Tag="Idioma" Margin="0,2"/>
@@ -412,6 +415,102 @@
                     <TextBlock x:Name="LangChooseLabel" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <ComboBox x:Name="LanguagePicker" Width="220" HorizontalAlignment="Left"
                               SelectionChanged="LanguagePicker_Changed"/>
+                </StackPanel>
+
+                <!-- ── COUNCIL (Phase 4.0 — UI shell; runtime in v2.5.x) ── -->
+                <StackPanel x:Name="PanelCouncil" Visibility="Collapsed">
+                    <TextBlock Text="Council Mode" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Text="Cuatro modelos IA en paralelo. Síntesis 100% local."
+                               FontSize="12.5"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,0,0,22"/>
+
+                    <!-- Status banner: refreshed via CheckCouncilStatus_Click -->
+                    <Border x:Name="CouncilStatusBanner"
+                            Style="{StaticResource Card}"
+                            Background="{StaticResource SurfaceDarkBrush}"
+                            Padding="14,12" Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock Text="SÍNTESIS LOCAL (qwen3:32b)"
+                                       FontSize="10.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Margin="0,0,0,8"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="CouncilStatusIcon" Text="?" FontSize="16"
+                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBlock x:Name="CouncilStatusText"
+                                           Text="Comprobá con el botón de la derecha si Ollama y qwen3:32b están listos."
+                                           FontSize="12"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center"
+                                           MaxWidth="320"/>
+                            </StackPanel>
+                            <Button x:Name="CheckCouncilStatusButton"
+                                    Style="{StaticResource GhostButton}"
+                                    Content="Verificar Ollama"
+                                    Padding="14,7" FontSize="12"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,12,0,0"
+                                    Click="CheckCouncilStatus_Click"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Per-provider opt-in. Disabled until v2.5.x (Phase 4.1) -->
+                    <TextBlock Text="PROVEEDORES (activables en v2.5.x)"
+                               FontSize="10.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               Margin="0,0,0,10"/>
+
+                    <CheckBox x:Name="CouncilEnabledClaudeCheck"
+                              IsEnabled="False" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Claude (Anthropic)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Vía claude.ai. Tu prompt llega a Anthropic."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <CheckBox x:Name="CouncilEnabledChatGptCheck"
+                              IsEnabled="False" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="ChatGPT (OpenAI)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Vía chat.openai.com. Tu prompt entra al pipeline de OpenAI."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <CheckBox x:Name="CouncilEnabledGrokCheck"
+                              IsEnabled="False" Margin="0,0,0,10">
+                        <StackPanel>
+                            <TextBlock Text="Grok (xAI)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Vía grok.com. Necesita sesión activa de X/Twitter."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <CheckBox x:Name="CouncilEnabledOllamaCheck"
+                              IsEnabled="False" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Ollama (local)" FontWeight="SemiBold"/>
+                            <TextBlock Text="100% local. También corre la síntesis final."
+                                       FontSize="11" Foreground="{StaticResource BadgeGreenBrush}"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <Border Background="{StaticResource BorderSubtleBrush}" Height="1" Margin="0,12,0,16"/>
+
+                    <TextBlock x:Name="CouncilDisclaimerStatus"
+                               FontSize="11.5"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap"/>
+                    <Button x:Name="CouncilResetDisclaimerButton"
+                            Style="{StaticResource GhostButton}"
+                            Content="Mostrar disclaimer otra vez"
+                            Padding="14,7" FontSize="11.5"
+                            HorizontalAlignment="Left"
+                            Margin="0,12,0,0"
+                            Click="ResetCouncilDisclaimer_Click"/>
                 </StackPanel>
 
             </StackPanel>

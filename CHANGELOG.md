@@ -11,6 +11,46 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.38] — 2026-05-13 — Phase 4.0 (Council Mode foundation, invisible to users)
+
+Phase 4 (Council Mode) starts. This release lands the **complete Phase 4.0 foundation** — eight chunks of infrastructure that Council UI will sit on top of. No user-facing entry point yet: there is no command palette entry, no keyboard shortcut, no menu item to open Council Mode. The Settings → Council panel is shipped as a visible UI shell with the four provider toggles **disabled** until v2.5.x.
+
+The intent (per the Phase 0 analysis): ship the foundation **invisible**, let it bake under normal 2-pane split-view usage to surface bugs, then layer the user-facing UI on top in Phase 4.1 → 4.4.
+
+### Added
+
+- **`CouncilLayoutController`** (`src/VELO.App/Controllers/CouncilLayoutController.cs`) — peer to BrowserTabHost / SessionPersistenceController / CommandPaletteController / KeyboardShortcutsController. Owns the 2×2 split-view layout on `BrowserContent` for Council sessions. Public API: `IsActive`, `PanelTabIds`, `ActivateAsync`, `DeactivateAsync`, `RefreshLayout`, `GetPanelCell(int)`. Internally manipulates `Grid.ColumnDefinitions` / `RowDefinitions` to a 3×3 (panel/splitter/panel) topology with two `GridSplitter` seams in a "+" pattern.
+- **MainWindow wiring** (`MainWindow.xaml.cs`) — `_isCouncilMode` field, `_councilLayout` lazy init, `ActivateCouncilModeAsync` / `DeactivateCouncilModeAsync` / `RefreshCouncilLayout` methods. Mutually exclusive with `_isSplitMode` (split tears down first). No callers yet — methods are reachable from future Council UI without further plumbing.
+- **`CouncilContainerPolicy`** (`src/VELO.Core/Containers/CouncilContainerPolicy.cs`) — policy hub for the four Council containers (`council-claude` / `-chatgpt` / `-grok` / `-ollama`). `ResolveFingerprintLevel(containerId, globalLevel)` downgrades Council slots to "Standard" so Cloudflare anti-bot at Anthropic/OpenAI/xAI doesn't trip. Banking mode keeps its own stricter policy via `BankingContainerPolicy`, untouched.
+- **Per-container fingerprint override** wired in `MainWindow.OnTabCreated` — before `BrowserTabHost.BuildAndWire` the host resolves effective fingerprint level via the new policy.
+- **Council container seed** in `VeloDatabase` — four new `Container.CouncilClaude/ChatGpt/Grok/Ollama` static rows. Idempotent `InsertOrReplaceAsync` on every launch so users upgrading from a pre-Council install get the rows automatically; existing v2.4 containers (Personal/Work/Banking/Shopping/None) untouched.
+- **`CouncilPreflightService`** (`src/VELO.Core/AI/CouncilPreflightService.cs`) — pure HTTP probe verifying that Ollama is reachable, `qwen3:32b` (the synthesis moderator) is installed, and its context window is ≥ 16 k tokens. Never throws — every failure mode surfaces via the `Result` record (`IsHealthy` / `EndpointReachable` / `ModelPresent` / `ContextSize` / `FailureReason`). Constructed with a `Func<HttpClient>` factory for offline-testable unit tests.
+- **`CouncilFirstRunDisclaimer` modal** (`src/VELO.UI/Dialogs/CouncilFirstRunDisclaimer.xaml(.cs)`) — explains the privacy contract, runs `CouncilPreflightService.CheckAsync` in the background, lets the user opt out per provider before activation. Persists the result via new `SettingKeys.CouncilDisclaimerAccepted` + `CouncilEnabledClaude/ChatGpt/Grok/Ollama`. Modal built in Phase 5 vocabulary (Card surfaces, BadgeXxx tokens, GhostButton + PrimaryButton action row, purple-glow shield-circle header).
+- **Settings → Council page** (`SettingsWindow.xaml`) — new sidebar entry "🤝 Council" between IA and Idioma. UI shell with: live preflight status banner ("Verificar Ollama" button), four per-provider toggles **disabled until v2.5.x**, disclaimer status line + "Mostrar disclaimer otra vez" button for QA / first-run rehearsal.
+- **New `SettingKeys`** (`src/VELO.Data/Models/AppSettings.cs`): `CouncilDisclaimerAccepted` + `CouncilEnabledClaude` + `CouncilEnabledChatGpt` + `CouncilEnabledGrok` + `CouncilEnabledOllama`.
+
+### Tests
+
+- **24 new** unit tests under `tests/VELO.Core.Tests/CouncilContainerPolicyTests.cs` — `Applies()` matrix, case-sensitivity, `ResolveFingerprintLevel` covers Council-vs-other and null containerId, list count + brand constant.
+- **6 new** unit tests under `tests/VELO.Core.Tests/CouncilPreflightServiceTests.cs` — endpoint unreachable, /api/tags non-200, model missing (with friendly "ollama pull" hint), happy path, context too small, /api/show fails but model present.
+- VELO.Core.Tests: 66 → **96** (+30).
+- Full suite: 355 → **385**. All green.
+
+### Phase 4 next steps
+
+- **4.1 — Bridge + capture (2 weeks)**: domain models (`CouncilSession`, `CouncilRound`, `CouncilCapture`, block-type hierarchy), `CouncilOrchestrator`, `council-bridge.js`, `adapters.default.json` v0, mini-toolbar per panel, Council Bar overlay, end-to-end smoke. Toggles in Settings page get enabled once 4.1 ships.
+- **4.2 — Moderator (1 week)**: token estimator, compressor, moderator + synthesis dialog, Ollama integration test.
+- **4.3 — Advanced blocks (1.5 weeks)**: artifact / image / file extractors, conditional toolbar buttons.
+- **4.4 — Polish & ship (1 week)**: markdown + JSON export, hotkeys, full settings wired, user docs. **v2.5.0 stable.**
+
+### What didn't change
+
+- 2-pane split-view (`_isSplitMode`) — untouched. Council activation just tears down split first, mutually exclusive.
+- Existing tab activation flow — no Council branch added to `OnTabActivated` yet (chunk H's caveat: the foundation is reachable but not triggered).
+- Phase 5 palette / Phase 3 / Phase 2 surfaces — untouched.
+
+---
+
 ## [2.4.37] — 2026-05-12 — Phase 5.3 v3: vector icons + active-tab glow + focus ring
 
 Iteration on Phase 5.3 after maintainer feedback on v2.4.36: icons still felt off, separators too flat, "metele amor wey algo que llame la atención". Pure visual polish — no layout or contract changes.
