@@ -72,14 +72,33 @@ public class VeloDatabase : IDisposable
 
     private async Task SeedDefaultContainersAsync()
     {
+        // Phase 4.0 chunk E — Council containers seed in two modes:
+        //   1. Brand-new database (existing == 0): seed the v2.4 set
+        //      (Personal/Work/Banking/Shopping/None) AND the four Council
+        //      slots in one batch.
+        //   2. Existing v2.4.x database (existing > 0): users who upgrade
+        //      from a pre-Council install still need the four council-*
+        //      containers, so we top-up just the new IDs without touching
+        //      anything the user might have customised.
         var existing = await _db.Table<Container>().CountAsync();
-        if (existing > 0) return;
 
-        await _db.InsertOrReplaceAsync(Container.Personal);
-        await _db.InsertOrReplaceAsync(Container.Work);
-        await _db.InsertOrReplaceAsync(Container.Banking);
-        await _db.InsertOrReplaceAsync(Container.Shopping);
-        await _db.InsertOrReplaceAsync(Container.None);
+        if (existing == 0)
+        {
+            await _db.InsertOrReplaceAsync(Container.Personal);
+            await _db.InsertOrReplaceAsync(Container.Work);
+            await _db.InsertOrReplaceAsync(Container.Banking);
+            await _db.InsertOrReplaceAsync(Container.Shopping);
+            await _db.InsertOrReplaceAsync(Container.None);
+        }
+
+        // Top-up Council containers regardless. InsertOrReplaceAsync is
+        // idempotent on the primary key, so re-seeding on every launch is
+        // cheap; this also self-heals if the user accidentally deletes
+        // one of the four Council rows.
+        await _db.InsertOrReplaceAsync(Container.CouncilClaude);
+        await _db.InsertOrReplaceAsync(Container.CouncilChatGpt);
+        await _db.InsertOrReplaceAsync(Container.CouncilGrok);
+        await _db.InsertOrReplaceAsync(Container.CouncilOllama);
     }
 
     private async Task SeedDefaultWorkspaceAsync()
