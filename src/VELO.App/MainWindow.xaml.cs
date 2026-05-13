@@ -74,6 +74,21 @@ public partial class MainWindow : Window
     // Suppresses normal tab-activation logic while we are setting up the secondary pane
     private bool _suppressSplitActivation;
 
+    // ── Council Mode (Phase 4.0) ─────────────────────────────────────────
+    // 2×2 layout for parallel multi-LLM sessions. Mutually exclusive with
+    // the 2-pane horizontal split (_isSplitMode): activating Council must
+    // first DeactivateSplit() if needed. No user-facing entry point yet —
+    // Phase 4.0 ships the foundation invisible to users; chunks G/H wire
+    // the disclaimer modal + Settings page + command palette entry.
+    private bool _isCouncilMode;
+    private VELO.App.Controllers.CouncilLayoutController? _councilLayout;
+
+    private VELO.App.Controllers.CouncilLayoutController GetCouncilLayout() =>
+        _councilLayout ??= new VELO.App.Controllers.CouncilLayoutController(
+            BrowserContent,
+            _services.GetService<Microsoft.Extensions.Logging.ILogger<
+                VELO.App.Controllers.CouncilLayoutController>>());
+
     // ── Sprint 6 — Security Inspector + Shield Score ─────────────────────
     // Last known TLS status per tab (UI enum from BrowserTab events)
     private readonly Dictionary<string, TlsStatus> _tabTlsStatus = [];
@@ -2588,6 +2603,102 @@ public partial class MainWindow : Window
             else
             {
                 Grid.SetColumn(bt, 0);
+                bt.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    // ── Council Mode activation (Phase 4.0) ──────────────────────────────
+    //
+    // Internal-only for Phase 4.0. No menu item, no command palette entry,
+    // no keyboard shortcut yet — chunk H adds those. The methods are here
+    // so the controller is wired and reachable from the rest of MainWindow
+    // (and from future Council-specific UI without further plumbing).
+
+    /// <summary>
+    /// Activates the 2×2 Council layout in BrowserContent and places the
+    /// four supplied tabs into panels [0..3] (top-left / top-right /
+    /// bottom-left / bottom-right). Caller must supply exactly four tab
+    /// IDs that already exist in <see cref="_browserTabs"/>. If the
+    /// 2-pane split is active it is torn down first; Council and split
+    /// are mutually exclusive.
+    /// </summary>
+    private async Task<bool> ActivateCouncilModeAsync(IReadOnlyList<string> tabIds)
+    {
+        if (_isCouncilMode) return true;
+        if (tabIds is null || tabIds.Count != VELO.App.Controllers.CouncilLayoutController.PanelCount)
+            return false;
+
+        // Mutual exclusion with 2-pane split.
+        if (_isSplitMode) DeactivateSplit();
+
+        var ok = await GetCouncilLayout().ActivateAsync(tabIds);
+        if (!ok) return false;
+
+        _isCouncilMode = true;
+        RefreshCouncilLayout();
+        return true;
+    }
+
+    /// <summary>
+    /// Restores the single-tab layout. Re-shows the currently-active tab,
+    /// hides the rest, and clears panel assignments. No-op if Council
+    /// mode is not active.
+    /// </summary>
+    private async Task DeactivateCouncilModeAsync()
+    {
+        if (!_isCouncilMode) return;
+
+        await GetCouncilLayout().DeactivateAsync();
+        _isCouncilMode = false;
+
+        // Re-show the currently active tab; hide the rest. Mirrors the
+        // post-DeactivateSplit cleanup so the host always lands in
+        // single-tab mode after teardown.
+        var resumeId = _tabManager.ActiveTab?.Id;
+        foreach (var (tabId, bt) in _browserTabs)
+        {
+            Grid.SetRow(bt, 0);
+            Grid.SetColumn(bt, 0);
+            Grid.SetRowSpan(bt, 1);
+            Grid.SetColumnSpan(bt, 1);
+            bt.Visibility = (tabId == resumeId) ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    /// <summary>
+    /// Places each of the four Council tabs into its panel cell via
+    /// <see cref="VELO.App.Controllers.CouncilLayoutController.GetPanelCell"/>
+    /// and hides every non-Council tab. Called once on activate and again
+    /// when a panel tab is replaced. Mirrors <see cref="RefreshSplitLayout"/>
+    /// for the 4-panel case.
+    /// </summary>
+    private void RefreshCouncilLayout()
+    {
+        if (!_isCouncilMode) return;
+
+        var assignments = GetCouncilLayout().PanelTabIds;
+
+        // Index the assigned tabs for O(1) lookup while we walk _browserTabs.
+        var panelByTabId = new Dictionary<string, int>(
+            VELO.App.Controllers.CouncilLayoutController.PanelCount);
+        for (int i = 0; i < assignments.Count; i++)
+        {
+            var id = assignments[i];
+            if (!string.IsNullOrEmpty(id)) panelByTabId[id] = i;
+        }
+
+        foreach (var (tabId, bt) in _browserTabs)
+        {
+            if (panelByTabId.TryGetValue(tabId, out var panelIndex))
+            {
+                var (row, col) = VELO.App.Controllers.CouncilLayoutController.GetPanelCell(panelIndex);
+                Grid.SetRow(bt, row);
+                Grid.SetColumn(bt, col);
+                bt.Visibility = Visibility.Visible;
+            }
+            else
+            {
                 bt.Visibility = Visibility.Collapsed;
             }
         }
