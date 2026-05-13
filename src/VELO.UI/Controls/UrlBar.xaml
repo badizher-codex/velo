@@ -34,23 +34,34 @@
                         AutomationProperties.Name="Shield Score"
                         ShieldClicked="ShieldBadge_Click"/>
 
+                <!-- v2.4.35: nav icons swap to Segoe Fluent Icons (the Windows 11
+                     native icon font). Edge / Settings / Office all use this same
+                     family; VELO now blends with the OS instead of rendering
+                     unicode arrows that look unstyled. Segoe MDL2 Assets is the
+                     Windows 10 fallback (same code points). -->
                 <Button x:Name="BackButton" Grid.Column="1"
                         Style="{StaticResource IconButton}"
-                        Content="←" FontSize="16"
+                        Content="&#xE72B;"
+                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                        FontSize="14"
                         Click="BackButton_Click"
                         IsEnabled="False"
                         ToolTip="Atrás"/>
 
                 <Button x:Name="ForwardButton" Grid.Column="2"
                         Style="{StaticResource IconButton}"
-                        Content="→" FontSize="16"
+                        Content="&#xE72A;"
+                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                        FontSize="14"
                         Click="ForwardButton_Click"
                         IsEnabled="False"
                         ToolTip="Adelante"/>
 
                 <Button x:Name="ReloadButton" Grid.Column="3"
                         Style="{StaticResource IconButton}"
-                        Content="↻" FontSize="16"
+                        Content="&#xE72C;"
+                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                        FontSize="14"
                         Click="ReloadButton_Click"
                         ToolTip="Recargar"/>
 
@@ -170,7 +181,9 @@
 
                 <Button x:Name="MenuButton" Grid.Column="7"
                         Style="{StaticResource IconButton}"
-                        Content="⋮" FontSize="18"
+                        Content="&#xE712;"
+                        FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"
+                        FontSize="14"
                         Click="MenuButton_Click"
                         ToolTip="Menú"/>
             </Grid>

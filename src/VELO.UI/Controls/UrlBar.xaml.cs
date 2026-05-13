@@ -65,7 +65,8 @@ public partial class UrlBar : UserControl
     {
         _isLoading = loading;
         var L = LocalizationService.Current;
-        ReloadButton.Content = loading ? "✕" : "↻";
+        // v2.4.35 — Segoe Fluent Icons:  = Cancel (X),  = Refresh
+        ReloadButton.Content = loading ? "" : "";
         ReloadButton.ToolTip = loading ? L.T("urlbar.stop") : L.T("nav.reload");
 
         if (loading)
@@ -111,17 +112,29 @@ public partial class UrlBar : UserControl
     public void SetAiStatus(AiStatus status, string modelName = "")
     {
         var L = LocalizationService.Current;
-        var (dot, label, tooltip, color) = status switch
+        // v2.4.35 — paint resolves from the Phase 5 badge tokens instead of
+        // hardcoded #00E676 / #FFB300 / #F44336 / #555566. Same semantic
+        // mapping (ready=green, connecting=amber, error=red, offline=muted)
+        // but the values are now coherent with the rest of the dark palette.
+        var brushKey = status switch
         {
-            AiStatus.Ready       => ("#00E676", "IA", string.Format(L.T("urlbar.ai.ready"), modelName), Color.FromRgb(0x00, 0xE6, 0x76)),
-            AiStatus.Connecting  => ("#FFB300", "IA", L.T("urlbar.ai.connecting"),                      Color.FromRgb(0xFF, 0xB3, 0x00)),
-            AiStatus.Error       => ("#F44336", "IA", string.Format(L.T("urlbar.ai.error"), modelName), Color.FromRgb(0xF4, 0x43, 0x36)),
-            _                    => ("#555566", "IA", L.T("urlbar.ai.offline"),                         Color.FromRgb(0x55, 0x55, 0x66)),
+            AiStatus.Ready      => "BadgeGreenBrush",
+            AiStatus.Connecting => "BadgeAmberBrush",
+            AiStatus.Error      => "BadgeRedBrush",
+            _                   => "TextMutedBrush",
+        };
+        var tooltip = status switch
+        {
+            AiStatus.Ready      => string.Format(L.T("urlbar.ai.ready"), modelName),
+            AiStatus.Connecting => L.T("urlbar.ai.connecting"),
+            AiStatus.Error      => string.Format(L.T("urlbar.ai.error"), modelName),
+            _                   => L.T("urlbar.ai.offline"),
         };
 
-        AiDot.Fill         = new SolidColorBrush(color);
-        AiLabel.Foreground = new SolidColorBrush(color);
-        AiLabel.Text       = label;
+        var brush = (Brush)FindResource(brushKey);
+        AiDot.Fill         = brush;
+        AiLabel.Foreground = brush;
+        AiLabel.Text       = "IA";
         AiRobot.Opacity    = status == AiStatus.Ready ? 1.0 : 0.4;
 
         // Update tooltip (it's on the parent StackPanel)
@@ -223,12 +236,14 @@ public partial class UrlBar : UserControl
     public void SetBookmarked(bool bookmarked)
     {
         _isBookmarked = bookmarked;
-        BookmarkButton.Content   = bookmarked ? "★" : "☆";
+        BookmarkButton.Content    = bookmarked ? "★" : "☆";
+        // v2.4.35 — amber for the active state via the Phase 5 badge token
+        // (warmer/golder than the v2.4 #FFB300, still unambiguously "saved").
         BookmarkButton.Foreground = bookmarked
-            ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB300"))
+            ? (Brush)FindResource("BadgeAmberBrush")
             : (Brush)FindResource("TextMutedBrush");
         var L = LocalizationService.Current;
-        BookmarkButton.ToolTip = bookmarked ? L.T("urlbar.bookmark.remove") : L.T("urlbar.bookmark.add");
+        BookmarkButton.ToolTip    = bookmarked ? L.T("urlbar.bookmark.remove") : L.T("urlbar.bookmark.add");
     }
 }
 

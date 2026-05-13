@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:themes="clr-namespace:VELO.UI.Themes">
 
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Colors.xaml"/>
@@ -29,6 +30,12 @@
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
         <Setter Property="FontSize"   Value="13" />
+        <!-- v2.4.35 — every Window inherits a dark native title bar via
+             DwmSetWindowAttribute. Without this the Win32 chrome (the strip
+             with min/max/close) stays system-default and clashes against
+             the Phase 5 palette. Applies on first SourceInitialized; older
+             Windows builds silently ignore the DWM attribute. -->
+        <Setter Property="themes:WindowChromeHelper.DarkTitleBar" Value="True" />
     </Style>
 
     <Style TargetType="TextBlock">

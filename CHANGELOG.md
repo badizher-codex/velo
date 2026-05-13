@@ -11,6 +11,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.35] — 2026-05-12 — Phase 5.3 polish (dark title bar + Fluent icons)
+
+### Added
+
+- **Dark Win32 title bar** (`WindowChromeHelper.cs`) — every VELO Window now flips `DWMWA_USE_IMMERSIVE_DARK_MODE` via P/Invoke so the system chrome (the strip with min/max/close) renders dark and matches the Phase 5 palette. Wired as an attached property + a single `Setter` on the global `<Style TargetType="Window">` in `DarkTheme.xaml`, so every window inherits it without per-class plumbing. Older Windows builds silently ignore the DWM attribute (no degradation). This was the single most visible v2.4-vs-v2.5 gap reported after the v2.4.34 release.
+- **Segoe Fluent Icons** for the URL bar navigation glyphs. Back / Forward / Reload / Menu now consume `FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets"` and Microsoft glyph code points (`U+E72B`, `U+E72A`, `U+E72C`, `U+E712`). When the loading state toggles the Reload button to Stop, it now switches to `U+E711` (Cancel glyph) instead of the unicode `✕`. Same font family Edge, Settings, Office, Start menu all use — VELO blends with Windows 11 native iconography instead of rendering "unicode arrows that look like nothing".
+
+### Changed
+
+- **`UrlBar.SetAiStatus`** — paints `AiDot.Fill` and `AiLabel.Foreground` from theme brush keys (`BadgeGreenBrush` / `BadgeAmberBrush` / `BadgeRedBrush` / `TextMutedBrush`) instead of hardcoded `#00E676 / #FFB300 / #F44336 / #555566`. Same semantic mapping (ready/connecting/error/offline) but the colours now match the rest of the dark palette.
+- **`UrlBar.SetBookmarked`** — active-state amber painted from `BadgeAmberBrush` instead of the inline `#FFB300`. Inactive state already used `TextMutedBrush`.
+
+### What didn't change
+
+- The brand emojis (👾 mascot, 🛡 shield, 🔑 vault, ⚡ generator, 📖 reader, ☆ bookmark) stay as is. They identify features with personality and are intentionally NOT replaced with generic Segoe Fluent equivalents — the call between "blend with the OS" and "keep VELO's character" is per-glyph, not blanket.
+- TLS indicator (🔒 / 🔓 / ⚠️) and AI robot (🤖) emojis stay — both are status signals where the emoji weight reads instantly.
+- No layout or binding changes anywhere; this release is purely Phase 5 polish on the previously-unthemed Win32 chrome and the few remaining unicode arrows.
+
+### Tests
+
+- 355/355 tests pass (5 Smoke + 49 Core + 122 Security + 136 Agent + 18 Vault + 8 Import).
+- Smoke test #1 confirms every new `{StaticResource X}` reference resolves; the new `WindowChromeHelper.DarkTitleBar` attached property setter resolves without missing references.
+
+---
+
 ## [2.4.34] — 2026-05-12 — Phase 5.2 (MainWindow surfaces — Phase 5 complete)
 
 ### Added
