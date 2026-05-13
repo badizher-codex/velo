@@ -11,6 +11,55 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.34] — 2026-05-12 — Phase 5.2 (MainWindow surfaces — Phase 5 complete)
+
+### Added
+
+- **Phase 5.2 lands → Phase 5 (UI Modernization) is complete.** v2.4.32 shipped the theme tokens + 3 simple dialogs (5.0); v2.4.33 migrated the 5 information-dense dialogs (5.1); this release re-skins the everyday browsing surfaces. End state: every dialog and main-surface XAML in the app speaks the Phase 5 palette.
+
+### Changed
+
+- **VaultWindow VaultScreen + EditScreen** — finishes the Vault catalogue started in v2.4.32. Header buttons use `PrimaryButton` (Agregar) + `GhostButton` (Bloquear); search bar gets the rounded `SurfaceLight` shell with purple caret used elsewhere; status bar adopts `BadgeGreen`. EditScreen background switches to `BackgroundDarkest`, the 3 hardcoded `#FFEE5555` error tints migrate to `BadgeRedBrush`, password-strength bar background becomes `SurfaceLight`, the generator panel adopts the `Card` style, action row uses `GhostButton` / `PrimaryButton`.
+- **AIResultWindow** rewritten on the new palette. `SurfaceDark` header + action bar, loading panel becomes a rounded card with `SurfaceMid` background and `AccentPurpleLight` text, action buttons use `GhostButton` / `PrimaryButton` pair. AdapterChip keeps its dynamic hardcoded colors because code-behind repaints it based on adapter state (Claude vs local).
+- **OnboardingWizard** — palette pass per Phase 5 directive (no layout change). `BackgroundDarkBrush` → `BackgroundDarkestBrush`, `AccentBlueBrush` → `AccentPurpleLightBrush` (VELO logo + step indicator + level line), inline `PasswordBox` styling replaced with `ModernPasswordBox` style, navigation buttons swap to `GhostButton` (Atrás) + `PrimaryButton` (Continuar). Step content unchanged.
+- **AutofillToast** — `SurfaceDark` background, `AccentPurple` border (was a blue `#FF3A6CD8`), breach banner uses `BadgeRed` tokens, buttons adopt the `GhostButton` + `PrimaryButton` pair. The button named `x:Name="PrimaryButton"` now also wears `Style="{StaticResource PrimaryButton}"` — same label intentionally serving both name and style purposes.
+- **BlockNarrationToast** — `SurfaceDark` background + `AccentPurple` border (the AI-narrated quality of this toast is now signalled by the purple frame rather than a one-off `#FF8E44AD`). Body text foreground migrates to `TextPrimary` with `Opacity="0.85"` for the secondary-text feel. Dismiss button uses `GhostButton`.
+- **PrivacyReceiptToast** — `SurfaceDark` background + `BadgeGreen` border (kept green to mark a positive "session closed safely" signal). The three stat chips (rastreadores / anuncios / fingerprint) now consume `BadgeGreenBg+Bg / BadgeAmberBg+Bg / BadgeRedBg+Bg` token pairs from Phase 5.0 instead of inline `#1A2EB54F`-style alpha hexes. CornerRadius bumped from 8 to 12 to match the dialog catalogue.
+- **TabSidebar** (palette only — **vertical layout preserved** per Phase 5 directive; the prototype's horizontal tab strip is explicitly rejected and that decision stays locked). Sidebar background becomes `SurfaceDark`; top / strip / bottom action bars get `BackgroundDarkest`; borders become `BorderSubtle`. **Active tab ring switches from cyan `#FF00E5FF` to `AccentPurple`** — the most visible single change of the v2.4 → v2.5 transition. Active-row overlay is now a semi-transparent purple wash `#A6261942` so the per-tab accent tint still bleeds through. Inactive title text moves to `TextMuted`, active title to `TextPrimary` for clearer contrast. Hover border emphasis uses `BorderEmphasis`.
+- **UrlBar** — toolbar surface becomes `SurfaceDark`. URL pill background becomes `SurfaceMid`, border `BorderEmphasis`, corner radius 10. URL field gets purple caret + selection brush. Bookmark/reader/zoom icons unchanged shape but inherit the new `IconButton` hover. TL;DR badge migrates from the cyan `#1A00E5FF / #FF00E5FF` token to the `BadgeBlue` token pair (still distinct from primary purple — TL;DR is a feature signal, not the primary CTA). Loading sweep at the bottom of the toolbar swaps cyan gradient stops for purple ones.
+- **NewTabPage** — `BackgroundDarkest` base, VELO logo migrates to `AccentPurpleLight` with bumped weight, search bar wears `SurfaceLight` with purple caret + 28-px pill radius, privacy stats bar adopts the `Card` style. Top sites tiles (built in code-behind) untouched.
+- **VeloAgentPanel** — outer chrome to `BackgroundDarkest`, header + input area to `SurfaceDark`, input pill to `SurfaceLight` with `BorderEmphasis` and purple caret. Typing-indicator dots adopt `AccentPurpleLight`. **Send button** swaps from cyan disc to gradient-purple disc with purple glow effect — clearly signals AI as the centre of gravity.
+- **MainWindow** — Window root gains explicit `Background="BackgroundDarkestBrush"` so the chrome between panels picks up the new base. FindBar (Ctrl+F) migrates from hardcoded blue-ink `#1E1E30 / #12122A / #A0A0C0` palette to `SurfaceDark` + `SurfaceLight` input pill + purple caret + `IconButton` action triplet.
+
+### Tests
+
+- 355/355 tests pass (49 Core + 122 Security + 136 Agent + 18 Vault + 8 Import + 5 Smoke).
+- Smoke test #1 confirms every new `{StaticResource X}` reference resolves cleanly across the migrated surfaces.
+
+### Migration scope at end of Phase 5
+
+Every WPF dialog and main-surface UserControl in `src/VELO.UI/` and `src/VELO.App/` has been visited. Residual hardcoded `#color` references after this release are all **intentional** — they're either:
+
+- **Dynamic colours** that the code-behind repaints based on runtime state (Shield level greens/yellows/reds in SecurityInspectorWindow, AdapterChip in AIResultWindow, AiDot in UrlBar).
+- **DropShadowEffect Color attributes** — `Color` is a value type that doesn't bind to a `Brush` resource; the literal `#7C5CFF` etc. matches the `AccentPurple` token in spirit.
+- **Gradient stops** (loading bar in UrlBar, gradient buttons in DarkTheme) where each stop needs a specific colour value.
+
+Phase 6 (Bitwarden sync) inherits a fully-themed UI baseline. Phase 4 (Council Mode) panels will hereby pick up the palette out of the box.
+
+### What didn't change
+
+- Tab paradigm: vertical sidebar locked, per Phase 5 ground rule (and Phase 4 Council Mode's planned 2×2 layout assumption).
+- Any layout, information density, navigation flow, or per-dialog structure.
+- The 50+ remaining `BorderBrush` references in `SettingsWindow.xaml` body — those are existing theme refs (older palette token, but the v2.4 `BorderBrush` still produces an acceptable subtle separator under the new background). Future polish if anyone notices.
+
+### Known follow-ups (out of Phase 5 scope)
+
+- VaultWindow LockScreen eye-toggle for password visibility (deferred since v2.4.32 — needs a TextBox-swap + ~15 lines of code-behind).
+- Malwaredex stars decision (drop vs. derive from `ThreatType`) — still deferred, doesn't block Phase 5 closure.
+- Context menu polish + command palette result rows — touched only via inherited styles (ContextMenu/MenuItem base styles already palette-correct in DarkTheme.xaml); a dedicated polish pass is optional and can ride a future micro-release.
+
+---
+
 ## [2.4.33] — 2026-05-12 — Phase 5.1 (info-dense dialogs re-skin)
 
 ### Added

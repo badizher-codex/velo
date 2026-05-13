@@ -9,8 +9,8 @@
         <conv:StringToBrushConverter x:Key="StringToBrush"/>
     </UserControl.Resources>
 
-    <Border Background="#FF0D0D1A"
-            BorderBrush="#FF2A2A3A"
+    <Border Background="{StaticResource SurfaceDarkBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}"
             BorderThickness="0,0,1,0">
         <Grid>
             <Grid.RowDefinitions>
@@ -22,8 +22,8 @@
 
             <!-- ── Top new-tab button (shortcut so users don't need to scroll) ── -->
             <Border Grid.Row="0"
-                    Background="#FF111122"
-                    BorderBrush="#FF2A2A3A"
+                    Background="{StaticResource BackgroundDarkestBrush}"
+                    BorderBrush="{StaticResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="6,6">
                 <Button x:Name="TopNewTabBtn"
@@ -32,7 +32,7 @@
                         Padding="8,6"
                         HorizontalAlignment="Stretch"
                         Background="Transparent"
-                        Foreground="#FF8080A0"
+                        Foreground="{StaticResource TextMutedBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
                         Click="NewTab_Click"
@@ -42,8 +42,8 @@
             <!-- ── Workspace strip ──────────────────────────────────────── -->
             <Border x:Name="WorkspaceStripBorder"
                     Grid.Row="1"
-                    Background="#FF111122"
-                    BorderBrush="#FF2A2A3A"
+                    Background="{StaticResource BackgroundDarkestBrush}"
+                    BorderBrush="{StaticResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="6,6">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
@@ -82,14 +82,14 @@
                                     ToolTip="{Binding Title}">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="BorderBrush" Value="#FF2A2A3A"/>
+                                        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="BorderBrush" Value="#FF00E5FF"/>
-                                                <Setter Property="Background" Value="#FF1A1A2E"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
+                                                <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
                                             </DataTrigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="BorderBrush" Value="#FF7080A0"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource BorderEmphasisBrush}"/>
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -97,7 +97,7 @@
                                 <TextBlock Text="{Binding Initial}"
                                            FontSize="14"
                                            FontWeight="SemiBold"
-                                           Foreground="#FFD0D0E8"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"/>
                             </Border>
@@ -142,7 +142,7 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                                 <Setter Property="BorderThickness" Value="2"/>
-                                                <Setter Property="BorderBrush" Value="#FF00E5FF"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
                                                 <Setter Property="CornerRadius" Value="4"/>
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -155,10 +155,11 @@
                                             <Setter Property="Background" Value="Transparent"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                    <Setter Property="Background" Value="#D91A1A2E"/>
+                                                    <!-- Active row: semi-transparent purple wash over the per-tab accent tint. -->
+                                                    <Setter Property="Background" Value="#A6261942"/>
                                                 </DataTrigger>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#99141425"/>
+                                                    <Setter Property="Background" Value="#661F1F2C"/>
                                                 </Trigger>
                                             </Style.Triggers>
                                         </Style>
@@ -196,10 +197,10 @@
                                                Margin="6,0,4,0">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="#FF666688"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                        <Setter Property="Foreground" Value="#FFD0D0E8"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                                                         <Setter Property="FontWeight" Value="SemiBold"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -214,7 +215,7 @@
                                             Padding="2"
                                             Style="{StaticResource IconButton}"
                                             VerticalAlignment="Center"
-                                            Foreground="#FF444466"
+                                            Foreground="{StaticResource TextMutedBrush}"
                                             Tag="{Binding Id}"
                                             Click="CloseTab_Click"/>
                                 </Grid>
@@ -227,8 +228,8 @@
 
             <!-- ── Bottom actions ────────────────────────────────────────── -->
             <Border Grid.Row="3"
-                    Background="#FF111122"
-                    BorderBrush="#FF2A2A3A"
+                    Background="{StaticResource BackgroundDarkestBrush}"
+                    BorderBrush="{StaticResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,0"
                     Padding="6,6">
                 <Grid>
@@ -247,7 +248,7 @@
                             Padding="8,6"
                             HorizontalAlignment="Stretch"
                             Background="Transparent"
-                            Foreground="#FF555577"
+                            Foreground="{StaticResource TextMutedBrush}"
                             BorderThickness="0"
                             Cursor="Hand"
                             Click="NewTab_Click"

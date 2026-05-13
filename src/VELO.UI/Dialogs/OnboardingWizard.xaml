@@ -16,7 +16,7 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid Background="{StaticResource BackgroundDarkBrush}">
+    <Grid Background="{StaticResource BackgroundDarkestBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>   <!-- Header -->
             <RowDefinition Height="*"/>      <!-- Content -->
@@ -27,7 +27,7 @@
         <StackPanel Grid.Row="0" Margin="32,28,32,0">
             <TextBlock Text="VELO"
                        FontSize="28" FontWeight="Light"
-                       Foreground="{StaticResource AccentBlueBrush}"
+                       Foreground="{StaticResource AccentPurpleLightBrush}"
                        HorizontalAlignment="Center"/>
             <TextBlock x:Name="StepIndicator"
                        Text="Paso 1 de 4"
@@ -120,13 +120,13 @@
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                 <TextBlock x:Name="AlreadyOn" Text="VELO ya tiene activada:" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock x:Name="ProtCanvas"   Text="✓ Protección Canvas" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
-                <TextBlock x:Name="ProtHardware" Text="✓ Spoof de hardware" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
-                <TextBlock x:Name="ProtUa"       Text="✓ Rotación de User Agent" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
-                <TextBlock x:Name="ProtWebrtc"   Text="✓ Protección WebRTC" Foreground="{StaticResource VerdictSafeBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtCanvas"   Text="✓ Protección Canvas" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtHardware" Text="✓ Spoof de hardware" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtUa"       Text="✓ Rotación de User Agent" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtWebrtc"   Text="✓ Protección WebRTC" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
 
                 <TextBlock x:Name="LevelLine" Text="Nivel: AGRESIVO (óptimo)" FontWeight="SemiBold"
-                           Foreground="{StaticResource AccentBlueBrush}" Margin="0,16,0,0"/>
+                           Foreground="{StaticResource AccentPurpleLightBrush}" Margin="0,16,0,0"/>
                 <TextBlock x:Name="ChangeableLine" Text="Puedes cambiarlo en Settings en cualquier momento."
                            FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4"/>
             </StackPanel>
@@ -140,24 +140,17 @@
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                 <TextBlock x:Name="MasterLabel" Text="Master password (mínimo 8 caracteres):" Margin="0,0,0,6"/>
-                <PasswordBox x:Name="MasterPasswordField" Margin="0,0,0,12"
-                             Padding="8,6"
-                             Background="{StaticResource BackgroundLightBrush}"
-                             Foreground="{StaticResource TextPrimaryBrush}"
-                             BorderBrush="{StaticResource BorderBrush}"
-                             BorderThickness="1"/>
+                <PasswordBox x:Name="MasterPasswordField"
+                             Style="{StaticResource ModernPasswordBox}"
+                             Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="ConfirmLabel" Text="Confirmar password:" Margin="0,0,0,6"/>
                 <PasswordBox x:Name="ConfirmPasswordField"
-                             Padding="8,6"
-                             Background="{StaticResource BackgroundLightBrush}"
-                             Foreground="{StaticResource TextPrimaryBrush}"
-                             BorderBrush="{StaticResource BorderBrush}"
-                             BorderThickness="1"/>
+                             Style="{StaticResource ModernPasswordBox}"/>
 
                 <TextBlock x:Name="PasswordError"
                            Text=""
-                           Foreground="{StaticResource VerdictBlockBrush}"
+                           Foreground="{StaticResource BadgeRedBrush}"
                            FontSize="11"
                            Margin="0,8,0,0"
                            Visibility="Collapsed"/>
@@ -173,12 +166,15 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <Button x:Name="BackBtn" Grid.Column="1"
-                    Content="← Atrás" Padding="16,8"
+                    Content="← Atrás"
+                    Style="{StaticResource GhostButton}"
+                    Padding="18,9"
                     Click="Back_Click"
                     Visibility="Hidden"/>
             <Button x:Name="NextBtn" Grid.Column="3"
-                    Content="Continuar →" Padding="16,8"
-                    Style="{StaticResource AccentButton}"
+                    Content="Continuar →"
+                    Style="{StaticResource PrimaryButton}"
+                    Padding="20,9"
                     Click="Next_Click"/>
         </Grid>
     </Grid>

@@ -6,6 +6,8 @@
         MinWidth="800" MinHeight="600"
         Width="1200" Height="750"
         WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundDarkestBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}"
         Closing="Window_Closing">
 
     <!-- Root: sidebar | main area -->
@@ -52,14 +54,14 @@
             <Border x:Name="FindBarPanel"
                     Grid.Row="1"
                     Visibility="Collapsed"
-                    Background="#1E1E30"
-                    BorderBrush="#2A2A45"
+                    Background="{StaticResource SurfaceDarkBrush}"
+                    BorderBrush="{StaticResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,1"
-                    Padding="8,4">
+                    Padding="10,6">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="240"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
@@ -68,42 +70,45 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock x:Name="FindLabel" Grid.Column="0" Text="Buscar:" VerticalAlignment="Center"
-                               Foreground="#A0A0C0" FontSize="12" Margin="0,0,8,0"/>
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,10,0"/>
 
                     <TextBox x:Name="FindTextBox" Grid.Column="1"
-                             Background="#12122A" Foreground="#E0E0FF"
-                             BorderBrush="#3A3A60" BorderThickness="1"
-                             Padding="6,3" FontSize="13"
+                             Background="{StaticResource SurfaceLightBrush}"
+                             Foreground="{StaticResource TextPrimaryBrush}"
+                             CaretBrush="{StaticResource AccentPurpleBrush}"
+                             SelectionBrush="{StaticResource AccentPurpleBrush}"
+                             BorderBrush="{StaticResource BorderEmphasisBrush}" BorderThickness="1"
+                             Padding="8,5" FontSize="13"
                              VerticalAlignment="Center"
                              KeyDown="FindTextBox_KeyDown"
                              TextChanged="FindTextBox_TextChanged"/>
 
                     <Button x:Name="FindPrevButton" Grid.Column="2"
                             Content="↑" FontSize="14"
-                            Background="Transparent" Foreground="#A0A0C0"
-                            BorderThickness="0" Padding="8,3" Margin="4,0,0,0"
-                            Cursor="Hand" VerticalAlignment="Center"
+                            Style="{StaticResource IconButton}"
+                            Padding="9,4" Margin="4,0,0,0"
+                            VerticalAlignment="Center"
                             Click="FindPrev_Click" ToolTip="Anterior (Shift+Enter)"/>
 
                     <Button x:Name="FindNextButton" Grid.Column="3"
                             Content="↓" FontSize="14"
-                            Background="Transparent" Foreground="#A0A0C0"
-                            BorderThickness="0" Padding="8,3"
-                            Cursor="Hand" VerticalAlignment="Center"
+                            Style="{StaticResource IconButton}"
+                            Padding="9,4"
+                            VerticalAlignment="Center"
                             Click="FindNext_Click" ToolTip="Siguiente (Enter)"/>
 
                     <TextBlock x:Name="FindStatusText" Grid.Column="4"
                                VerticalAlignment="Center" FontSize="12"
-                               Foreground="#606080" Margin="8,0"/>
+                               Foreground="{StaticResource TextMutedBrush}" Margin="10,0"/>
 
                     <!-- spacer -->
                     <TextBlock Grid.Column="5"/>
 
                     <Button x:Name="FindCloseButton" Grid.Column="6"
                             Content="✕" FontSize="12"
-                            Background="Transparent" Foreground="#606080"
-                            BorderThickness="0" Padding="8,3"
-                            Cursor="Hand" VerticalAlignment="Center"
+                            Style="{StaticResource IconButton}"
+                            Padding="9,4"
+                            VerticalAlignment="Center"
                             Click="FindClose_Click" ToolTip="Cerrar (Esc)"/>
                 </Grid>
             </Border>

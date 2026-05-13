@@ -1,45 +1,47 @@
 <UserControl x:Class="VELO.UI.Controls.BlockNarrationToast"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="360"
+             Width="380"
              Visibility="Collapsed"
              Opacity="0"
              AutomationProperties.Name="Block narration">
 
-    <Border Background="#FF111118"
-            BorderBrush="#FF8E44AD"
+    <!-- Phase 5.2 re-skin — purple accent (block narration is AI-generated). -->
+    <Border Background="{StaticResource SurfaceDarkBrush}"
+            BorderBrush="{StaticResource AccentPurpleBrush}"
             BorderThickness="1"
-            CornerRadius="8"
-            Padding="14,12"
+            CornerRadius="12"
+            Padding="16,14"
             Effect="{StaticResource DropShadowEffect}">
 
         <StackPanel>
             <!-- Header -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                 <TextBlock Text="🛡" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock x:Name="TitleLabel"
                            Text="VELO blocked something"
                            FontSize="13" FontWeight="SemiBold"
-                           Foreground="#FFE0E0F0"
+                           Foreground="{StaticResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- Host + source -->
             <TextBlock x:Name="HostLabel"
                        Text="example.com — Tracker"
-                       FontSize="11"
-                       Foreground="#FFA0A0B0"
-                       Margin="22,0,0,6"
+                       FontSize="11.5"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Margin="22,0,0,8"
                        TextTrimming="CharacterEllipsis"/>
 
             <!-- AI-generated narration body -->
             <TextBlock x:Name="BodyLabel"
                        Text=""
-                       FontSize="12"
-                       Foreground="#FFC8C8DC"
+                       FontSize="12.5"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Opacity="0.85"
                        TextWrapping="Wrap"
-                       Margin="22,0,0,6"
-                       MaxHeight="96"
+                       Margin="22,0,0,8"
+                       MaxHeight="110"
                        TextTrimming="CharacterEllipsis"/>
 
             <!-- Dismiss -->
@@ -47,12 +49,9 @@
                 <Button x:Name="DismissButton"
                         Content="Cerrar"
                         Click="OnDismissClick"
-                        Background="Transparent"
-                        Foreground="#FFA0A0B0"
-                        BorderBrush="#FF333344"
-                        BorderThickness="1"
-                        Padding="12,4"
-                        Cursor="Hand"/>
+                        Style="{StaticResource GhostButton}"
+                        Padding="14,5"
+                        FontSize="12"/>
             </StackPanel>
         </StackPanel>
     </Border>

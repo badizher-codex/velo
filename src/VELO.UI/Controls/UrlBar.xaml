@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:VELO.UI.Controls">
 
+    <!-- Phase 5.2 re-skin — frame 1 URL row. Layout / functions preserved. -->
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="40"/>
@@ -11,8 +12,8 @@
 
         <!-- Toolbar -->
         <Border Grid.Row="0"
-                Background="#FF111118"
-                BorderBrush="#FF2A2A3A"
+                Background="{StaticResource SurfaceDarkBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="4,0">
             <Grid>
@@ -55,10 +56,10 @@
 
                 <!-- URL pill: TLS + field + bookmark + zoom -->
                 <Border Grid.Column="4"
-                        Background="#FF1E1E2E"
-                        BorderBrush="#FF3A3A55"
+                        Background="{StaticResource SurfaceMidBrush}"
+                        BorderBrush="{StaticResource BorderEmphasisBrush}"
                         BorderThickness="1"
-                        CornerRadius="8"
+                        CornerRadius="10"
                         Margin="6,5,6,5"
                         Padding="4,0">
                     <Grid>
@@ -82,8 +83,9 @@
                                  BorderThickness="0"
                                  VerticalAlignment="Center"
                                  FontSize="13"
-                                 Foreground="#FFD0D0E8"
-                                 CaretBrush="#FF00E5FF"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource AccentPurpleBrush}"
+                                 SelectionBrush="{StaticResource AccentPurpleBrush}"
                                  Padding="4,0"
                                  KeyDown="UrlField_KeyDown"
                                  GotFocus="UrlField_GotFocus"
@@ -98,18 +100,21 @@
 
                         <!-- TL;DR badge (Sprint 9C, wired in v2.4.12). Visible only on
                              pages eligible per TldrService.IsEligible (>600 words,
-                             non-login URL). Click → spawns AI summary modal. -->
+                             non-login URL). Click → spawns AI summary modal.
+                             v2.4.34 — adopts the BadgeBlue token pair from Phase 5.0. -->
                         <Button x:Name="TldrBadge" Grid.Column="3"
                                 FontSize="11" Padding="7,3"
-                                Background="#1A00E5FF" Foreground="#FF00E5FF"
-                                BorderBrush="#3300E5FF" BorderThickness="1"
+                                Background="{StaticResource BadgeBlueBgBrush}"
+                                Foreground="{StaticResource BadgeBlueBrush}"
+                                BorderBrush="{StaticResource BadgeBlueBrush}"
+                                BorderThickness="1"
                                 Margin="2,0,4,0" Cursor="Hand"
                                 Visibility="Collapsed"
                                 Click="TldrBadge_Click"
                                 ToolTip="Resumen TL;DR de esta página">
                             <Button.Resources>
                                 <Style TargetType="Border">
-                                    <Setter Property="CornerRadius" Value="3"/>
+                                    <Setter Property="CornerRadius" Value="6"/>
                                 </Style>
                             </Button.Resources>
                             <TextBlock Text="📄 TL;DR" FontWeight="SemiBold"/>
@@ -144,6 +149,8 @@
                                VerticalAlignment="Center"
                                Margin="0,0,3,0"
                                Opacity="0.7"/>
+                    <!-- AiDot Fill set dynamically by code-behind based on adapter state;
+                         default is the muted grey for "no model loaded". -->
                     <Ellipse x:Name="AiDot"
                              Width="8" Height="8"
                              VerticalAlignment="Center"
@@ -152,7 +159,7 @@
                     <TextBlock x:Name="AiLabel"
                                Text="IA" FontSize="11" FontWeight="SemiBold"
                                VerticalAlignment="Center"
-                               Foreground="#555566"/>
+                               Foreground="{StaticResource TextMutedBrush}"/>
                 </StackPanel>
 
                 <Ellipse x:Name="ContainerIndicator" Grid.Column="6"
@@ -169,17 +176,17 @@
             </Grid>
         </Border>
 
-        <!-- Loading bar (2px sweep animation at bottom of toolbar) -->
+        <!-- Loading bar (2px sweep animation at bottom of toolbar) — purple sweep. -->
         <Canvas x:Name="LoadingCanvas" Grid.Row="1"
                 ClipToBounds="True"
                 Visibility="Collapsed">
-            <Rectangle x:Name="LoadingRect" Height="2" Width="160">
+            <Rectangle x:Name="LoadingRect" Height="2" Width="180">
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                         <GradientStop Color="Transparent"  Offset="0"/>
-                        <GradientStop Color="#00E5FF"      Offset="0.3"/>
-                        <GradientStop Color="#80E5FF"      Offset="0.5"/>
-                        <GradientStop Color="#00E5FF"      Offset="0.7"/>
+                        <GradientStop Color="#7C5CFF"      Offset="0.3"/>
+                        <GradientStop Color="#A48BFF"      Offset="0.5"/>
+                        <GradientStop Color="#7C5CFF"      Offset="0.7"/>
                         <GradientStop Color="Transparent"  Offset="1"/>
                     </LinearGradientBrush>
                 </Rectangle.Fill>

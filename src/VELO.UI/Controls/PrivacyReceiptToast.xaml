@@ -1,18 +1,19 @@
 <UserControl x:Class="VELO.UI.Controls.PrivacyReceiptToast"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="300"
+             Width="320"
              Visibility="Collapsed"
              Opacity="0"
              IsHitTestVisible="False"
              AutomationProperties.Name="Privacy Receipt"
              AutomationProperties.HelpText="Resumen de privacidad de la pestaña cerrada">
 
-    <Border Background="#FF111118"
-            BorderBrush="#FF2EB54F"
+    <!-- Phase 5.2 re-skin — green accent (session-closed privacy summary). -->
+    <Border Background="{StaticResource SurfaceDarkBrush}"
+            BorderBrush="{StaticResource BadgeGreenBrush}"
             BorderThickness="1"
-            CornerRadius="8"
-            Padding="12,10"
+            CornerRadius="12"
+            Padding="14,12"
             Effect="{StaticResource DropShadowEffect}">
 
         <Grid>
@@ -32,47 +33,53 @@
                 <TextBlock x:Name="DomainLabel"
                            Text="ejemplo.com"
                            FontSize="13" FontWeight="SemiBold"
-                           Foreground="#FFD0D0E8"
+                           Foreground="{StaticResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
             </StackPanel>
 
             <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="Privacy Receipt"
                        FontSize="10"
-                       Foreground="#FF888899"
+                       Foreground="{StaticResource TextMutedBrush}"
                        VerticalAlignment="Center"/>
 
             <!-- Stats row -->
             <StackPanel Grid.Row="1" Grid.ColumnSpan="2"
                         Orientation="Horizontal"
-                        Margin="0,6,0,4">
+                        Margin="0,8,0,4">
 
-                <Border Background="#1A2EB54F" CornerRadius="4" Padding="6,3" Margin="0,0,6,0">
+                <Border Background="{StaticResource BadgeGreenBgBrush}"
+                        CornerRadius="6" Padding="8,4" Margin="0,0,6,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="TrackerCount" Text="0"
                                    FontSize="13" FontWeight="Bold"
-                                   Foreground="#FF2EB54F"/>
-                        <TextBlock Text=" rastreadores" FontSize="11" Foreground="#FF888899"
+                                   Foreground="{StaticResource BadgeGreenBrush}"/>
+                        <TextBlock Text=" rastreadores" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
                                    VerticalAlignment="Bottom"/>
                     </StackPanel>
                 </Border>
 
-                <Border Background="#1AF0B429" CornerRadius="4" Padding="6,3" Margin="0,0,6,0">
+                <Border Background="{StaticResource BadgeAmberBgBrush}"
+                        CornerRadius="6" Padding="8,4" Margin="0,0,6,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="AdCount" Text="0"
                                    FontSize="13" FontWeight="Bold"
-                                   Foreground="#FFF0B429"/>
-                        <TextBlock Text=" anuncios" FontSize="11" Foreground="#FF888899"
+                                   Foreground="{StaticResource BadgeAmberBrush}"/>
+                        <TextBlock Text=" anuncios" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
                                    VerticalAlignment="Bottom"/>
                     </StackPanel>
                 </Border>
 
-                <Border Background="#1AE53E3E" CornerRadius="4" Padding="6,3">
+                <Border Background="{StaticResource BadgeRedBgBrush}"
+                        CornerRadius="6" Padding="8,4">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="FingerprintCount" Text="0"
                                    FontSize="13" FontWeight="Bold"
-                                   Foreground="#FFE53E3E"/>
-                        <TextBlock Text=" fingerprint" FontSize="11" Foreground="#FF888899"
+                                   Foreground="{StaticResource BadgeRedBrush}"/>
+                        <TextBlock Text=" fingerprint" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
                                    VerticalAlignment="Bottom"/>
                     </StackPanel>
                 </Border>
@@ -83,7 +90,8 @@
                        x:Name="FooterLabel"
                        Text="bloqueados en esta sesión"
                        FontSize="10"
-                       Foreground="#FF555566"/>
+                       Foreground="{StaticResource TextMutedBrush}"
+                       Opacity="0.7"/>
         </Grid>
     </Border>
 </UserControl>

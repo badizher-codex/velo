@@ -1,14 +1,15 @@
 <UserControl x:Class="VELO.UI.Controls.VeloAgentPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="320"
-             MinWidth="280"
-             MaxWidth="480"
+             Width="340"
+             MinWidth="300"
+             MaxWidth="520"
              Visibility="Collapsed"
              AutomationProperties.Name="VeloAgent — Asistente de privacidad">
 
-    <Border Background="#FF0D0D1A"
-            BorderBrush="#FF2A2A3A"
+    <!-- Phase 5.2 re-skin — frames 1 + 2. Layout/contract unchanged. -->
+    <Border Background="{StaticResource BackgroundDarkestBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}"
             BorderThickness="1,0,0,0">
 
         <Grid>
@@ -21,10 +22,10 @@
 
             <!-- ── Header ───────────────────────────────────────────────── -->
             <Border Grid.Row="0"
-                    Background="#FF111122"
-                    BorderBrush="#FF2A2A3A"
+                    Background="{StaticResource SurfaceDarkBrush}"
+                    BorderBrush="{StaticResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
-                    Padding="12,8">
+                    Padding="14,10">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -32,15 +33,15 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="🤖" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="🤖" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel>
                             <TextBlock Text="VeloAgent"
                                        FontSize="13" FontWeight="SemiBold"
-                                       Foreground="#FFD0D0E8"/>
+                                       Foreground="{StaticResource TextPrimaryBrush}"/>
                             <TextBlock x:Name="BackendLabel"
                                        Text="Sin modelo"
                                        FontSize="10"
-                                       Foreground="#FF555566"/>
+                                       Foreground="{StaticResource TextMutedBrush}"/>
                         </StackPanel>
                     </StackPanel>
 
@@ -79,16 +80,16 @@
             <Border x:Name="TypingIndicator"
                     Grid.Row="2"
                     Visibility="Collapsed"
-                    Padding="12,6">
+                    Padding="14,7">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="VeloAgent está pensando"
                                FontSize="11" FontStyle="Italic"
-                               Foreground="#FF555566"
+                               Foreground="{StaticResource TextMutedBrush}"
                                VerticalAlignment="Center"/>
                     <TextBlock x:Name="TypingDots"
                                Text="…"
                                FontSize="11"
-                               Foreground="#FF00E5FF"
+                               Foreground="{StaticResource AccentPurpleLightBrush}"
                                VerticalAlignment="Center"
                                Margin="2,0,0,0"/>
                 </StackPanel>
@@ -96,26 +97,27 @@
 
             <!-- ── Input area ────────────────────────────────────────────── -->
             <Border Grid.Row="3"
-                    Background="#FF111122"
-                    BorderBrush="#FF2A2A3A"
+                    Background="{StaticResource SurfaceDarkBrush}"
+                    BorderBrush="{StaticResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,0"
-                    Padding="8">
+                    Padding="10">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Border Background="#FF1A1A2E"
-                            BorderBrush="#FF3A3A55"
+                    <Border Background="{StaticResource SurfaceLightBrush}"
+                            BorderBrush="{StaticResource BorderEmphasisBrush}"
                             BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="8,6">
+                            CornerRadius="10"
+                            Padding="10,7">
                         <TextBox x:Name="InputBox"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 Foreground="#FFD0D0E8"
-                                 CaretBrush="#FF00E5FF"
+                                 Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource AccentPurpleBrush}"
+                                 SelectionBrush="{StaticResource AccentPurpleBrush}"
                                  FontSize="13"
                                  TextWrapping="Wrap"
                                  AcceptsReturn="False"
@@ -130,10 +132,10 @@
                             Grid.Column="1"
                             Content="↑"
                             FontSize="18"
-                            Width="36" Height="36"
-                            Margin="6,0,0,0"
-                            Background="#FF00E5FF"
-                            Foreground="#FF0D0D1A"
+                            Width="38" Height="38"
+                            Margin="8,0,0,0"
+                            Background="{StaticResource AccentPurpleGradientBrush}"
+                            Foreground="White"
                             BorderThickness="0"
                             FontWeight="Bold"
                             Cursor="Hand"
@@ -145,13 +147,26 @@
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    CornerRadius="18"
+                                            <Border x:Name="Bd"
+                                                    Background="{TemplateBinding Background}"
+                                                    CornerRadius="19"
                                                     Width="{TemplateBinding Width}"
                                                     Height="{TemplateBinding Height}">
+                                                <Border.Effect>
+                                                    <DropShadowEffect Color="#7C5CFF" Opacity="0.35"
+                                                                      BlurRadius="14" ShadowDepth="0"/>
+                                                </Border.Effect>
                                                 <ContentPresenter HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center"/>
                                             </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.9"/>
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="Bd" Property="Opacity" Value="0.75"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
