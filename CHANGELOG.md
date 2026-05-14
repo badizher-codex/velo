@@ -11,6 +11,54 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.41] — 2026-05-14 — Phase 4.1 chunks A + B: Council DTOs + orchestrator (still inert)
+
+First two chunks of Phase 4.1 (Bridge + capture). Pure backend — no UI, no callers in the production code path yet. Council Mode remains inert at runtime. The work lands incrementally so each chunk can be reviewed and tested in isolation; the user-visible activation of Council comes in Phase 4.1 chunks G + H.
+
+### Added — chunk A: Council models + DTOs (`src/VELO.Core/Council/`)
+
+- **`CouncilProvider`** enum — the four canonical slots (`Claude`, `ChatGpt`, `Grok`, `Local`). The fourth slot was renamed from "Ollama" to "Local" because v2.4.40 made the local moderator backend configurable (Ollama / LM Studio / OpenAI-compat). The container ID stays `council-ollama` for back-compat with rows already seeded in v2.4.38+ databases.
+- **`CouncilProviderMap`** — bidirectional `ContainerId ↔ Provider` mapping, default home URLs (https://claude.ai/new, https://chat.openai.com/, https://grok.com/, about:blank for Local), and the matching `SettingKeys.CouncilEnabled*` constants. Pins the wire-up so a future renamed setting key is caught at test time, not at runtime.
+- **`CouncilCaptureType`** enum — `Text` / `Code` / `Table` / `Citation`. Each kind has its own rendering and synthesis treatment.
+- **`CouncilCapture`** record — immutable per-fragment capture (Id, panelProvider, type, content, sourceUrl, capturedAtUtc) with `Create()` factory that generates GUIDs and stamps UTC.
+- **`CouncilMessage`** record — one entry in the linear transcript. `Role` ∈ {User, Panel, Moderator, System}; `SourceProvider` populated only for `Role.Panel`. Four convenience factories (`UserPrompt`, `PanelReply`, `Synthesis`, `System`).
+- **`CouncilPanel`** class — runtime state per panel (TabId, CurrentUrl, IsAvailable, LatestReply, Captures). Mutable through internal setters; orchestrator drives the mutations.
+- **`CouncilSession`** class — owns the four panels (always length 4, canonical-order-validated in constructor) and the transcript. Internal `AppendMessage`; public `GetPanel(provider)` lookup.
+
+### Added — chunk B: `CouncilOrchestrator` (`src/VELO.Core/Council/CouncilOrchestrator.cs`)
+
+Single-threaded coordinator that owns at most one active `CouncilSession`. Routes:
+
+- **Session lifecycle**: `StartSession(enabledProviders)` / `EndSession()` / `HasActiveSession` / `CurrentSession`.
+- **Captures**: `AddCapture(capture)` validates the panel is available and appends. `RemoveCapture(id)` searches all panels. Raises `CaptureReceived` synchronously.
+- **Transcript**: `AppendUserPrompt(text)` / `RecordPanelReply(provider, text, captureRefs)` / `AppendSystemMessage(text)`. Each raises `MessageAppended`.
+- **Synthesis**: `SynthesizeAsync(masterPrompt, ct)` builds the panel-replies block (skipping disabled + empty panels in canonical order), invokes the moderator via the wired `ChatDelegate` (same pattern as every other AI consumer since Sprint 10A), appends the result as `Role.Moderator`, raises `MessageAppended` then `SynthesisReady`. On synthesis failure, emits a System message AND re-throws so the Council Bar can render the error. Cancellation propagates verbatim without emitting a System message.
+- **`SynthesisSystemPrompt`** moderator directive (visible in CHANGELOG so the maintainer can review): notes agreements, highlights disagreements, flags hallucinations, cites each source assistant in parentheses, replies in the user's prompt language (lesson #10).
+
+### Backend-agnostic by design
+
+The orchestrator does NOT know about Ollama, LM Studio, OpenAI-compat or HTTP. It calls `AiChatRouter.ChatDelegate` and the host (MainWindow) decides at startup whether that delegate routes through the configured Custom AI Mode adapter or a Council-specific adapter. Phase 4.0 + v2.4.40 already laid the configuration story for the moderator backend; chunk B reuses it as-is.
+
+### Tests
+
+- **`CouncilModelsTests`** — 34 assertions covering ProviderMap symmetry, capture/message factories (GUID + UTC + null content rejection), panel invariants (provider-mismatch rejection, capture remove), session constructor (canonical-order + length validation, default seed).
+- **`CouncilOrchestratorTests`** — 17 tests with a FakeSynthesizer that records the prompts. Coverage: session lifecycle, capture flow (including disabled-panel rejection), transcript event ordering (`MessageAppended` strictly before `SynthesisReady` for the moderator row), synthesis failure → system message + re-throw, cancellation propagates clean, `BuildPanelReplyBlock` skips unavailable + empty panels in canonical order.
+- VELO.Core.Tests: 102 → **153** (+51).
+- Full suite: 391 → **442**. All green.
+
+### Phase 4.1 progress
+
+- ✅ Chunk A (DTOs)
+- ✅ Chunk B (orchestrator)
+- ⏳ Chunk C (bridge JS + capture protocol) — next
+- ⏳ Chunk D (adapters JSON for claude.ai / chatgpt.com / grok.com / local)
+- ⏳ Chunk E (BrowserTab bridge C# integration)
+- ⏳ Chunk F (Council Bar + per-panel mini-toolbar UI)
+- ⏳ Chunk G (enable provider toggles + activation flow) — first chunk that touches runtime
+- ⏳ Chunk H (smoke + release v2.5.0)
+
+---
+
 ## [2.4.40] — 2026-05-13 — Council preflight supports LM Studio / OpenAI-compat servers (not just Ollama)
 
 Follow-up to v2.4.39. Maintainer's actual local-LLM setup is **LM Studio with Qwen3.6 35B A3B UD loaded**, not Ollama with `qwen3:32b`. The Phase 4 spec was Ollama-locked — `/api/tags` + `/api/show` Ollama-specific endpoints, hard-coded `qwen3:32b` model name, port 11434 default. That obligated users to install Ollama + download ~19 GB of qwen3:32b even when they already had a capable moderator model running in a different local-LLM server.
