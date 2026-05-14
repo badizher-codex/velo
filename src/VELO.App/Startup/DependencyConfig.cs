@@ -62,6 +62,7 @@ public static class DependencyConfig
         services.AddSingleton<BookmarkRepository>();
         services.AddSingleton<PasswordRepository>();
         services.AddSingleton<SecurityCacheRepository>();
+        services.AddSingleton<FaviconRepository>();
         services.AddSingleton<ContainerRepository>();
         services.AddSingleton<MalwaredexRepository>();
         services.AddSingleton<WorkspaceRepository>();

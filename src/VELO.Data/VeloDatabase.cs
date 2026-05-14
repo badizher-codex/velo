@@ -57,6 +57,8 @@ public class VeloDatabase : IDisposable
             await _db.CreateTableAsync<MalwaredexEntry>();
             await _db.CreateTableAsync<PrivacyStats>();
             await _db.CreateTableAsync<WorkspaceEntry>();
+            // v2.4.43 — favicon cache (host PK, byte[] data, fetched_at).
+            await _db.CreateTableAsync<FaviconEntry>();
 
             await SeedDefaultContainersAsync();
             await SeedDefaultWorkspaceAsync();

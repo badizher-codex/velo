@@ -7,6 +7,7 @@
 
     <UserControl.Resources>
         <conv:StringToBrushConverter x:Key="StringToBrush"/>
+        <conv:BytesToImageSourceConverter x:Key="BytesToImage"/>
     </UserControl.Resources>
 
     <Border Background="{StaticResource SurfaceDarkBrush}"
@@ -191,21 +192,40 @@
                                         <ColumnDefinition Width="18"/>  <!-- Close -->
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Favicon / loading indicator -->
-                                    <TextBlock Grid.Column="0"
-                                               FontSize="11"
-                                               VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="🌐"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsLoading}" Value="True">
-                                                        <Setter Property="Text" Value="⏳"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <!-- Favicon (real, from WebView2) / loading indicator / 🌐 fallback.
+                                         v2.4.43: Image binds to TabInfo.FaviconData via BytesToImage converter
+                                         (returns Binding.DoNothing on null/empty bytes). The TextBlock under it
+                                         shows 🌐 when no favicon is captured yet AND not loading, ⏳ during load. -->
+                                    <Grid Grid.Column="0" VerticalAlignment="Center"
+                                          Width="14" Height="14">
+                                        <Image Source="{Binding FaviconData, Converter={StaticResource BytesToImage}}"
+                                               Stretch="Uniform"
+                                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        <TextBlock FontSize="11"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   IsHitTestVisible="False">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="🌐"/>
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding FaviconData}" Value="{x:Null}"/>
+                                                                <Condition Binding="{Binding IsLoading}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </MultiDataTrigger>
+                                                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                                                            <Setter Property="Text" Value="⏳"/>
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
 
                                     <!-- Title -->
                                     <TextBlock Grid.Column="1"

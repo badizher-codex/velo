@@ -152,6 +152,30 @@ public partial class BrowserTab
     {
         var navUri = e.Uri ?? "";
 
+        // v2.4.43 — favicon cache preload. Best-effort: if we've cached the icon
+        // for this host within the FaviconRepository TTL, raise FaviconCaptured
+        // immediately so the sidebar swaps 🌐 → real icon before the page even
+        // commits. The real FaviconChanged from WebView2 will arrive later and
+        // overwrite if the site actually updated its icon.
+        if (_faviconRepo is not null &&
+            Uri.TryCreate(navUri, UriKind.Absolute, out var preloadUri) &&
+            !string.IsNullOrEmpty(preloadUri.Host))
+        {
+            var hostForPreload = preloadUri.Host;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var cached = await _faviconRepo.GetFreshAsync(hostForPreload).ConfigureAwait(false);
+                    if (cached is { Length: > 0 })
+                    {
+                        Dispatcher.Invoke(() => FaviconCaptured?.Invoke(this, cached));
+                    }
+                }
+                catch { /* cosmetic — silent */ }
+            });
+        }
+
         // ── Banking container: force HTTPS ────────────────────────────────────
         if (_isBankingContainer && BankingContainerPolicy.ShouldBlockHttp(navUri))
         {
@@ -370,6 +394,58 @@ public partial class BrowserTab
         e.Cancel = true;
         var uri = e.Uri ?? "";
         Dispatcher.Invoke(() => TryLaunchExternalUri(uri));
+    }
+
+    /// <summary>
+    /// v2.4.43 — WebView2 raises FaviconChanged once a page declares an icon
+    /// via &lt;link rel="icon"&gt; or once /favicon.ico resolves. We materialise
+    /// the PNG bytes via <c>GetFaviconAsync</c>, raise <see cref="FaviconCaptured"/>
+    /// (the host updates TabInfo.FaviconData → TabSidebar re-renders via the
+    /// BytesToImage converter) and persist by host in <c>FaviconRepository</c>
+    /// so future sessions get the icon instantly from the local SQLite cache
+    /// without re-paying the network fetch.
+    ///
+    /// Failures are swallowed — favicon capture is best-effort cosmetic and
+    /// must never crash a tab. The sidebar's 🌐 fallback covers all error paths.
+    /// </summary>
+    private async void OnFaviconChanged(object? sender, object e)
+    {
+        try
+        {
+            // The CoreWebView2 method returns an IRandomAccessStream; we copy
+            // into a MemoryStream so the BitmapImage on the UI side owns no
+            // reference to the underlying buffer.
+            var stream = await WebView.CoreWebView2.GetFaviconAsync(
+                CoreWebView2FaviconImageFormat.Png).AsTask().ConfigureAwait(true);
+
+            byte[] bytes;
+            using (var ms = new MemoryStream())
+            {
+                using var reader = stream.AsStreamForRead();
+                await reader.CopyToAsync(ms).ConfigureAwait(true);
+                bytes = ms.ToArray();
+            }
+
+            // Raise on the dispatcher so the host's binding update happens on UI thread.
+            Dispatcher.Invoke(() => FaviconCaptured?.Invoke(this, bytes));
+
+            // Persist by host (lowercased + www-stripped inside the repo).
+            if (_faviconRepo is not null && bytes.Length > 0)
+            {
+                try
+                {
+                    var url = WebView.CoreWebView2.Source;
+                    if (Uri.TryCreate(url, UriKind.Absolute, out var u) && !string.IsNullOrEmpty(u.Host))
+                        await _faviconRepo.SaveAsync(u.Host, bytes).ConfigureAwait(false);
+                }
+                catch { /* favicon cache is cosmetic — never propagate */ }
+            }
+        }
+        catch
+        {
+            // GetFaviconAsync occasionally throws on non-resolvable icon URIs
+            // or before the page is fully attached. Silent fail — keep 🌐.
+        }
     }
 
     private void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)

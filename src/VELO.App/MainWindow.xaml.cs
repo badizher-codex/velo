@@ -541,7 +541,18 @@ public partial class MainWindow : Window
                     else ShowGlanceAt(url);
                 }),
                 OnAutofillFormDetected:   (tabId, host)    => _ = OnAutofillFormDetectedAsync(tabId, host, autofill),
-                OnAutofillFormSubmitted:  (tabId, payload) => _ = OnAutofillFormSubmittedAsync(tabId, payload, autofill));
+                OnAutofillFormSubmitted:  (tabId, payload) => _ = OnAutofillFormSubmittedAsync(tabId, payload, autofill),
+                // v2.4.43 — bridge from BrowserTab.FaviconCaptured into the matching
+                // TabInfo.FaviconData. TabSidebar.xaml binds the bytes via the
+                // BytesToImageSourceConverter and renders the real site icon
+                // instead of the 🌐 fallback. Marshalling onto the dispatcher
+                // because PropertyChanged fires here and the binding update must
+                // happen on the UI thread.
+                OnFaviconCaptured:        (tabId, bytes) => Dispatcher.Invoke(() =>
+                {
+                    var t = _tabManager.GetTab(tabId);
+                    if (t is not null) t.FaviconData = bytes;
+                }));
 
             // Phase 4.0 chunk D — per-container fingerprint override. Council
             // containers (council-claude / -chatgpt / -grok / -ollama) drop

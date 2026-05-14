@@ -104,7 +104,14 @@ public class TabInfo : INotifyPropertyChanged
     private bool _canGoForward;
     public bool CanGoForward { get => _canGoForward; set => Set(ref _canGoForward, value); }
 
-    public byte[]? FaviconData { get; set; }
+    private byte[]? _faviconData;
+    /// <summary>v2.4.43 — PNG bytes of the current page's favicon, or null when
+    /// not yet captured / not applicable (about:blank, velo://newtab, …).
+    /// Captured by <c>BrowserTab</c> on <c>CoreWebView2.FaviconChanged</c> and
+    /// persisted by host in <c>FaviconRepository</c> for re-use across sessions.
+    /// Bound in <c>TabSidebar.xaml</c> via <c>BytesToImageSourceConverter</c>
+    /// with a 🌐 fallback TextBlock for the null case.</summary>
+    public byte[]? FaviconData { get => _faviconData; set => Set(ref _faviconData, value); }
 
     private string _workspaceId = "default";
     public string WorkspaceId { get => _workspaceId; set => Set(ref _workspaceId, value); }

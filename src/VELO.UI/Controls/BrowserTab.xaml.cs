@@ -114,6 +114,15 @@ public partial class BrowserTab : UserControl
     /// <summary>Provides the history repository so NewTab v2 can load top sites.</summary>
     public void SetHistoryRepository(HistoryRepository repo) => _historyRepo = repo;
 
+    // v2.4.43 — favicon capture + cache. Repository persists by host so the
+    // sidebar can render real icons across VELO restarts. Event lets the host
+    // update its TabInfo.FaviconData (which the sidebar XAML binds to).
+    private FaviconRepository? _faviconRepo;
+    /// <summary>Raised when WebView2 reports a favicon for the current page.
+    /// Arg = raw PNG bytes (may be empty when the page has no favicon).</summary>
+    public event EventHandler<byte[]>? FaviconCaptured;
+    public void SetFaviconRepository(FaviconRepository repo) => _faviconRepo = repo;
+
     // FillCredentialAsync, OpenDevTools, SetContainer live in BrowserTab.PublicApi.cs (v2.4.31).
 
     public string TabId => _tabId;
@@ -277,6 +286,11 @@ public partial class BrowserTab : UserControl
         WebView.CoreWebView2.ContextMenuRequested       += OnContextMenuRequested;
         WebView.CoreWebView2.ServerCertificateErrorDetected += OnServerCertificateError;
         WebView.CoreWebView2.WebMessageReceived             += OnWebMessageReceived;
+        // v2.4.43 — capture site favicons into TabInfo.FaviconData. WebView2 raises
+        // FaviconChanged whenever the page (re)declares an <link rel="icon"> or the
+        // default /favicon.ico path resolves. Handler in BrowserTab.Events.cs hits
+        // GetFaviconAsync, writes bytes to TabInfo, and persists via FaviconRepository.
+        WebView.CoreWebView2.FaviconChanged                 += OnFaviconChanged;
 
         // v2.0.5 — Custom-protocol launch (bambustudioopen://, obsidian://, …).
         // Without this handler WebView2 falls back to its built-in confirmation

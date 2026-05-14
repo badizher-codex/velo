@@ -60,7 +60,8 @@ public sealed class BrowserTabHost
         Action<string, double>                                        OnZoomChanged,
         Action<string, string>                                        OnGlanceLinkHovered,
         Action<string, string>                                        OnAutofillFormDetected,
-        Action<string, (string Host, string Username, string Password)> OnAutofillFormSubmitted);
+        Action<string, (string Host, string Username, string Password)> OnAutofillFormSubmitted,
+        Action<string, byte[]>                                        OnFaviconCaptured);
 
     private readonly IServiceProvider _services;
 
@@ -111,10 +112,17 @@ public sealed class BrowserTabHost
         browserTab.GlanceLinkHovered       += (_, url)     => handlers.OnGlanceLinkHovered(tabId, url);
         browserTab.AutofillFormDetected    += (_, host)    => handlers.OnAutofillFormDetected(tabId, host);
         browserTab.AutofillFormSubmitted   += (_, payload) => handlers.OnAutofillFormSubmitted(tabId, payload);
+        browserTab.FaviconCaptured         += (_, bytes)   => handlers.OnFaviconCaptured(tabId, bytes);
 
         // ── Setters — resolved from DI ───────────────────────────────────
         // Sprint 6: history repo so NewTab v2 can render top sites.
         browserTab.SetHistoryRepository(_services.GetRequiredService<HistoryRepository>());
+
+        // v2.4.43 — favicon cache (per-host SQLite). Preload on NavigationStarting,
+        // overwrite on WebView2 FaviconChanged. Sidebar swaps 🌐 fallback for real
+        // bitmap once bytes arrive via the FaviconCaptured event above.
+        browserTab.SetFaviconRepository(
+            _services.GetRequiredService<FaviconRepository>());
 
         // Phase 3 / Sprint 1E — IA menu (composes the inner ContextMenuBuilder).
         browserTab.SetAIContextMenuBuilder(

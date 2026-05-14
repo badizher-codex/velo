@@ -11,6 +11,69 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.43] — 2026-05-14 — Tab favicons (real site icons, not the 🌐 placeholder)
+
+Maintainer spotted that every tab in the sidebar showed the same 🌐 globe icon regardless of site. Diagnosis confirmed it as legacy debt rather than a bug: `TabInfo.FaviconData byte[]?` existed since Phase 1 (declared) but was never populated and never bound in `TabSidebar.xaml`. The XAML hard-coded `Value="🌐"` as a Setter with no path to a real bitmap. **Fourth instance** of the wiring-without-callsite anti-pattern that lessons #8, #11 and #15 already track — DI registered / property declared / event raised, but nobody wired the consumer.
+
+### Added
+
+- **`BytesToImageSourceConverter`** (`src/VELO.UI/Converters/BytesToImageSourceConverter.cs`) — materialises a `byte[]` PNG/ICO into a frozen `BitmapImage`. Returns `Binding.DoNothing` on null/empty/malformed bytes so a sibling fallback element (the 🌐 TextBlock) takes the visual slot. `OnLoad` cache + immediate stream dispose so swapping `FaviconData` doesn't pin memory.
+- **`FaviconEntry` model + `FaviconRepository`** (`src/VELO.Data/{Models,Repositories}/`) — SQLite cache keyed by host. `GetFreshAsync(host, ttl)` returns null on miss/expired/empty (negative-cache marker). `SaveAsync(host, bytes)` upserts. `PurgeExpiredAsync(ttl)` evicts. Default TTL: **30 days**. Host normalisation (`Normalise(host)` lowercases + strips leading `www.`) ensures `bambu.com` and `WWW.Bambu.com` share one cache row.
+- **`FaviconEntry` table** created in `VeloDatabase.InitializeAsync`. New users + upgrades both get it on next launch.
+- **`BrowserTab` favicon capture**:
+  - New `FaviconCaptured` event (arg = PNG bytes).
+  - New `SetFaviconRepository(repo)` setter.
+  - `OnFaviconChanged` handler (subscribed in `EnsureWebViewInitializedAsync`) calls `CoreWebView2.GetFaviconAsync(Png)`, copies the stream into a byte array, raises the event, and persists by host.
+  - **Cache preload in `OnNavigationStarting`** — fires a background `GetFreshAsync(host)`; if a fresh row exists, raises `FaviconCaptured` immediately so the sidebar swaps 🌐 → real icon **before the page even commits**. The real `FaviconChanged` event still fires later and overwrites with the freshest bytes.
+- **`BrowserTabHost` (`BuildAndWire`) wires the event** through a new `OnFaviconCaptured` handler in `TabWiringHandlers`. Calls `SetFaviconRepository` from DI alongside the existing setters. WiringSmokeTests file-scan picks up the new setter automatically.
+- **`TabSidebar.xaml`** registers the converter and replaces the 🌐 TextBlock with a `Grid` containing:
+  - `Image` with `Source="{Binding FaviconData, Converter={StaticResource BytesToImage}}"` — shows the real favicon when bytes exist.
+  - A fallback `TextBlock` shown via `MultiDataTrigger` only when `FaviconData == null` AND `IsLoading == false`. Loading still shows ⏳.
+
+### Changed
+
+- **`TabInfo.FaviconData`** is now `INotifyPropertyChanged`-wired (`Set(ref _faviconData, value)`). Setting `tab.FaviconData = bytes` from the host raises `PropertyChanged("FaviconData")` and the binding re-runs the converter → the sidebar Image swaps in.
+- **`MainWindow.OnTabCreated`** registers `OnFaviconCaptured` handler that resolves the matching `TabInfo` via `_tabManager.GetTab(tabId)` and assigns `FaviconData` on the UI dispatcher.
+
+### Fail-soft behaviour
+
+Every layer degrades gracefully:
+- WebView2 `GetFaviconAsync` throws (unresolvable icon URI, page not yet attached) → handler silently catches, sidebar keeps showing 🌐.
+- Repository SaveAsync fails (disk / permissions) → swallowed inside the handler, no crash.
+- Converter receives malformed bytes → returns `Binding.DoNothing`, fallback TextBlock takes over.
+- Preload race (cache hit + new FaviconChanged) → second update overwrites the first; binding only renders the latest.
+
+### Tests
+
+- **18 new** tests in `tests/VELO.Core.Tests/FaviconRepositoryTests.cs`:
+  - Host normalisation (lowercase, leading `www.` strip, idempotent, doesn't break `wwwexample.com`).
+  - `GetFreshAsync` ↔ `SaveAsync` round-trip with normalised lookup.
+  - Negative-cache marker (empty bytes saved → GetFresh returns null but row exists).
+  - TTL eviction (`GetFreshAsync(host, TimeSpan.Zero)` reports stale; `PurgeExpiredAsync` removes them; fresh rows survive).
+  - `DeleteAsync` removes single host (normalised).
+- VELO.Core.Tests: 167 → **185** (+18).
+- Full suite: 456 → **474**. All green.
+
+### Lesson learnt #21
+
+`TabInfo.FaviconData` is the fourth instance of "**declared field, no wiring**" caught in VELO history:
+1. IA menu (Phase 1 → v2.4.14, ~6 months dormant).
+2. `BookmarkAIService` (Sprint 9B → v2.4.18, ~2 weeks dormant).
+3. `PasteGuard` (Sprint 3 → v2.4.21, ~6 months dormant — caught by `WiringSmokeTests` test #1 on first run).
+4. **`TabInfo.FaviconData`** (Phase 1 → v2.4.43, ~14 months dormant — caught by user observation, not by tests).
+
+WiringSmokeTests can catch "setter exists but no caller" (case 3 — caught instantly). It can NOT catch "property exists but no producer **and** no consumer" — both ends of the wire are missing. New rule going forward: when a model declares a non-trivial data property (`byte[]`, lists, dictionaries), an accompanying smoke test should assert there's a producer (something writes to it) AND a consumer (something reads from it in XAML or code).
+
+### Operational guidance for the maintainer
+
+After installing v2.4.43:
+1. **First visit** to any site → real favicon appears within ~100-500 ms of NavigationCompleted (depending on `<link rel="icon">` resolution). The first sub-second still shows 🌐 because the favicon-changed event hasn't fired yet.
+2. **Second visit** to the same host → favicon appears **before the page renders** (preloaded from SQLite cache).
+3. Sites without a favicon stay on 🌐. The repo writes a negative-cache row so we don't re-query the server every nav.
+4. SQLite cache size: typically <1 MB for hundreds of hosts. Eviction is age-based at 30 days — no manual cleanup needed.
+
+---
+
 ## [2.4.42] — 2026-05-14 — Fix: internal AI services were melting local LLMs (context bloat + role mix)
 
 Maintainer reported their local LM Studio server was hitting "modelo a full", running out of tokens, and timing out on simple page visits. Diagnosis surfaced **three bugs stacked on top of each other**, all in the path that internal AI services (`SmartBlockClassifier`, `PhishingShield`, `CodeActions`, `BookmarkAIService`, `AIContextActions`) used since Sprint 10A introduced `AiChatRouter`.
