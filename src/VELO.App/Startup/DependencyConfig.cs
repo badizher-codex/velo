@@ -135,9 +135,23 @@ public static class DependencyConfig
         //     for "interesting" blocks (off by default; toggled by setting).
         // ChatDelegate wiring happens in MainWindow once the AI adapter is
         // resolved (same pattern as BlockExplanationService's ChatDelegate).
-        services.AddSingleton<VELO.Security.Guards.SmartBlockClassifier>();
+        services.AddSingleton<VELO.Security.Guards.SmartBlockClassifier>(sp =>
+        {
+            // v2.4.42 — bump cache TTL 6h → 24h. Trackers rarely change host within
+            // a single day, and the local model fan-out from v2.4.41 was too costly
+            // to re-classify every 6h. Combined with the DirectChatAdapter semaphore
+            // this keeps the local LLM idle most of the time.
+            var c = new VELO.Security.Guards.SmartBlockClassifier(
+                sp.GetService<Microsoft.Extensions.Logging.ILogger<VELO.Security.Guards.SmartBlockClassifier>>());
+            c.CacheTtl = TimeSpan.FromHours(24);
+            return c;
+        });
         services.AddSingleton<VELO.Security.Guards.PhishingShield>();
         services.AddSingleton<VELO.Security.Threats.BlockNarrationService>();
+        // v2.4.42 — DirectChatAdapter: stateless one-shot OpenAI-compat for internal
+        // AI services. Replaces the WireAgentChat path that piled every classifier
+        // call onto AgentLauncher's shared "__ai__" history bucket.
+        services.AddSingleton<VELO.Core.AI.DirectChatAdapter>();
         // v2.4.25 — IANA RDAP probe for domain-age PhishingShield signal.
         // Disabled by default (privacy). MainWindow flips Enabled based on
         // the user setting at startup and after Save in SettingsWindow.

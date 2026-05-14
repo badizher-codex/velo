@@ -11,6 +11,61 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.42] — 2026-05-14 — Fix: internal AI services were melting local LLMs (context bloat + role mix)
+
+Maintainer reported their local LM Studio server was hitting "modelo a full", running out of tokens, and timing out on simple page visits. Diagnosis surfaced **three bugs stacked on top of each other**, all in the path that internal AI services (`SmartBlockClassifier`, `PhishingShield`, `CodeActions`, `BookmarkAIService`, `AIContextActions`) used since Sprint 10A introduced `AiChatRouter`.
+
+### What was wrong
+
+1. **System prompt smuggled into the user message.** `MainWindow.WireAgentChat` concatenated `$"{system}\n\n{user}"` and passed the whole string as the user content, with the actual system role left empty. The local model received instructions like *"You classify network requests as TRACKER or LEGITIMATE…"* in a user-roled message, which is the wrong slot.
+2. **Shared history bucket for every internal caller.** `AgentLauncher` keeps per-tabId conversation history in `_history[tabId]`. Every internal AI service called with `tabId="__ai__"` → all of them accumulated history into a single bucket. After 30-50 page loads the context for each fresh classification carried hundreds of past prompts and replies, including old SmartBlock verdicts being replayed back to the model as if they were the current request. LM Studio logs from the maintainer showed `role:"assistant"` entries whose content was the SmartBlock system prompt — pure context bloat.
+3. **Zero global concurrency cap.** Per-service rate limits exist (SmartBlock 30/min, PhishingShield TTL 30min) but a single page load could fan out SmartBlock + PhishingShield + BookmarkAI in parallel. On consumer hardware running a 30B-class model, parallel requests don't speed up — they queue inside the runtime, thrash VRAM, and crater tail latency.
+
+### What v2.4.42 changes
+
+- **New `VELO.Core.AI.DirectChatAdapter`** (`src/VELO.Core/AI/DirectChatAdapter.cs`) — stateless one-shot OpenAI-compatible adapter. Each call composes the payload from only the (system, user) it was handed and sends it to `/v1/chat/completions` with `messages: [{role:"system", content:system}, {role:"user", content:user}]`. No history, no shared bucket. Global `SemaphoreSlim(1, 1)` serialises parallel callers so exactly one request is in-flight at a time. Fail-soft (returns "" on transport failure / non-2xx / parse failure); cancellation propagates verbatim.
+- **Wired in DI** (`Startup/DependencyConfig.cs`) as a singleton.
+- **MainWindow switches internal services to the direct path** (`MainWindow.xaml.cs:214-216`):
+  ```diff
+  - AiChatRouter.ChatDelegate chatAdapter = WireAgentChat;       // bloat path
+  + var directChat = _services.GetRequiredService<VELO.Core.AI.DirectChatAdapter>();
+  + AiChatRouter.ChatDelegate chatAdapter = directChat.SendAsync; // stateless
+  ```
+  `WireAgentChat` stays defined and is still used by the **VeloAgent chat panel** (slash commands, agent actions, page priming) — that path uses history intentionally and is unaffected.
+- **SmartBlock cache TTL 6h → 24h** (`DependencyConfig.cs:138-148`) — trackers rarely change host within a day; the model is now scarce enough that re-classifying every 6h was wasteful. Cuts model load on consecutive sessions on the same domains.
+
+### Backend coverage
+
+DirectChatAdapter only handles `AI Mode = Custom` (Ollama / LM Studio / any OpenAI-compatible local server). For `AI Mode = Claude` the security path was already direct (via `VELO.Security.AI.Adapters.ClaudeAdapter` in `AISecurityEngine`, never via this delegate); nothing regresses. For `AI Mode = Offline` the adapter returns "" and caller services fail-soft (Allow / Safe / empty).
+
+### What stays the same
+
+- VeloAgent chat panel (the "Agente" sidebar) keeps using `AgentLauncher` with per-tab history. Conversation flow there is intentional and works as before.
+- `AISecurityEngine` Claude path unchanged — already direct.
+- `LLamaSharpAdapter` path for users with no Custom AI Mode but a local GGUF — unchanged (still routes via AgentLauncher when used).
+
+### Tests
+
+- **14 new** unit tests in `tests/VELO.Core.Tests/DirectChatAdapterTests.cs`:
+  - AI Mode gating (Offline / Claude / unknown → empty, zero HTTP calls).
+  - **Payload shape regression test** — pins `messages` is an array of `{role:"system"|"user"}` objects, content fields contain ONLY the corresponding text (not the v2.4.41 pegoteado `system\n\nuser` shape).
+  - Endpoint URL (`/v1/chat/completions`) + method (POST) + model-name override.
+  - Reply parsing (happy path + four malformed shapes → empty).
+  - Fail-soft (non-200 → empty, transport exception → empty, cancellation → throws OCE).
+  - **Concurrency serialization** — two parallel callers, asserts max-in-flight = 1, both complete in sequence.
+- VELO.Core.Tests: 153 → **167** (+14).
+- Full suite: 442 → **456**. All green.
+
+### Operational guidance for the maintainer
+
+When upgrading to v2.4.42:
+1. **Restart VELO** so the new DI registration takes effect.
+2. **Restart LM Studio** (or whatever local server you use) to reset its internal queue.
+3. **Existing SmartBlock cache will repopulate at 24h TTL** — initial hits on previously-visited domains will re-classify once, then sit in cache for a day.
+4. Watch the developer logs: with v2.4.42 you should see at most ONE in-flight request to your model regardless of how busy the page is.
+
+---
+
 ## [2.4.41] — 2026-05-14 — Phase 4.1 chunks A + B: Council DTOs + orchestrator (still inert)
 
 First two chunks of Phase 4.1 (Bridge + capture). Pure backend — no UI, no callers in the production code path yet. Council Mode remains inert at runtime. The work lands incrementally so each chunk can be reviewed and tested in isolation; the user-visible activation of Council comes in Phase 4.1 chunks G + H.

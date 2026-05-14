@@ -211,7 +211,16 @@ public partial class MainWindow : Window
         var codeActions    = _services.GetRequiredService<VELO.Agent.CodeActions>();
         var bookmarkAi     = _services.GetRequiredService<VELO.Agent.BookmarkAIService>();
 
-        AiChatRouter.ChatDelegate chatAdapter = WireAgentChat;
+        // v2.4.42 — route internal AI services through DirectChatAdapter (stateless,
+        // OpenAI-compatible, global concurrency cap = 1). Replaces WireAgentChat
+        // which piggybacked on AgentLauncher's per-tabId history with a shared
+        // "__ai__" bucket — that path accumulated unbounded chat history and
+        // concatenated the system prompt into the user content, melting local
+        // models on heavy pages. WireAgentChat stays defined for the VeloAgent
+        // chat panel (which uses history intentionally) but is no longer the
+        // delegate for internal classifiers/analysers.
+        var directChat = _services.GetRequiredService<VELO.Core.AI.DirectChatAdapter>();
+        AiChatRouter.ChatDelegate chatAdapter = directChat.SendAsync;
         var aiChatRouter = new AiChatRouter()
             .Register(d => aiActions.ChatDelegate     = (sys, user, ct) => d(sys, user, ct))
             .Register(d => explainerSvc.ChatDelegate  = (sys, user, ct) => d(sys, user, ct))
