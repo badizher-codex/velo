@@ -11,6 +11,54 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.40] — 2026-05-13 — Council preflight supports LM Studio / OpenAI-compat servers (not just Ollama)
+
+Follow-up to v2.4.39. Maintainer's actual local-LLM setup is **LM Studio with Qwen3.6 35B A3B UD loaded**, not Ollama with `qwen3:32b`. The Phase 4 spec was Ollama-locked — `/api/tags` + `/api/show` Ollama-specific endpoints, hard-coded `qwen3:32b` model name, port 11434 default. That obligated users to install Ollama + download ~19 GB of qwen3:32b even when they already had a capable moderator model running in a different local-LLM server.
+
+v2.4.40 makes the moderator backend **configurable** — Ollama OR LM Studio OR any generic OpenAI-compatible server (llama.cpp server, text-generation-webui, vllm, etc.). The model name is also configurable; the spec's `qwen3:32b` becomes a default, not a lock.
+
+### Added
+
+- **Backend selector** in Settings → 🤝 Council — three radio buttons:
+  - **Ollama (canónico, /api/tags)** — default, preserves v2.4.39 behaviour.
+  - **LM Studio (OpenAI-compat, /v1/models)** — talks the OpenAI wire format LM Studio exposes; defaults to `http://localhost:1234` + `qwen3.6-35b-a3b`.
+  - **Otro servidor OpenAI-compat** — for llama.cpp server, text-generation-webui, vllm, etc.; defaults to `http://localhost:8000` + `qwen3:32b`.
+- **Moderator model TextBox** — user can override the model name (no more hard-coded `qwen3:32b`). Tip line under the box explains how to find the correct identifier for LM Studio ("API Model Identifier" panel) vs Ollama (tag).
+- **Inline "Guía rápida" expander** with step-by-step setup for the three backends:
+  - Ollama: install from ollama.com → `ollama pull qwen3:32b` → endpoint 11434.
+  - LM Studio: install from lmstudio.ai → download a qwen-family model → enable Local Server → copy "API Model Identifier".
+  - Other OpenAI-compat: requirements (`/v1/models` + `/v1/chat/completions`) + privacy note that the server must stay 100% local for the Council privacy contract to hold.
+- **New `SettingKeys`** (`src/VELO.Data/Models/AppSettings.cs`):
+  - `CouncilBackendType` — string ("Ollama" / "LMStudio" / "OpenAICompat"). Default "Ollama".
+  - `CouncilModeratorModel` — moderator model name. Default "qwen3:32b".
+
+### Changed
+
+- **`CouncilPreflightService.cs`** refactored to branch on backend type:
+  - **Ollama path** keeps `/api/tags` + `/api/show` (still does the 16 k context-size check).
+  - **OpenAI-compat path** (LM Studio + Other) hits `/v1/models`, looks up the configured model in the `data[]` array. Context-size check is skipped (OpenAI `/v1/models` doesn't expose it; user is trusted).
+- `Result` record gains two fields: `BackendType` (`Backend` enum: Ollama / LMStudio / OpenAICompat) and `ModelName` (the model the probe actually looked for). The UI uses these to render backend-aware messaging.
+- `RequiredModel` const kept as an alias of the new `DefaultModeratorModel` so any v2.4.39 caller still compiles.
+- Button **"Verificar Ollama" → "Verificar conexión"**. Status banner header **"SÍNTESIS LOCAL (qwen3:32b)" → "ESTADO DEL SERVIDOR"** — both now backend-agnostic.
+- LM Studio model matching is **lenient**: exact case-insensitive first, then a `Contains` fallback. Handles the variants LM Studio exposes (e.g. user types `qwen3.6-35b-a3b`, server reports `qwen3.6-35b-a3b@Q4_K_M`).
+
+### Tests
+
+- **4 new** tests in `CouncilPreflightServiceTests`:
+  - `LMStudioBackend_probesV1Models_NotApiTags` — confirms backend routing.
+  - `LMStudioBackend_modelMissing_reportsModelNotPresent` — error path with LM Studio-flavoured hint.
+  - `OpenAICompatBackend_endpointDown_reportsUnreachable` — third backend covered.
+  - `CustomModeratorModelName_isUsedInsteadOfDefault` — pins the override behaviour for the model name.
+- VELO.Core.Tests: 98 → **102** (+4).
+- Full suite: 387 → **391**. All green.
+
+### Notes
+
+- Disclaimer state, toggles disabled-until-v2.5.x, and inert runtime (no Council UI entry point) all unchanged from v2.4.38/4.39. v2.4.40 is purely about the moderator-backend story being usable for **any** local LLM stack, not Ollama-only.
+- The Phase 4 spec at `docs/Phase4/COUNCIL_MODE_ANALYSIS.md` was Ollama-centric; the practical Phase 4.1 work will follow this v2.4.40 abstraction (a single backend-typed handle) rather than the spec's Ollama API verbatim.
+
+---
+
 ## [2.4.39] — 2026-05-13 — Hotfix: Council preflight reuses Custom AI endpoint by mistake
 
 First post-Phase-4.0 hotfix. The Settings → 🤝 Council panel landed in v2.4.38 with two issues maintainer testing surfaced:

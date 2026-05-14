@@ -61,9 +61,20 @@ public static class SettingKeys
     public const string CouncilEnabledChatGpt     = "council.enabled.chatgpt";
     public const string CouncilEnabledGrok        = "council.enabled.grok";
     public const string CouncilEnabledOllama      = "council.enabled.ollama";
-    /// <summary>v2.4.39 — Council-specific Ollama endpoint for the qwen3:32b synthesis model.
-    /// Independent from <see cref="AiCustomEndpoint"/> (Custom AI Mode) — Council always needs
-    /// Ollama on its canonical 11434 port even when the user has Custom AI Mode pointing at
-    /// LM Studio (1234) or another OpenAI-compatible local server. Default: http://localhost:11434.</summary>
+    /// <summary>v2.4.39 — Council-specific synthesis endpoint. Default: http://localhost:11434
+    /// (Ollama canonical). Independent from <see cref="AiCustomEndpoint"/> (Custom AI Mode).
+    /// Renamed semantically in v2.4.40 to mean "the local LLM server endpoint Council probes",
+    /// regardless of backend type — the key kept its name to avoid wiping users' v2.4.39
+    /// configuration on upgrade.</summary>
     public const string CouncilOllamaEndpoint     = "council.ollama_endpoint";
+    /// <summary>v2.4.40 — Which local LLM server flavour Council should talk to. One of:
+    /// "Ollama" (uses /api/tags + /api/show), "LMStudio" (uses /v1/models, OpenAI-compatible),
+    /// "OpenAICompat" (generic /v1/models, same wire format as LMStudio). Defaults to "Ollama"
+    /// so users who upgrade from v2.4.38/4.39 see the same probe behaviour as before.</summary>
+    public const string CouncilBackendType        = "council.backend_type";
+    /// <summary>v2.4.40 — Moderator model name. Previously hard-coded to "qwen3:32b" in
+    /// <c>CouncilPreflightService.RequiredModel</c>. Surfaced as a setting so users running
+    /// LM Studio (e.g. qwen3.6-35b-a3b) or any non-default Ollama tag don't have to install
+    /// the exact spec model. Default: "qwen3:32b" to keep parity with the Phase 4 spec.</summary>
+    public const string CouncilModeratorModel     = "council.moderator_model";
 }

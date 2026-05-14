@@ -20,6 +20,11 @@ public partial class SettingsWindow : Window
     // Track active nav button
     private Button? _activeNav;
 
+    /// <summary>v2.4.40 — true while LoadCouncilStateAsync is running; suppresses
+    /// the suggest-defaults logic in <see cref="CouncilBackend_Checked"/> so loading
+    /// the user's existing backend choice doesn't overwrite their endpoint/model.</summary>
+    private bool _loadingCouncilState;
+
     /// <summary>v2.4.25 — Raised after Save when the user toggles the RDAP
     /// domain-age check so the host can flip DomainAgeProbe.Enabled live.</summary>
     public event EventHandler<bool>? DomainAgeCheckChanged;
@@ -312,12 +317,27 @@ public partial class SettingsWindow : Window
             await _settings.SetAsync(SettingKeys.AiClaudeModel, CustomModelField.Text.Trim());
         }
 
-        // v2.4.39 — Council Ollama endpoint (independent from AI Custom endpoint).
-        // Persisted unconditionally so it survives even if the user is on Offline AI Mode.
+        // v2.4.39/4.40 — Council backend selection + endpoint + moderator model name.
+        // Independent from Custom AI Mode (which can legitimately point at LM Studio
+        // or another non-Ollama server). Persisted unconditionally so they survive
+        // even if the user is on Offline AI Mode.
+        var councilBackend =
+            CouncilBackendLmStudioRadio.IsChecked == true
+                ? nameof(VELO.Core.AI.CouncilPreflightService.Backend.LMStudio)
+            : CouncilBackendOtherRadio.IsChecked == true
+                ? nameof(VELO.Core.AI.CouncilPreflightService.Backend.OpenAICompat)
+                : nameof(VELO.Core.AI.CouncilPreflightService.Backend.Ollama);
+        await _settings.SetAsync(SettingKeys.CouncilBackendType, councilBackend);
+
         var councilEndpoint = CouncilOllamaEndpointBox.Text.Trim();
         if (councilEndpoint.Length == 0)
             councilEndpoint = VELO.Core.AI.CouncilPreflightService.DefaultOllamaEndpoint;
         await _settings.SetAsync(SettingKeys.CouncilOllamaEndpoint, councilEndpoint);
+
+        var councilModel = CouncilModeratorModelBox.Text.Trim();
+        if (councilModel.Length == 0)
+            councilModel = VELO.Core.AI.CouncilPreflightService.DefaultModeratorModel;
+        await _settings.SetAsync(SettingKeys.CouncilModeratorModel, councilModel);
 
         // v2.4.18 — Sprint 9B: BookmarkAI auto-tag
         await _settings.SetBoolAsync(SettingKeys.BookmarkAutoTag, BookmarkAutoTagCheck.IsChecked == true);
@@ -559,9 +579,34 @@ public partial class SettingsWindow : Window
 
     private async Task LoadCouncilStateAsync()
     {
-        CouncilOllamaEndpointBox.Text = await _settings.GetAsync(
-            SettingKeys.CouncilOllamaEndpoint,
-            VELO.Core.AI.CouncilPreflightService.DefaultOllamaEndpoint);
+        _loadingCouncilState = true;
+        try
+        {
+            // v2.4.40 — backend selector + model name (independent from Custom AI Mode).
+            var backendRaw = await _settings.GetAsync(
+                SettingKeys.CouncilBackendType,
+                nameof(VELO.Core.AI.CouncilPreflightService.Backend.Ollama));
+            switch (backendRaw)
+            {
+                case nameof(VELO.Core.AI.CouncilPreflightService.Backend.LMStudio):
+                    CouncilBackendLmStudioRadio.IsChecked = true; break;
+                case nameof(VELO.Core.AI.CouncilPreflightService.Backend.OpenAICompat):
+                    CouncilBackendOtherRadio.IsChecked = true; break;
+                default:
+                    CouncilBackendOllamaRadio.IsChecked = true; break;
+            }
+
+            CouncilOllamaEndpointBox.Text = await _settings.GetAsync(
+                SettingKeys.CouncilOllamaEndpoint,
+                VELO.Core.AI.CouncilPreflightService.DefaultOllamaEndpoint);
+            CouncilModeratorModelBox.Text = await _settings.GetAsync(
+                SettingKeys.CouncilModeratorModel,
+                VELO.Core.AI.CouncilPreflightService.DefaultModeratorModel);
+        }
+        finally
+        {
+            _loadingCouncilState = false;
+        }
 
         CouncilEnabledClaudeCheck.IsChecked  = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledClaude);
         CouncilEnabledChatGptCheck.IsChecked = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledChatGpt);
@@ -574,6 +619,42 @@ public partial class SettingsWindow : Window
             : "Disclaimer pendiente — se mostrará la primera vez que abras Council.";
     }
 
+    /// <summary>
+    /// v2.4.40 — When the user picks a backend radio, suggest the default endpoint+model
+    /// for that backend if the user hasn't typed anything yet. Never overwrites a non-empty
+    /// value the user has entered manually — we only fill blanks or the previous default.
+    /// </summary>
+    private void CouncilBackend_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loadingCouncilState) return;
+        if (sender is not RadioButton rb || rb.Tag is not string tag) return;
+
+        (string defaultEndpoint, string defaultModel) = tag switch
+        {
+            nameof(VELO.Core.AI.CouncilPreflightService.Backend.LMStudio) =>
+                ("http://localhost:1234", "qwen3.6-35b-a3b"),
+            nameof(VELO.Core.AI.CouncilPreflightService.Backend.OpenAICompat) =>
+                ("http://localhost:8000", "qwen3:32b"),
+            _ =>
+                ("http://localhost:11434", "qwen3:32b"),
+        };
+
+        // Only repopulate when the box is empty or holds a *different* known default —
+        // this gives the user fresh suggestions when switching backends without wiping
+        // values they explicitly typed.
+        if (IsBlankOrKnownDefault(CouncilOllamaEndpointBox.Text))
+            CouncilOllamaEndpointBox.Text = defaultEndpoint;
+        if (IsBlankOrKnownDefault(CouncilModeratorModelBox.Text))
+            CouncilModeratorModelBox.Text = defaultModel;
+    }
+
+    private static bool IsBlankOrKnownDefault(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        return value is "http://localhost:11434" or "http://localhost:1234" or "http://localhost:8000"
+            or "qwen3:32b" or "qwen3.6-35b-a3b";
+    }
+
     private async Task<bool> GetCouncilBoolAsync(string key)
         => (await _settings.GetAsync(key, "no")) == "yes";
 
@@ -581,20 +662,33 @@ public partial class SettingsWindow : Window
     {
         if (sender is Button btn) btn.IsEnabled = false;
         CouncilStatusIcon.Text   = "⏳";
-        CouncilStatusText.Text   = "Comprobando Ollama y qwen3:32b…";
+        CouncilStatusText.Text   = "Comprobando servidor y modelo…";
 
         try
         {
-            // Persist the current textbox value first so the preflight reads
-            // the freshly-typed endpoint, not whatever was loaded at panel open.
+            // Persist the current textbox values first so the preflight reads
+            // the freshly-typed configuration, not whatever was loaded at panel open.
+            var backend =
+                CouncilBackendLmStudioRadio.IsChecked == true
+                    ? nameof(VELO.Core.AI.CouncilPreflightService.Backend.LMStudio)
+                : CouncilBackendOtherRadio.IsChecked == true
+                    ? nameof(VELO.Core.AI.CouncilPreflightService.Backend.OpenAICompat)
+                    : nameof(VELO.Core.AI.CouncilPreflightService.Backend.Ollama);
+            await _settings.SetAsync(SettingKeys.CouncilBackendType, backend);
+
             var endpoint = CouncilOllamaEndpointBox.Text.Trim();
             if (endpoint.Length == 0)
                 endpoint = VELO.Core.AI.CouncilPreflightService.DefaultOllamaEndpoint;
             await _settings.SetAsync(SettingKeys.CouncilOllamaEndpoint, endpoint);
 
+            var model = CouncilModeratorModelBox.Text.Trim();
+            if (model.Length == 0)
+                model = VELO.Core.AI.CouncilPreflightService.DefaultModeratorModel;
+            await _settings.SetAsync(SettingKeys.CouncilModeratorModel, model);
+
             // CouncilPreflightService construction is cheap — local HttpClient,
-            // reads endpoint from Settings each call. Constructed on demand so
-            // we don't drag the dependency into SettingsWindow's ctor.
+            // reads endpoint+backend+model from Settings each call. Constructed on
+            // demand so we don't drag the dependency into SettingsWindow's ctor.
             var preflight = new VELO.Core.AI.CouncilPreflightService(_settings);
             var result    = await preflight.CheckAsync();
 
@@ -602,13 +696,13 @@ public partial class SettingsWindow : Window
             {
                 CouncilStatusIcon.Text = "✓";
                 CouncilStatusText.Text = result.ContextSize.HasValue
-                    ? $"Ollama listo: qwen3:32b cargado ({result.ContextSize.Value} tokens)."
-                    : "Ollama listo: qwen3:32b detectado.";
+                    ? $"Servidor listo: {result.ModelName} cargado ({result.ContextSize.Value} tokens)."
+                    : $"Servidor listo: {result.ModelName} detectado.";
             }
             else
             {
                 CouncilStatusIcon.Text = result.EndpointReachable ? "⚠" : "✕";
-                CouncilStatusText.Text = result.FailureReason ?? "Ollama no está disponible.";
+                CouncilStatusText.Text = result.FailureReason ?? "Servidor no está disponible.";
             }
         }
         finally

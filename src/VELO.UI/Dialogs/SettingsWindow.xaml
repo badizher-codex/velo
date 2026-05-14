@@ -425,20 +425,113 @@
                                Foreground="{StaticResource TextSecondaryBrush}"
                                Margin="0,0,0,22"/>
 
-                    <!-- Ollama endpoint — separate from Custom AI Mode (Council always needs Ollama on 11434 default) -->
-                    <TextBlock Text="OLLAMA ENDPOINT (síntesis local)"
+                    <!-- v2.4.40 — Backend selector + guide. Council's local moderator runs in
+                         Ollama OR LM Studio OR any OpenAI-compatible server; user picks. -->
+                    <TextBlock Text="SERVIDOR LOCAL DE SÍNTESIS"
                                FontSize="10.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               Margin="0,0,0,8"/>
+                    <RadioButton x:Name="CouncilBackendOllamaRadio" GroupName="CouncilBackend"
+                                 Content="Ollama (canónico, /api/tags)"
+                                 Margin="0,0,0,4"
+                                 Checked="CouncilBackend_Checked" Tag="Ollama"/>
+                    <RadioButton x:Name="CouncilBackendLmStudioRadio" GroupName="CouncilBackend"
+                                 Content="LM Studio (OpenAI-compat, /v1/models)"
+                                 Margin="0,0,0,4"
+                                 Checked="CouncilBackend_Checked" Tag="LMStudio"/>
+                    <RadioButton x:Name="CouncilBackendOtherRadio" GroupName="CouncilBackend"
+                                 Content="Otro servidor OpenAI-compat (llama.cpp, text-generation-webui…)"
+                                 Margin="0,0,0,12"
+                                 Checked="CouncilBackend_Checked" Tag="OpenAICompat"/>
+
+                    <TextBlock Text="ENDPOINT" FontSize="10.5" FontWeight="SemiBold"
                                Foreground="{StaticResource TextMutedBrush}"
                                Margin="0,0,0,6"/>
                     <TextBox x:Name="CouncilOllamaEndpointBox"
                              Style="{StaticResource ModernTextBox}"
                              Tag="http://localhost:11434"
+                             Margin="0,0,0,12"/>
+
+                    <TextBlock Text="NOMBRE DEL MODELO MODERATOR"
+                               FontSize="10.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               Margin="0,0,0,6"/>
+                    <TextBox x:Name="CouncilModeratorModelBox"
+                             Style="{StaticResource ModernTextBox}"
+                             Tag="qwen3:32b"
                              Margin="0,0,0,4"/>
-                    <TextBlock Text="Council usa su propio endpoint. Independiente de Custom AI Mode (que podés tener apuntando a LM Studio u otro servidor)."
+                    <TextBlock Text="Tip: para LM Studio usá el identificador exacto que aparece en 'API Model Identifier' (ej. qwen3.6-35b-a3b). Para Ollama, el tag (ej. qwen3:32b). Recomendado: cualquier modelo qwen-family con ≥16k de contexto."
                                FontSize="11"
                                Foreground="{StaticResource TextMutedBrush}"
                                TextWrapping="Wrap"
-                               Margin="0,0,0,18"/>
+                               Margin="0,0,0,14"/>
+
+                    <!-- Guía rápida — collapsible so it doesn't dominate the panel -->
+                    <Expander Header="¿Cómo configuro mi servidor? (guía rápida)"
+                              Foreground="{StaticResource TextSecondaryBrush}"
+                              Margin="0,0,0,16">
+                        <StackPanel Margin="0,8,0,0">
+                            <TextBlock Text="OLLAMA" FontSize="10.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource AccentPurpleLightBrush}"
+                                       Margin="0,4,0,4"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11.5"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,0,0,10">
+                                <Run Text="1) Instalá Ollama desde ollama.com. "/>
+                                <LineBreak/>
+                                <Run Text="2) En terminal: "/>
+                                <Run FontFamily="Consolas" Text="ollama pull qwen3:32b"/>
+                                <Run Text=" (descarga ~19 GB). "/>
+                                <LineBreak/>
+                                <Run Text="3) Asegurate de que esté corriendo (default port 11434). "/>
+                                <LineBreak/>
+                                <Run Text="4) Endpoint: "/>
+                                <Run FontFamily="Consolas" Text="http://localhost:11434"/>
+                                <Run Text=". Modelo: "/>
+                                <Run FontFamily="Consolas" Text="qwen3:32b"/>
+                                <Run Text="."/>
+                            </TextBlock>
+
+                            <TextBlock Text="LM STUDIO" FontSize="10.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource AccentPurpleLightBrush}"
+                                       Margin="0,4,0,4"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11.5"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,0,0,10">
+                                <Run Text="1) Descargá LM Studio desde lmstudio.ai. "/>
+                                <LineBreak/>
+                                <Run Text="2) Tab 'Models' → buscá un qwen-family (qwen3.6-35b-a3b, qwen2.5-32b-instruct, etc.) → descargá. "/>
+                                <LineBreak/>
+                                <Run Text="3) Tab 'Local Server' → 'Load Model' → 'Start Server' (status: Running). "/>
+                                <LineBreak/>
+                                <Run Text="4) Endpoint: "/>
+                                <Run FontFamily="Consolas" Text="http://localhost:1234"/>
+                                <Run Text=" (default LM Studio). Modelo: copiá 'API Model Identifier' del panel derecho."/>
+                            </TextBlock>
+
+                            <TextBlock Text="OTRO (llama.cpp server, text-generation-webui, vllm…)"
+                                       FontSize="10.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource AccentPurpleLightBrush}"
+                                       Margin="0,4,0,4"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="11.5"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Margin="0,0,0,4">
+                                <Run Text="1) Cualquier servidor que exponga "/>
+                                <Run FontFamily="Consolas" Text="/v1/models"/>
+                                <Run Text=" y "/>
+                                <Run FontFamily="Consolas" Text="/v1/chat/completions"/>
+                                <Run Text=" (formato OpenAI) funciona. "/>
+                                <LineBreak/>
+                                <Run Text="2) Endpoint: la base URL del server (ej. "/>
+                                <Run FontFamily="Consolas" Text="http://localhost:8000"/>
+                                <Run Text="). "/>
+                                <LineBreak/>
+                                <Run Text="3) Modelo: el id que el server reporta en /v1/models. "/>
+                                <LineBreak/>
+                                <Run Text="4) Privacidad: el server debe ser 100% local — Council manda las 4 respuestas IA al moderator y el contract requiere que no salgan de la máquina."/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Expander>
 
                     <!-- Status banner: refreshed via CheckCouncilStatus_Click -->
                     <Border x:Name="CouncilStatusBanner"
@@ -446,7 +539,8 @@
                             Background="{StaticResource SurfaceDarkBrush}"
                             Padding="14,12" Margin="0,0,0,20">
                         <StackPanel>
-                            <TextBlock Text="SÍNTESIS LOCAL (qwen3:32b)"
+                            <TextBlock x:Name="CouncilStatusHeader"
+                                       Text="ESTADO DEL SERVIDOR"
                                        FontSize="10.5" FontWeight="SemiBold"
                                        Foreground="{StaticResource TextMutedBrush}"
                                        Margin="0,0,0,8"/>
@@ -454,7 +548,7 @@
                                 <TextBlock x:Name="CouncilStatusIcon" Text="?" FontSize="16"
                                            VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <TextBlock x:Name="CouncilStatusText"
-                                           Text="Comprobá con el botón de la derecha si Ollama y qwen3:32b están listos."
+                                           Text="Comprobá con el botón de abajo si el servidor y el modelo están listos."
                                            FontSize="12"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            TextWrapping="Wrap"
@@ -463,7 +557,7 @@
                             </StackPanel>
                             <Button x:Name="CheckCouncilStatusButton"
                                     Style="{StaticResource GhostButton}"
-                                    Content="Verificar Ollama"
+                                    Content="Verificar conexión"
                                     Padding="14,7" FontSize="12"
                                     HorizontalAlignment="Left"
                                     Margin="0,12,0,0"
