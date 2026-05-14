@@ -11,6 +11,74 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.45] — 2026-05-14 — Hotfix: CI build failure inherited from v2.4.43 (favicon Stream type)
+
+**v2.4.43 + v2.4.44 builds failed in CI** with `CS1061: 'Task<Stream>' does not contain a definition for 'AsTask'`, so no installer was published for either tag. v2.4.42 stayed the latest shippable release. This hotfix lands the missing favicon binary path and unblocks the Phase 4.1 chain.
+
+### Root cause
+
+`v2.4.43` introduced `BrowserTab.OnFaviconChanged`:
+```csharp
+var stream = await WebView.CoreWebView2
+    .GetFaviconAsync(CoreWebView2FaviconImageFormat.Png)
+    .AsTask()
+    .ConfigureAwait(true);
+```
+
+The local `dotnet build` succeeded because the obj/ tree had cached references from an older WebView2 SDK shape (`IAsyncOperation<IRandomAccessStream>` → required `.AsTask()`). The current bundled WebView2 SDK in the project's PackageReference returns `Task<Stream>` directly from `GetFaviconAsync(format)` — `.AsTask()` is no longer a member of `Task<>`, hence CS1061.
+
+CI runs `dotnet publish -c Release -r win-x64 --self-contained true`, which restores cleanly without obj/ caches and surfaces the type mismatch every time.
+
+### Fix
+
+```diff
+- var stream = await WebView.CoreWebView2.GetFaviconAsync(
+-     CoreWebView2FaviconImageFormat.Png).AsTask().ConfigureAwait(true);
++ using var stream = await WebView.CoreWebView2
++     .GetFaviconAsync(CoreWebView2FaviconImageFormat.Png)
++     .ConfigureAwait(true);
+
+  byte[] bytes;
+  using (var ms = new MemoryStream())
+  {
+-     using var reader = stream.AsStreamForRead();
+-     await reader.CopyToAsync(ms).ConfigureAwait(true);
++     await stream.CopyToAsync(ms).ConfigureAwait(true);
+      bytes = ms.ToArray();
+  }
+```
+
+`stream` is now a regular `Stream` (no `.AsStreamForRead()` step needed), wrapped in `using` so the WebView2-owned buffer is released when we finish copying it.
+
+### Verification
+
+Reproduced the CI build path locally:
+```bash
+dotnet publish src/VELO.App/VELO.App.csproj -c Release -r win-x64 --self-contained true
+```
+→ clean publish succeeds. Full test suite stays at 500/500.
+
+### Lesson #22 — clean publish locally before pushing WebView2-touching changes
+
+`dotnet build` uses obj/ caches that can keep older API shapes alive across SDK bumps. `dotnet publish --self-contained` does the same clean-restore that CI runs and would have caught this in 30 seconds locally.
+
+**New rule** added to memory: whenever a commit touches `CoreWebView2.*Async` calls (or any new WebView2 API surface), run `dotnet publish src/VELO.App/VELO.App.csproj -c Release -r win-x64 --self-contained true` locally before committing. This is the third time CI has caught a "build-clean-but-not-really" regression that local builds missed (lessons #16 = FQN drift, #18 = WebView2 SDK type drift via floating reference, this one = WebView2 SDK API shape change). The pattern repeats; the check needs to be part of the workflow.
+
+### State of v2.4.43 + v2.4.44 features
+
+Both code-on-main, both untested as binaries (because CI never produced an installer for them). Effectively they ship inside v2.4.45 — favicons + Phase 4.1 chunks C+D are all in this build.
+
+When installing v2.4.45 the maintainer gets:
+- **From v2.4.43**: real tab favicons (replacing the universal 🌐), 30-day SQLite cache, host-normalised lookup, preload on NavigationStarting.
+- **From v2.4.44**: `resources/scripts/council-bridge.js`, four bundled adapter JSON files, `CouncilAdaptersRegistry` + `CouncilBridgeParser`. Still inert at runtime (no entry point yet).
+- **From v2.4.45**: this hotfix.
+
+### Tests
+
+No new tests — same 500/500 as v2.4.44. The regression was caught by clean publish, not by the test suite (which doesn't exercise `dotnet publish`).
+
+---
+
 ## [2.4.44] — 2026-05-14 — Phase 4.1 chunks C + D: Council bridge JS + adapters registry (still inert)
 
 Continues Phase 4.1 from v2.4.41 (chunks A + B = DTOs + Orchestrator). This release lands the page-side bridge JS and the per-provider adapter registry that future chunks E/F/G will plug together with a real user-facing entry point. Council Mode remains 100% inert at runtime: no menu item, no command-palette entry, no hotkey, no Council UI cell — the bridge JS exists in `resources/scripts/` but is never injected; the adapter registry is constructed at startup but no caller resolves from it yet.

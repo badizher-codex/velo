@@ -412,17 +412,19 @@ public partial class BrowserTab
     {
         try
         {
-            // The CoreWebView2 method returns an IRandomAccessStream; we copy
-            // into a MemoryStream so the BitmapImage on the UI side owns no
-            // reference to the underlying buffer.
-            var stream = await WebView.CoreWebView2.GetFaviconAsync(
-                CoreWebView2FaviconImageFormat.Png).AsTask().ConfigureAwait(true);
+            // v2.4.45 — CoreWebView2.GetFaviconAsync(format) returns Task<Stream>
+            // directly in current WebView2 SDK (1.0.2592+). v2.4.43 chained
+            // .AsTask() assuming the older IAsyncOperation<IRandomAccessStream>
+            // shape; that compiled locally (cached references in the obj/
+            // tree) but failed clean-publish in CI with CS1061 — see lesson #22.
+            using var stream = await WebView.CoreWebView2
+                .GetFaviconAsync(CoreWebView2FaviconImageFormat.Png)
+                .ConfigureAwait(true);
 
             byte[] bytes;
             using (var ms = new MemoryStream())
             {
-                using var reader = stream.AsStreamForRead();
-                await reader.CopyToAsync(ms).ConfigureAwait(true);
+                await stream.CopyToAsync(ms).ConfigureAwait(true);
                 bytes = ms.ToArray();
             }
 
