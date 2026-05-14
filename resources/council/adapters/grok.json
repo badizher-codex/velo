@@ -1,0 +1,13 @@
+{
+  "name":              "grok",
+  "displayName":       "Grok (xAI)",
+  "version":           "v1-2026-05-14",
+  "homeUrl":           "https://grok.com/",
+  "composer":          "textarea[aria-label*='Ask'], textarea[placeholder*='Ask'], textarea",
+  "sendButton":        "button[aria-label*='Submit'], button[type='submit']",
+  "responseContainer": "div.message-bubble[data-role='assistant'], article[data-role='assistant']",
+  "codeBlock":         "pre code, pre",
+  "table":             "table",
+  "citation":          "a[href][target='_blank']",
+  "notes":             "Grok shipped grok.com in 2024 and still iterates the DOM aggressively. The composer falls back to a bare 'textarea' as last resort because aria/placeholder labels have drifted between releases. Response container selectors are also drift-prone; if these stop working, inspect a fresh page and update version + selectors here."
+}

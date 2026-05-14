@@ -153,6 +153,12 @@ public static class DependencyConfig
         // AI services. Replaces the WireAgentChat path that piled every classifier
         // call onto AgentLauncher's shared "__ai__" history bucket.
         services.AddSingleton<VELO.Core.AI.DirectChatAdapter>();
+
+        // Phase 4.1 chunk D (v2.4.44) — Council adapters registry. Loads the four
+        // bundled per-provider JSON selector files on construction; resolved by
+        // the per-panel BrowserTab once Phase 4.1 chunk E lands the injection.
+        services.AddSingleton<VELO.Core.Council.CouncilAdaptersRegistry>();
+        services.AddSingleton<VELO.Core.Council.CouncilOrchestrator>();
         // v2.4.25 — IANA RDAP probe for domain-age PhishingShield signal.
         // Disabled by default (privacy). MainWindow flips Enabled based on
         // the user setting at startup and after Save in SettingsWindow.

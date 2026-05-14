@@ -1,0 +1,13 @@
+{
+  "name":              "chatgpt",
+  "displayName":       "ChatGPT (OpenAI)",
+  "version":           "v1-2026-05-14",
+  "homeUrl":           "https://chat.openai.com/",
+  "composer":          "div[contenteditable='true']#prompt-textarea, textarea#prompt-textarea",
+  "sendButton":        "button[data-testid='send-button'], button[aria-label='Send prompt'], form button[type='submit']",
+  "responseContainer": "div[data-message-author-role='assistant'] div.markdown",
+  "codeBlock":         "pre code, pre",
+  "table":             "table",
+  "citation":          "a[href][rel*='noopener']",
+  "notes":             "OpenAI A/B-tests between a textarea#prompt-textarea and a contenteditable div with the same id, so both shapes are listed in composer. Send button has had multiple labels over the past year (data-testid is the most stable). Response container is gated by data-message-author-role='assistant'; .markdown scopes inside that to the rendered output (excluding code-copy buttons and other chrome)."
+}

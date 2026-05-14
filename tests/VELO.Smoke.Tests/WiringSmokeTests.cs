@@ -340,7 +340,80 @@ public class WiringSmokeTests
         {
             "EntryAdded",
         },
+
+        // Phase 4.1 chunks A+B (v2.4.41) — Council orchestrator events.
+        // Council Mode is a singleton-per-process surface: ONE session
+        // active at a time, every UI subscriber (transcript renderer,
+        // capture-count badge, synthesis status bar) wants every event.
+        // Broadcast is intentional and aligns with the orchestrator's
+        // single-session contract. SynthesisReady is a strict subset of
+        // MessageAppended (fires after each appended moderator message)
+        // so subscribers that only care about synthesis can scope
+        // themselves to it instead of filtering MessageAppended.
+        ["CouncilOrchestrator"] = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "CaptureReceived",
+            "MessageAppended",
+            "SynthesisReady",
+        },
     };
+
+    // ── Phase 4.1 chunk C/D (v2.4.44) — council bridge + adapters ────────
+
+    [Fact]
+    public void CouncilBridge_script_exists_with_expectedApiSurface()
+    {
+        // The bridge defines a tiny stable API on window.__veloCouncil. Pin
+        // the method names + outbound message types so a refactor that
+        // renames "captureText" → "grabReply" or drops "council/replyDetected"
+        // gets caught here instead of after a release breaks Council Mode.
+        var repoRoot = LocateRepoRoot();
+        var script   = Path.Combine(repoRoot, "resources", "scripts", "council-bridge.js");
+        Assert.True(File.Exists(script), $"Council bridge script missing at {script}");
+
+        var contents = File.ReadAllText(script);
+
+        // Public API exposed on window.__veloCouncil:
+        Assert.Contains("__veloCouncil",   contents);
+        Assert.Contains("setAdapter",      contents);
+        Assert.Contains("paste",           contents);
+        Assert.Contains("send",            contents);
+        Assert.Contains("captureText",     contents);
+        Assert.Contains("captureCode",     contents);
+        Assert.Contains("captureTable",    contents);
+        Assert.Contains("captureCitation", contents);
+
+        // Outbound message types the C# parser branches on:
+        Assert.Contains("council/capture",       contents);
+        Assert.Contains("council/replyDetected", contents);
+        Assert.Contains("council/error",         contents);
+    }
+
+    [Fact]
+    public void CouncilAdapters_bundledJsonFiles_existWithRequiredFields()
+    {
+        // The four adapter JSON files are what makes the bridge generic
+        // (selectors live there, not in the JS). If a file disappears or
+        // loses a required field, CouncilAdaptersRegistry refuses to load
+        // it and that provider becomes silently unavailable. Lock the
+        // shape here so a missing field is caught in CI.
+        var repoRoot   = LocateRepoRoot();
+        var folder     = Path.Combine(repoRoot, "resources", "council", "adapters");
+        var fileNames  = new[] { "claude.json", "chatgpt.json", "grok.json", "local.json" };
+        var required   = new[] { "name", "composer", "sendButton", "responseContainer" };
+
+        foreach (var fileName in fileNames)
+        {
+            var path = Path.Combine(folder, fileName);
+            Assert.True(File.Exists(path), $"Council adapter missing: {path}");
+
+            var json = File.ReadAllText(path);
+            foreach (var field in required)
+            {
+                Assert.Contains($"\"{field}\"", json);
+            }
+        }
+    }
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -355,5 +428,20 @@ public class WiringSmokeTests
         }
         throw new DirectoryNotFoundException(
             "Could not locate src/ — searched up from " + AppContext.BaseDirectory);
+    }
+
+    private static string LocateRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            // Repo root = first ancestor containing BOTH src/ and resources/.
+            if (Directory.Exists(Path.Combine(dir.FullName, "src")) &&
+                Directory.Exists(Path.Combine(dir.FullName, "resources")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        throw new DirectoryNotFoundException(
+            "Could not locate repo root (src/ + resources/) — searched up from " + AppContext.BaseDirectory);
     }
 }

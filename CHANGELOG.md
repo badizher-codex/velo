@@ -11,6 +11,57 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.44] — 2026-05-14 — Phase 4.1 chunks C + D: Council bridge JS + adapters registry (still inert)
+
+Continues Phase 4.1 from v2.4.41 (chunks A + B = DTOs + Orchestrator). This release lands the page-side bridge JS and the per-provider adapter registry that future chunks E/F/G will plug together with a real user-facing entry point. Council Mode remains 100% inert at runtime: no menu item, no command-palette entry, no hotkey, no Council UI cell — the bridge JS exists in `resources/scripts/` but is never injected; the adapter registry is constructed at startup but no caller resolves from it yet.
+
+### Added — chunk C: bridge JS + WebMessage protocol
+
+- **`resources/scripts/council-bridge.js`** — page-side imperative API on `window.__veloCouncil`. Adapter-driven: this script does not hard-code any provider's selectors. The host calls `__veloCouncil.setAdapter(json)` after the panel loads, passing the per-provider JSON loaded by the registry (chunk D). Provider-specific quirks (Claude's ProseMirror contenteditable vs ChatGPT's textarea, multiple send-button candidates, drift-prone response containers) live in those JSON files.
+  - Public surface: `setAdapter(json)`, `paste(text)`, `send()`, `captureText()`, `captureCode()`, `captureTable()`, `captureCitation()`.
+  - Outbound `chrome.webview.postMessage` shapes: `council/capture`, `council/replyDetected`, `council/error`.
+  - MutationObserver wired by `setAdapter` posts `council/replyDetected` after 1.5 s of silence on the latest assistant bubble — signal for "stream complete, the panel's reply is ready for synthesis".
+  - One injection per document (guarded by `window.__veloCouncilInstalled`). Side-effect-free at load time until `setAdapter` runs.
+  - Fail-soft at every method: errors are swallowed, defaults returned. Council UX never crashes a webview.
+
+- **`VELO.Core.Council.CouncilBridgeMessage`** (record hierarchy) + **`CouncilBridgeParser`** — typed conversion from the JS payloads to records the orchestrator can route. Three concrete records: `CouncilCaptureMessage` (with `CouncilCaptureType` enum), `CouncilReplyDetectedMessage`, `CouncilBridgeErrorMessage`. The parser is fast-fail (returns null for any payload that doesn't start with `council/`) so the host's existing `WebMessageReceived` switch can pass non-Council payloads to autofill / paste-guard / glance-hover branches unchanged.
+
+### Added — chunk D: adapter JSON registry
+
+- **`resources/council/adapters/{claude,chatgpt,grok,local}.json`** — four bundled selector packs, hand-curated 2026-05-14, version-stamped (`v1-2026-05-14`). Each adapter declares: composer (input element), send button (comma-separated fallback list), response container, optional code-block / table / citation selectors, maintainer notes. The `local` adapter targets the in-process moderator panel Phase 4.1 chunk F will render — not a remote site.
+- **`VELO.Core.Council.CouncilAdapter`** — strongly-typed model mirroring the JSON shape (camelCase via `JsonPropertyName`). `IsValid` predicate gates loading: an adapter without `composer`, `sendButton`, AND `responseContainer` is silently dropped (registry logs warning; provider becomes "unavailable" rather than half-broken).
+- **`CouncilAdaptersRegistry`** — singleton loaded from `AppContext.BaseDirectory/resources/council/adapters/` (or a test-override folder). `TryGet(provider)` returns the adapter or null. `GetAdapterJson(provider)` serialises back to JSON so the host can hand it to `__veloCouncil.setAdapter(json)` via `ExecuteScriptAsync`. Fail-soft: missing files / malformed JSON / invalid schema log a warning but don't crash startup; other providers stay available.
+- **DI registration**: `CouncilAdaptersRegistry` + `CouncilOrchestrator` registered as singletons in `DependencyConfig.cs`.
+
+### Build / packaging
+
+- Five new `<Content Include>` entries in `VELO.App.csproj` with `CopyToOutputDirectory=PreserveNewest`: the bridge JS + the four adapter JSON files. Lands them under the install root next to the existing bundled scripts (`fingerprint-noise.js`, `paste-guard.js`, etc).
+
+### Tests
+
+- **CouncilBridgeParserTests** — 13 facts/theory cases: empty input, non-object JSON, missing/wrong-prefix `type`, malformed JSON, capture-type decode (Text/Code/Table/Citation case-insensitive), unknown capture type rejected, replyDetected + error payloads, unknown council/* subtypes return null.
+- **CouncilAdaptersRegistryTests** — 9 tests: all-four happy path, `TryGet` field shape, JSON round-trip, partial files (some missing → others still load), malformed JSON skip, invalid-schema skip, nonexistent folder = empty, **bundled-adapters smoke** (walks up from `AppContext.BaseDirectory` to find the repo's `resources/council/adapters/` and asserts the four real files load).
+- **Smoke tests** (`tests/VELO.Smoke.Tests/WiringSmokeTests.cs`) +2:
+  - `CouncilBridge_script_exists_with_expectedApiSurface` — file exists, contains every public API method name (`setAdapter`, `paste`, `send`, `captureText`, etc) and every outbound message type the C# parser branches on. Catches refactors that rename JS methods without updating the C# side.
+  - `CouncilAdapters_bundledJsonFiles_existWithRequiredFields` — locks the bundled JSON file presence + required fields (name, composer, sendButton, responseContainer). Catches a file accidentally deleted or a required field renamed.
+- **Snapshot update in WiringSmokeTests test #3** — `CouncilOrchestrator` added to `_expectedSingletonEvents` with all three events (`CaptureReceived`, `MessageAppended`, `SynthesisReady`). Justification documented inline: orchestrator is per-session (singleton process-wide); every UI subscriber (transcript, badge, synthesis status) wants every event — broadcast is intentional. Caught by the test as a deliberate-confirmation gate; this commit records the approval.
+- VELO.Core.Tests: 185 → **209** (+24).
+- VELO.Smoke.Tests: 5 → **7** (+2).
+- Full suite: 474 → **500**. All green.
+
+### Phase 4.1 progress
+
+- ✅ Chunk A (DTOs) — v2.4.41
+- ✅ Chunk B (orchestrator) — v2.4.41
+- ✅ **Chunk C (bridge JS + parser) — this release**
+- ✅ **Chunk D (adapters JSON + registry) — this release**
+- ⏳ Chunk E (BrowserTab integration: inject bridge, wire WebMessageReceived → orchestrator) — next
+- ⏳ Chunk F (Council Bar UI + per-panel mini-toolbar)
+- ⏳ Chunk G (enable provider toggles + activation flow) — first chunk that exits inert mode
+- ⏳ Chunk H (smoke + release v2.5.0)
+
+---
+
 ## [2.4.43] — 2026-05-14 — Tab favicons (real site icons, not the 🌐 placeholder)
 
 Maintainer spotted that every tab in the sidebar showed the same 🌐 globe icon regardless of site. Diagnosis confirmed it as legacy debt rather than a bug: `TabInfo.FaviconData byte[]?` existed since Phase 1 (declared) but was never populated and never bound in `TabSidebar.xaml`. The XAML hard-coded `Value="🌐"` as a Setter with no path to a real bitmap. **Fourth instance** of the wiring-without-callsite anti-pattern that lessons #8, #11 and #15 already track — DI registered / property declared / event raised, but nobody wired the consumer.

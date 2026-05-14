@@ -1,0 +1,13 @@
+{
+  "name":              "claude",
+  "displayName":       "Claude (Anthropic)",
+  "version":           "v1-2026-05-14",
+  "homeUrl":           "https://claude.ai/new",
+  "composer":          "div[contenteditable='true'].ProseMirror",
+  "sendButton":        "button[aria-label='Send Message'], button[aria-label='Send message'], button[type='submit']",
+  "responseContainer": "div[data-test-render-count] div.font-claude-message",
+  "codeBlock":         "pre code, pre",
+  "table":             "table",
+  "citation":          "a[href][target='_blank']",
+  "notes":             "Composer is a ProseMirror contenteditable, not a textarea. Send button label flips between 'Send Message' and 'Send message' across A/B tests so both spellings are listed. Response container is keyed on data-test-render-count which Claude uses to dedupe streaming chunks; .font-claude-message scopes inside that to the assistant's own bubble (filtering out the human bubble that shares the parent)."
+}

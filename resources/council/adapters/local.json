@@ -1,0 +1,13 @@
+{
+  "name":              "local",
+  "displayName":       "Local model (Ollama / LM Studio / OpenAI-compat)",
+  "version":           "v1-2026-05-14",
+  "homeUrl":           "about:blank",
+  "composer":          "#velo-council-local-composer",
+  "sendButton":        "#velo-council-local-send",
+  "responseContainer": "#velo-council-local-output .reply",
+  "codeBlock":         "pre code, pre",
+  "table":             "table",
+  "citation":          "a[href]",
+  "notes":             "The 'Local' panel does not host a real web page — Phase 4.1 chunk F will fill its panel cell with a minimal native chat surface rendered by VELO (composer + reply area) wrapped inside an about:blank webview so the same bridge can drive it. Selectors here match the IDs that surface will use. Outbound prompts go through the moderator ChatDelegate (DirectChatAdapter from v2.4.42), NOT to a remote page."
+}
