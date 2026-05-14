@@ -11,6 +11,37 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.39] — 2026-05-13 — Hotfix: Council preflight reuses Custom AI endpoint by mistake
+
+First post-Phase-4.0 hotfix. The Settings → 🤝 Council panel landed in v2.4.38 with two issues maintainer testing surfaced:
+
+1. **Bug** — `CouncilPreflightService` read the Ollama endpoint from `SettingKeys.AiCustomEndpoint` (the Custom AI Mode setting). Users with Custom AI Mode pointing at LM Studio (`http://localhost:1234`) or any non-Ollama OpenAI-compatible server saw the Council preflight probe that endpoint, fail, and report "No se pudo conectar a Ollama en http://127.0.0.1:1234. ¿Está corriendo?" — confusing, because the user *does* have Ollama running on its canonical port `11434`.
+2. **UX (working as designed, clarified)** — the four provider toggles (Claude / ChatGPT / Grok / Ollama) are disabled by Phase 4.0 design. They become active in v2.5.0 once Phase 4.1 (bridge + capture) ships. The label "PROVEEDORES (activables en v2.5.x)" was on-screen but the disabled state read as a bug.
+
+### Fixed
+
+- **Council Ollama endpoint** now lives in its own `SettingKeys.CouncilOllamaEndpoint` setting, independent from `SettingKeys.AiCustomEndpoint`. Default: `http://localhost:11434`. Custom AI Mode keeps pointing wherever the user configured it; Council always probes its own endpoint.
+- **`CouncilPreflightService.DefaultOllamaEndpoint`** promoted from `private` to `public` so the UI can pre-populate the new endpoint field with the same canonical default.
+
+### Added
+
+- **Council Ollama endpoint TextBox** in Settings → 🤝 Council, above the status banner. Lets the user redirect Council at a remote Ollama (e.g. `http://192.168.1.50:11434`) or a non-default port without leaving the Settings dialog. Help text under the box clarifies: *"Council usa su propio endpoint. Independiente de Custom AI Mode (que podés tener apuntando a LM Studio u otro servidor)."*
+- **Persistence**: the endpoint is saved (a) when the user clicks "Verificar Ollama" — so the probe always uses the latest typed value — and (b) when the Settings dialog is saved via the bottom bar.
+
+### Notes about the disabled toggles (not a bug)
+
+The four "Proveedores" checkboxes (Claude / ChatGPT / Grok / Ollama) remain `IsEnabled="False"` in v2.4.39. This is intentional: Phase 4.0 ships only the UI shell + foundation services (containers, fingerprint policy, preflight, disclaimer). The toggles become active in **v2.5.0** when Phase 4.1 (the bridge JS + WebMessage protocol + paste/send/capture flows) lands. Until then, Council Mode is not openable from the command palette or any menu — the Settings panel is preview-only.
+
+### Tests
+
+- **2 new** regression tests under `tests/VELO.Core.Tests/CouncilPreflightServiceTests.cs`:
+  - `DefaultEndpoint_isOllamaCanonical11434_NotLmStudio1234` — pins the default port at 11434 and verifies the probe hits it.
+  - `CustomEndpoint_fromCouncilSpecificSetting_overridesDefault` — sets both `CouncilOllamaEndpoint` and `AiCustomEndpoint` to different hosts; asserts the probe uses the Council one and ignores the Custom AI one.
+- VELO.Core.Tests: 96 → **98** (+2).
+- Full suite: 385 → **387**. All green.
+
+---
+
 ## [2.4.38] — 2026-05-13 — Phase 4.0 (Council Mode foundation, invisible to users)
 
 Phase 4 (Council Mode) starts. This release lands the **complete Phase 4.0 foundation** — eight chunks of infrastructure that Council UI will sit on top of. No user-facing entry point yet: there is no command palette entry, no keyboard shortcut, no menu item to open Council Mode. The Settings → Council panel is shipped as a visible UI shell with the four provider toggles **disabled** until v2.5.x.

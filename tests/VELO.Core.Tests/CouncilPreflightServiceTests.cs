@@ -148,4 +148,62 @@ public class CouncilPreflightServiceTests
         Assert.True(result.ModelPresent);
         Assert.Null(result.ContextSize);
     }
+
+    [Fact]
+    public async Task DefaultEndpoint_isOllamaCanonical11434_NotLmStudio1234()
+    {
+        // v2.4.39 regression test — Council must default to Ollama's canonical port,
+        // not piggyback on AiCustomEndpoint (which the user may have legitimately
+        // configured for LM Studio on 1234 or another OpenAI-compatible server).
+        string? hitUrl = null;
+        var (svc, _) = BuildSvc(req =>
+        {
+            hitUrl = req.RequestUri!.ToString();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"models":[]}""", Encoding.UTF8, "application/json"),
+            };
+        });
+
+        await svc.CheckAsync();
+
+        Assert.NotNull(hitUrl);
+        Assert.Contains("localhost:11434", hitUrl, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(":1234/", hitUrl);
+    }
+
+    [Fact]
+    public async Task CustomEndpoint_fromCouncilSpecificSetting_overridesDefault()
+    {
+        // Ensure the service reads SettingKeys.CouncilOllamaEndpoint (not AiCustomEndpoint).
+        // Use a real SettingsRepository because the service goes through it.
+        string? hitUrl = null;
+        var handler = new FakeHandler
+        {
+            Respond = req =>
+            {
+                hitUrl = req.RequestUri!.ToString();
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"models":[]}""", Encoding.UTF8, "application/json"),
+                };
+            },
+        };
+        var tempFolder = Path.Combine(Path.GetTempPath(), "velo-test-" + Guid.NewGuid().ToString("N"));
+        var db = new VeloDatabase(NullLogger<VeloDatabase>.Instance, tempFolder);
+        await db.InitializeAsync();
+        var settings = new SettingsRepository(db);
+        await settings.SetAsync(SettingKeys.CouncilOllamaEndpoint, "http://192.168.1.50:11434");
+        // Set AiCustomEndpoint to something different — must NOT be used.
+        await settings.SetAsync(SettingKeys.AiCustomEndpoint, "http://localhost:1234");
+
+        var svc = new CouncilPreflightService(settings, logger: null,
+            httpFactory: () => new HttpClient(handler));
+
+        await svc.CheckAsync();
+
+        Assert.NotNull(hitUrl);
+        Assert.Contains("192.168.1.50:11434", hitUrl, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("1234", hitUrl);
+    }
 }

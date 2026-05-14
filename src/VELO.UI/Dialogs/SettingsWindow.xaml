@@ -425,6 +425,21 @@
                                Foreground="{StaticResource TextSecondaryBrush}"
                                Margin="0,0,0,22"/>
 
+                    <!-- Ollama endpoint — separate from Custom AI Mode (Council always needs Ollama on 11434 default) -->
+                    <TextBlock Text="OLLAMA ENDPOINT (síntesis local)"
+                               FontSize="10.5" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               Margin="0,0,0,6"/>
+                    <TextBox x:Name="CouncilOllamaEndpointBox"
+                             Style="{StaticResource ModernTextBox}"
+                             Tag="http://localhost:11434"
+                             Margin="0,0,0,4"/>
+                    <TextBlock Text="Council usa su propio endpoint. Independiente de Custom AI Mode (que podés tener apuntando a LM Studio u otro servidor)."
+                               FontSize="11"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,18"/>
+
                     <!-- Status banner: refreshed via CheckCouncilStatus_Click -->
                     <Border x:Name="CouncilStatusBanner"
                             Style="{StaticResource Card}"

@@ -61,4 +61,9 @@ public static class SettingKeys
     public const string CouncilEnabledChatGpt     = "council.enabled.chatgpt";
     public const string CouncilEnabledGrok        = "council.enabled.grok";
     public const string CouncilEnabledOllama      = "council.enabled.ollama";
+    /// <summary>v2.4.39 — Council-specific Ollama endpoint for the qwen3:32b synthesis model.
+    /// Independent from <see cref="AiCustomEndpoint"/> (Custom AI Mode) — Council always needs
+    /// Ollama on its canonical 11434 port even when the user has Custom AI Mode pointing at
+    /// LM Studio (1234) or another OpenAI-compatible local server. Default: http://localhost:11434.</summary>
+    public const string CouncilOllamaEndpoint     = "council.ollama_endpoint";
 }

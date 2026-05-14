@@ -312,6 +312,13 @@ public partial class SettingsWindow : Window
             await _settings.SetAsync(SettingKeys.AiClaudeModel, CustomModelField.Text.Trim());
         }
 
+        // v2.4.39 — Council Ollama endpoint (independent from AI Custom endpoint).
+        // Persisted unconditionally so it survives even if the user is on Offline AI Mode.
+        var councilEndpoint = CouncilOllamaEndpointBox.Text.Trim();
+        if (councilEndpoint.Length == 0)
+            councilEndpoint = VELO.Core.AI.CouncilPreflightService.DefaultOllamaEndpoint;
+        await _settings.SetAsync(SettingKeys.CouncilOllamaEndpoint, councilEndpoint);
+
         // v2.4.18 — Sprint 9B: BookmarkAI auto-tag
         await _settings.SetBoolAsync(SettingKeys.BookmarkAutoTag, BookmarkAutoTagCheck.IsChecked == true);
 
@@ -552,6 +559,10 @@ public partial class SettingsWindow : Window
 
     private async Task LoadCouncilStateAsync()
     {
+        CouncilOllamaEndpointBox.Text = await _settings.GetAsync(
+            SettingKeys.CouncilOllamaEndpoint,
+            VELO.Core.AI.CouncilPreflightService.DefaultOllamaEndpoint);
+
         CouncilEnabledClaudeCheck.IsChecked  = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledClaude);
         CouncilEnabledChatGptCheck.IsChecked = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledChatGpt);
         CouncilEnabledGrokCheck.IsChecked    = await GetCouncilBoolAsync(SettingKeys.CouncilEnabledGrok);
@@ -574,6 +585,13 @@ public partial class SettingsWindow : Window
 
         try
         {
+            // Persist the current textbox value first so the preflight reads
+            // the freshly-typed endpoint, not whatever was loaded at panel open.
+            var endpoint = CouncilOllamaEndpointBox.Text.Trim();
+            if (endpoint.Length == 0)
+                endpoint = VELO.Core.AI.CouncilPreflightService.DefaultOllamaEndpoint;
+            await _settings.SetAsync(SettingKeys.CouncilOllamaEndpoint, endpoint);
+
             // CouncilPreflightService construction is cheap — local HttpClient,
             // reads endpoint from Settings each call. Constructed on demand so
             // we don't drag the dependency into SettingsWindow's ctor.

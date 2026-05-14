@@ -43,7 +43,7 @@ public sealed class CouncilPreflightService
     public const int MinimumContextSize = 16_384;
 
     /// <summary>Defaults to <c>http://localhost:11434</c> when the user hasn't customised it.</summary>
-    private const string DefaultOllamaEndpoint = "http://localhost:11434";
+    public const string DefaultOllamaEndpoint = "http://localhost:11434";
 
     /// <summary>Network timeout — Ollama responses are local and should be sub-second.</summary>
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(4);
@@ -83,7 +83,10 @@ public sealed class CouncilPreflightService
 
     /// <summary>
     /// Runs the probe. Order:
-    ///   1. Read the Ollama endpoint from Settings (SettingKeys.AiCustomEndpoint).
+    ///   1. Read the Ollama endpoint from Settings (<see cref="SettingKeys.CouncilOllamaEndpoint"/>),
+    ///      defaulting to <see cref="DefaultOllamaEndpoint"/>. Council uses its own setting
+    ///      because Custom AI Mode (<c>SettingKeys.AiCustomEndpoint</c>) may legitimately point
+    ///      at LM Studio or another non-Ollama OpenAI-compatible server.
     ///   2. GET /api/tags → if it fails or returns non-200, report
     ///      <c>EndpointReachable=false</c> and stop.
     ///   3. Look for <see cref="RequiredModel"/> in the tags response.
@@ -96,7 +99,7 @@ public sealed class CouncilPreflightService
     public async Task<Result> CheckAsync(CancellationToken ct = default)
     {
         var endpoint = (await _settings.GetAsync(
-                            SettingKeys.AiCustomEndpoint, DefaultOllamaEndpoint))
+                            SettingKeys.CouncilOllamaEndpoint, DefaultOllamaEndpoint))
                        .TrimEnd('/');
 
         using var http = _httpFactory();
