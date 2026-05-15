@@ -11,6 +11,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.51] — 2026-05-14 — Phase 5 micro-items: Security Inspector shortcut + Workspace pill colour
+
+Two backlog micro-items from the Phase 5 review (memory `MEMORY.md` quick reference) that were sweepable in any micro-release. Picked up while the maintainer was verifying v2.4.48 + v2.4.49 + v2.4.50 in runtime.
+
+### Fixed — Security Inspector menu shortcut label (lesson #17)
+
+`MainWindow.xaml.cs:1318`. The menu dropdown showed `🔍 Security Inspector  Ctrl+Shift+V` but the shortcut was migrated to `Ctrl+Shift+I` back in v2.4.28 (it collided with the clipboard-history binding introduced in v2.4.23 → lesson #17 documented the C# `switch` with `when` clauses hiding the dup). The label had been stale for ~7 releases. One-line text update.
+
+### Fixed — Workspace pill "Principal" colour drifted from Phase 5 palette
+
+The default workspace's `Color` was seeded as `#00E5FF` (cyan) back in Phase 2 / Sprint 6 when the accent colour throughout VELO was cyan. Phase 5 (v2.4.32 → v2.4.37) migrated every other surface to the purple palette (`AccentPurple` / `AccentPurpleLight`) but the seeded workspace colour was a DB value that escaped the migration. Result: every new install OR every user who started before Phase 5 kept seeing the cyan "Principal" pill at the top of the sidebar — out-of-place after Phase 5 closed.
+
+Fix in `VeloDatabase.SeedDefaultWorkspaceAsync`:
+
+1. **Seed default updated** — new installs get `Color = "#FF8A6BFF"` (AccentPurpleLight) instead of `#00E5FF`.
+2. **Migration for existing users** — `UPDATE workspaces SET Color = '#FF8A6BFF' WHERE Id = 'default' AND Color = '#00E5FF' AND Name = 'Principal'`. The three-way match (id + colour + name) guarantees we only update workspaces that **still hold the exact original seed values** — anybody who renamed their workspace OR picked a different colour keeps their choice. ALTER-style migration with try/catch around the EXECUTE so first-installs (where the table doesn't exist yet) don't crash on startup.
+
+### Tests
+
+No new tests — both changes are surgical (label string + SQL migration). Smoke tests (XamlResourceTests + WiringSmokeTests) auto-cover the unchanged surfaces.
+
+- Full suite: 536 (unchanged).
+
+### Drag-back — implementation roadmap fleshed out
+
+`memory/feature_tearoff_drag_back.md` now has a 5-step detailed implementation plan with code snippets for when post-v2.5.0 work picks this up. Reviewed risks: DPI mismatch on multi-monitor, OLE cross-process record marshalling, race when target window closes mid-drag. Estimated 1 day implementation + 1 day manual verification on dual-monitor setup. **Not in v2.4.51** because cross-window drag-drop testing needs the maintainer's runtime environment, not just `dotnet test`.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Clean publish OK before commit.
+
+---
+
 ## [2.4.50] — 2026-05-14 — Favicons everywhere + NewTab search pill modernisation
 
 Maintainer feedback after seeing the v2.4.49 favicons working in the tab list: extend the same treatment to (1) the **collapsed sidebar** (where the letter initials looked dated next to the real icons in the expanded view), (2) the **NewTab top-sites tiles** (the letter circles felt jarring against the rest of the v2.4.43 favicon-enabled UI), and (3) the **NewTab search bar** (untouched since Phase 5.2, started to look out-of-place beside the polished URL bar and Council Bar).

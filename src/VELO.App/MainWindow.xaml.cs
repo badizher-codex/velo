@@ -1315,7 +1315,10 @@ public partial class MainWindow : Window
         var itemImport = new MenuItem { Header = loc.T("menu.import") };
         itemImport.Click += async (_, _) => await RunImportWizardAsync();
 
-        var itemInspector = new MenuItem { Header = "🔍 Security Inspector  Ctrl+Shift+V" };
+        // v2.4.51 — shortcut migrated to Ctrl+Shift+I in v2.4.28 (lección #17:
+        // colisión con clipboard history que también lleva Ctrl+Shift+V).
+        // El label del menu dropdown había quedado stale.
+        var itemInspector = new MenuItem { Header = "🔍 Security Inspector  Ctrl+Shift+I" };
         itemInspector.Click += (_, _) => OpenSecurityInspector();
 
         var itemAbout = new MenuItem { Header = loc.T("menu.about") };

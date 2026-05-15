@@ -105,6 +105,20 @@ public class VeloDatabase : IDisposable
 
     private async Task SeedDefaultWorkspaceAsync()
     {
+        // v2.4.51 — migration for users created pre-Phase-5: if the default
+        // workspace still has the original cyan colour and nobody has renamed
+        // it, swap to AccentPurpleLight so it stops clashing with the v2.4.32+
+        // purple palette. Tested condition is intentionally strict ("default"
+        // id + "#00E5FF" colour + "Principal" name) so a user who customised
+        // the colour OR renamed the workspace keeps their choice.
+        try
+        {
+            await _db.ExecuteAsync(
+                "UPDATE workspaces SET Color = '#FF8A6BFF' " +
+                "WHERE Id = 'default' AND Color = '#00E5FF' AND Name = 'Principal'");
+        }
+        catch { /* table may not exist yet on first install — handled below */ }
+
         // Only seed when table is brand-new (no rows yet)
         var count = await _db.Table<WorkspaceEntry>().CountAsync();
         if (count > 0) return;
@@ -113,7 +127,8 @@ public class VeloDatabase : IDisposable
         {
             Id        = "default",
             Name      = "Principal",
-            Color     = "#00E5FF",
+            // v2.4.51 — AccentPurpleLight (matches Phase 5 palette).
+            Color     = "#FF8A6BFF",
             SortOrder = 0,
         });
     }
