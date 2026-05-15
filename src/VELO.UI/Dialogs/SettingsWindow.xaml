@@ -299,6 +299,18 @@
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
+
+                    <!-- v2.4.53 — YouTube ad-block opt-out. Default ON. Toggle off
+                         to support a specific creator (or when YouTube experimentation
+                         breaks our selectors and the user wants ads back temporarily). -->
+                    <CheckBox x:Name="YouTubeAdBlockCheck" Margin="0,12,0,4">
+                        <StackPanel>
+                            <TextBlock Text="Bloquear anuncios en YouTube" FontWeight="SemiBold"/>
+                            <TextBlock Text="Salta pre-roll + mid-roll + overlay + cards patrocinadas en home/sidebar/search. Neutraliza el modal 'los bloqueadores no están permitidos'. El cambio aplica a pestañas nuevas — refrescá tabs YouTube ya abiertos para que tome efecto."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
 
                 <!-- ── BÚSQUEDA ── -->

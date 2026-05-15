@@ -372,6 +372,8 @@ public partial class MainWindow : Window
         // Fire-and-forget; the probe stays Enabled=false until this lands,
         // so worst case the user gets a few seconds without the signal.
         _ = ApplyDomainAgeSettingAtStartupAsync();
+        // v2.4.53 — same pattern for the YouTube ad-block opt-out flag.
+        _ = _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>().RefreshAsync();
 
         // Initialize WebView2 environment with zero-telemetry flags
         var options = new CoreWebView2EnvironmentOptions
@@ -1280,9 +1282,11 @@ public partial class MainWindow : Window
             var s = _services.GetRequiredService<SettingsRepository>();
             var v = _services.GetRequiredService<VaultService>();
             var settingsWin = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
-            settingsWin.DomainAgeCheckChanged += OnDomainAgeCheckChanged;
+            settingsWin.DomainAgeCheckChanged  += OnDomainAgeCheckChanged;
+            settingsWin.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
             settingsWin.ShowDialog();
-            settingsWin.DomainAgeCheckChanged -= OnDomainAgeCheckChanged;
+            settingsWin.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
+            settingsWin.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
             var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
             await bootstrapper.ConfigureAIAdapterAsync();
             await bootstrapper.ConfigureAgentAdaptersAsync();
@@ -2018,6 +2022,27 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Log.Warning(ex, "Failed to toggle DomainAgeProbe.Enabled");
+        }
+    }
+
+    // ── YouTube ad-block (v2.4.53) ───────────────────────────────────────
+
+    /// <summary>v2.4.53 — Settings dialog toggled the YouTube ad-block flag.
+    /// Refresh the cached state in the singleton service so new tabs reflect
+    /// the change immediately. Existing YouTube tabs need a manual refresh
+    /// because AddScriptToExecuteOnDocumentCreatedAsync only fires once per
+    /// webview lifetime.</summary>
+    private async void OnYouTubeAdBlockChanged(object? sender, bool enabled)
+    {
+        try
+        {
+            var svc = _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>();
+            await svc.SetEnabledAsync(enabled);
+            Log.Information("YouTubeAdBlocker.IsEnabled toggled to {Enabled} via Settings", enabled);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to toggle YouTubeAdBlocker.IsEnabled");
         }
     }
 

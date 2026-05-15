@@ -390,6 +390,38 @@ public class WiringSmokeTests
     }
 
     [Fact]
+    public void YouTubeAdBlock_script_exists_withExpectedSelectors()
+    {
+        // v2.4.53 — pin the YouTube ad-block script's existence + key
+        // selector tokens so a refactor that drops the file (or removes a
+        // canonical YouTube selector) trips at test time. We don't validate
+        // every selector exhaustively — that's a moving target as YouTube
+        // changes their DOM — just the load-bearing class names + the
+        // anti-adblock element name.
+        var repoRoot = LocateRepoRoot();
+        var script   = Path.Combine(repoRoot, "resources", "scripts", "youtube-adblock.js");
+        Assert.True(File.Exists(script), $"YouTube ad-block script missing at {script}");
+
+        var contents = File.ReadAllText(script);
+
+        // Host gate (no-ops on non-YouTube). Match on the regex-escaped form
+        // the script uses inside the IIFE guard — literal "youtube" + "youtu"
+        // are enough, the script escapes the period for regex matching.
+        Assert.Contains("youtube",               contents);
+        Assert.Contains("youtu",                 contents);
+
+        // Player + skip selectors — these are the core load-bearing names.
+        Assert.Contains("ad-showing",            contents);
+        Assert.Contains("ytp-ad-skip-button",    contents);
+
+        // Anti-adblock modal element (YouTube's "ad blockers not allowed").
+        Assert.Contains("ytd-enforcement-message-view-model", contents);
+
+        // The script must wire the auto-pause defence.
+        Assert.Contains("addEventListener('pause'", contents);
+    }
+
+    [Fact]
     public void CouncilAdapters_bundledJsonFiles_existWithRequiredFields()
     {
         // The four adapter JSON files are what makes the bridge generic

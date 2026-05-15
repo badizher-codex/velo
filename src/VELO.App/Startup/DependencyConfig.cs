@@ -153,6 +153,9 @@ public static class DependencyConfig
         // AI services. Replaces the WireAgentChat path that piled every classifier
         // call onto AgentLauncher's shared "__ai__" history bucket.
         services.AddSingleton<VELO.Core.AI.DirectChatAdapter>();
+        // v2.4.53 — YouTube ad-block opt-out service. Refreshed at bootstrap +
+        // on Settings → Privacy toggle change.
+        services.AddSingleton<VELO.Security.Guards.YouTubeAdBlocker>();
 
         // Phase 4.1 chunk D (v2.4.44) — Council adapters registry. Loads the four
         // bundled per-provider JSON selector files on construction; resolved by

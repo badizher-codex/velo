@@ -136,6 +136,14 @@ public sealed class BrowserTabHost
         browserTab.SetCouncilAdaptersRegistry(
             _services.GetRequiredService<VELO.Core.Council.CouncilAdaptersRegistry>());
 
+        // v2.4.53 — YouTube ad-block opt-out service. BrowserTab consults its
+        // IsEnabled flag inside EnsureWebViewInitializedAsync to gate
+        // youtube-adblock.js injection. Refresh happens once at app
+        // bootstrap; the Settings dialog refresh-on-change is handled in
+        // MainWindow's YouTubeAdBlockChanged subscriber.
+        browserTab.SetYouTubeAdBlocker(
+            _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>());
+
         // Phase 3 / Sprint 1E — IA menu (composes the inner ContextMenuBuilder).
         browserTab.SetAIContextMenuBuilder(
             _services.GetRequiredService<AIContextMenuBuilder>());

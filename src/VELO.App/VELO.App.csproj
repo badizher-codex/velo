@@ -10,9 +10,9 @@
     <AssemblyName>VELO</AssemblyName>
     <RootNamespace>VELO.App</RootNamespace>
     <ApplicationIcon>velo.ico</ApplicationIcon>
-    <Version>2.4.52</Version>
-    <AssemblyVersion>2.4.52.0</AssemblyVersion>
-    <FileVersion>2.4.52.0</FileVersion>
+    <Version>2.4.53</Version>
+    <AssemblyVersion>2.4.53.0</AssemblyVersion>
+    <FileVersion>2.4.53.0</FileVersion>
     <Copyright>© 2026 VELO Browser Contributors</Copyright>
     <Company>VELO Browser</Company>
     <Product>VELO</Product>
@@ -66,6 +66,10 @@
     <Content Include="..\..\resources\scripts\council-bridge.js">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>resources\scripts\council-bridge.js</Link>
+    </Content>
+    <Content Include="..\..\resources\scripts\youtube-adblock.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\scripts\youtube-adblock.js</Link>
     </Content>
     <Content Include="..\..\resources\council\adapters\claude.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

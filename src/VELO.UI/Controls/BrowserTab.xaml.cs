@@ -149,6 +149,13 @@ public partial class BrowserTab : UserControl
     public void SetCouncilAdaptersRegistry(VELO.Core.Council.CouncilAdaptersRegistry reg)
         => _councilAdapters = reg;
 
+    // v2.4.53 — YouTube ad-block opt-out gate. BrowserTab reads IsEnabled
+    // inside EnsureWebViewInitializedAsync to decide whether to inject the
+    // youtube-adblock.js script. Null = service not wired by the host =
+    // skip injection (fail-safe: do nothing rather than crash).
+    private YouTubeAdBlocker? _youtubeAdBlocker;
+    public void SetYouTubeAdBlocker(YouTubeAdBlocker svc) => _youtubeAdBlocker = svc;
+
     // FillCredentialAsync, OpenDevTools, SetContainer live in BrowserTab.PublicApi.cs (v2.4.31).
 
     public string TabId => _tabId;
@@ -298,6 +305,26 @@ public partial class BrowserTab : UserControl
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"[VELO] Banking FP inject failed: {ex.Message}");
+            }
+        }
+
+        // v2.4.53 — YouTube ad-block. Script is gated on the
+        // YouTubeAdBlocker.IsEnabled flag (default true) so users who flipped
+        // the Settings → Privacy toggle off get unblocked ads back on tabs
+        // opened AFTER the toggle change. The script's own IIFE guard makes
+        // it a no-op on non-YouTube hosts, so injecting universally costs
+        // nothing on other sites; the gate is purely a user-preference opt-out.
+        if (_youtubeAdBlocker is { IsEnabled: true })
+        {
+            try
+            {
+                var ytScript = await LoadScriptResourceAsync("youtube-adblock.js");
+                if (ytScript != null)
+                    await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(ytScript);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] YouTube ad-block inject failed: {ex.Message}");
             }
         }
 

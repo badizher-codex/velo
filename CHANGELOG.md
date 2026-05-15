@@ -11,6 +11,79 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.53] — 2026-05-15 — YouTube Ad-Block v0.1 (scope completo, default ON)
+
+Closes the YouTube ad-block backlog from `memory/project_youtube_adblock_analysis.md`. Maintainer originally requested it 2026-05-14 after observing Malwarebytes Browser Guard's flicker-then-skip pattern; doc was written then with priority "post-Council Mode". With Phase 4.1 chunks A-G done (Council clickeable end-to-end), this picks up the next backlog item.
+
+### Scope shipped (matches the analysis 1:1)
+
+1. **Pre-roll + mid-roll skip** — clicks `.ytp-ad-skip-button-modern` / `.ytp-ad-skip-button` / `.ytp-skip-ad-button` when visible; fast-forwards `video.currentTime` to `duration - 0.1` when the skip button is still inside the 5 s grace period OR the ad is unskippable. YouTube's `ended` event fires and the player advances.
+2. **Overlay / banner ads on the player** — `.ytp-ad-overlay-slot`, `.ytp-ad-overlay-container`, `.video-ads.ytp-ad-module`, `.iv-promoted-products`, `.ytp-ce-element`, etc. hidden via global CSS injection.
+3. **Sidebar promoted videos** — `ytd-promoted-sparkles-web-renderer`, `ytd-promoted-video-renderer`, `ytd-display-ad-renderer`, `ytd-ad-slot-renderer`, `ytd-banner-promo-renderer`, etc.
+4. **Home + search results ad cards** — `#masthead-ad`, `ytd-rich-item-renderer:has(ytd-display-ad-renderer)`, `[is-promoted]`, `[is-shorts-ad]`.
+5. **Anti-adblock popup neutraliser** — removes `ytd-enforcement-message-view-model` and re-plays the video YouTube auto-paused when the modal appeared. **Auto-pause defence**: capture-phase `pause` listener swallows the event when the modal is present and forces `video.play()` — so even if YouTube intercepts the pause itself, we override.
+
+### Default state + opt-out
+
+- **Default ON** — privacy-first. Out of the box, YouTube ads are blocked.
+- **Toggle in Settings → Privacy** — "Bloquear anuncios en YouTube" CheckBox with a sub-label explaining what's blocked + the caveat that the change applies to new tabs.
+- Existing YouTube tabs need a manual refresh after toggling (off → on) because `AddScriptToExecuteOnDocumentCreatedAsync` fires once per webview lifetime.
+
+### Files added
+
+```
+resources/scripts/youtube-adblock.js                       ~190 lines
+src/VELO.Security/Guards/YouTubeAdBlocker.cs               ~90 lines (cache helper)
+tests/VELO.Security.Tests/YouTubeAdBlockerTests.cs         8 tests
+```
+
+### Files modified
+
+- `src/VELO.Data/Models/AppSettings.cs` — new `SettingKeys.YouTubeAdsBlocked = "youtube.ads_blocked"`.
+- `src/VELO.App/Startup/DependencyConfig.cs` — `services.AddSingleton<YouTubeAdBlocker>()`.
+- `src/VELO.App/MainWindow.xaml.cs` — bootstrap `YouTubeAdBlocker.RefreshAsync()` at startup + `OnYouTubeAdBlockChanged` settings handler.
+- `src/VELO.UI/Dialogs/SettingsWindow.xaml(.cs)` — Privacy panel CheckBox + load/save string round-trip + `YouTubeAdBlockChanged` event.
+- `src/VELO.UI/Controls/BrowserTab.xaml.cs` — `SetYouTubeAdBlocker` setter + conditional inject in `EnsureWebViewInitializedAsync` gated on `IsEnabled`.
+- `src/VELO.App/Controllers/BrowserTabHost.cs` — calls `SetYouTubeAdBlocker` alongside the other per-tab service setters.
+- `src/VELO.App/VELO.App.csproj` — `<Content Include="...youtube-adblock.js"/>` so the resource ships with the installer.
+
+### Privacy contract preserved
+
+- Script runs entirely page-side via injected JavaScript + CSS.
+- Zero network calls from the script itself — nothing leaves the user's machine.
+- No telemetry, no per-host allowlist (script gate is "is this YouTube?", not "is this host ad-allowed?").
+- Works offline once the page is cached.
+
+### Tests
+
+- **`YouTubeAdBlockerTests`** (8 new): default value pin (`"yes"`), optimistic-true cache before refresh, refresh reads yes/no/YES case-insensitive, missing setting falls back to default, `SetEnabledAsync` round-trip writes string + updates cache.
+- **`WiringSmokeTests.YouTubeAdBlock_script_exists_withExpectedSelectors`** (1 new smoke): pins script existence + core selector tokens (`ad-showing`, `ytp-ad-skip-button`, `ytd-enforcement-message-view-model`, `addEventListener('pause'`). Refactor that drops the file or removes a load-bearing selector trips at test time.
+- VELO.Security.Tests: 122 → **130** (+8).
+- VELO.Smoke.Tests: 7 → **8** (+1).
+- Full suite: 542 → **551**. All green.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Touches WebView2 + new XAML resources + new SettingKeys — clean-published before push.
+
+### Known caveats (documented in the analysis)
+
+- **YouTube DOM drift** — selectors are valid as of 2026-05-15. YouTube ships A/B tests roughly twice a year that rename classes; when the script breaks, the maintainer edits `resources/scripts/youtube-adblock.js` + ships a micro-release. The smoke test catches dropped selector names but not renamed ones.
+- **Auto-skip flicker** — the ad renders for ~100 ms before the script intercepts. Documented as expected behaviour (parity with Malwarebytes Browser Guard).
+- **Premium accounts** — script is a no-op for users with YouTube Premium (no `.ad-showing` class ever appears). Safe to leave on.
+
+### Operational guidance
+
+After installing v2.4.53:
+
+1. Open any YouTube video that normally has a pre-roll. Expected: ~100 ms ad flicker, then the real video starts.
+2. Open YouTube home page. Expected: no "Ad" cards in the feed, no `#masthead-ad` banner.
+3. Open YouTube search results. Expected: no promoted videos at the top.
+4. If YouTube serves you the anti-adblock modal: expected behaviour is the modal vanishes within ~250 ms (MutationObserver tick) and the video stays playing.
+5. To temporarily allow ads on YouTube (e.g. to support a creator): Settings → Privacy → uncheck "Bloquear anuncios en YouTube" → refresh the YouTube tab.
+
+---
+
 ## [2.4.52] — 2026-05-14 — Drag-back to re-join tabs across VELO windows (scope mínimo)
 
 Closes the second half of the v2.4.49 feedback loop. v2.4.49 mitigated the **tear-off** reload by preserving scroll position; v2.4.52 lands the inverse flow — **dragging a tab from one VELO window's sidebar onto another VELO window's sidebar re-joins it there**, no second-class manual workaround needed (Ctrl+T + paste URL is no longer necessary).

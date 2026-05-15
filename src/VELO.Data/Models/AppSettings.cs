@@ -77,4 +77,13 @@ public static class SettingKeys
     /// LM Studio (e.g. qwen3.6-35b-a3b) or any non-default Ollama tag don't have to install
     /// the exact spec model. Default: "qwen3:32b" to keep parity with the Phase 4 spec.</summary>
     public const string CouncilModeratorModel     = "council.moderator_model";
+
+    // ── YouTube Ad-Block (v2.4.53) ───────────────────────────────────────
+    /// <summary>v2.4.53 — When "yes", the YouTube ad-block script
+    /// (<c>resources/scripts/youtube-adblock.js</c>) is injected into every
+    /// youtube.com / youtu.be page on document-create. Skips pre-roll +
+    /// mid-roll ads, hides sidebar/home/search ad cards, neutralises YouTube's
+    /// anti-adblock modal. Default "yes" (privacy-first; the user can toggle
+    /// off in Settings → Privacy if they want to support a specific creator).</summary>
+    public const string YouTubeAdsBlocked         = "youtube.ads_blocked";
 }

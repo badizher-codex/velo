@@ -29,6 +29,12 @@ public partial class SettingsWindow : Window
     /// domain-age check so the host can flip DomainAgeProbe.Enabled live.</summary>
     public event EventHandler<bool>? DomainAgeCheckChanged;
 
+    /// <summary>v2.4.53 — Raised after Save when the user toggles the YouTube
+    /// ad-block opt-out so the host can refresh YouTubeAdBlocker.IsEnabled. New
+    /// tabs pick up the new value via the cached flag; existing YouTube tabs
+    /// need a refresh (script-on-document-created fires once per webview).</summary>
+    public event EventHandler<bool>? YouTubeAdBlockChanged;
+
     public SettingsWindow(SettingsRepository settings, VaultService vault)
     {
         _settings = settings;
@@ -248,6 +254,12 @@ public partial class SettingsWindow : Window
         // v2.4.25 — PhishingShield domain-age (RDAP)
         DomainAgeCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.PhishingShieldDomainAgeCheck, defaultValue: false);
 
+        // v2.4.53 — YouTube ad-block opt-out. String setting ("yes"/"no") so we go
+        // through GetAsync, not GetBoolAsync, to keep parity with the rest of the
+        // Council/Council* "yes"/"no" string convention.
+        var ytRaw = await _settings.GetAsync(SettingKeys.YouTubeAdsBlocked, "yes");
+        YouTubeAdBlockCheck.IsChecked = string.Equals(ytRaw, "yes", StringComparison.OrdinalIgnoreCase);
+
         // Search
         var search = await _settings.GetAsync(SettingKeys.SearchEngine, "DuckDuckGo");
         SearchDDG.IsChecked    = search == "DuckDuckGo";
@@ -348,6 +360,14 @@ public partial class SettingsWindow : Window
         // v2.4.25 — PhishingShield domain-age (RDAP). Persist + apply hot.
         await _settings.SetBoolAsync(SettingKeys.PhishingShieldDomainAgeCheck, DomainAgeCheck.IsChecked == true);
         DomainAgeCheckChanged?.Invoke(this, DomainAgeCheck.IsChecked == true);
+
+        // v2.4.53 — YouTube ad-block opt-out. Persist as "yes"/"no" string.
+        // Hot-apply: new tabs see the new value; existing YouTube tabs need a
+        // refresh to pick it up (script-on-document-created fires once per
+        // webview lifetime).
+        await _settings.SetAsync(SettingKeys.YouTubeAdsBlocked,
+            YouTubeAdBlockCheck.IsChecked == true ? "yes" : "no");
+        YouTubeAdBlockChanged?.Invoke(this, YouTubeAdBlockCheck.IsChecked == true);
 
         // Search
         var eng = SearchBrave.IsChecked  == true ? "BraveSearch"
