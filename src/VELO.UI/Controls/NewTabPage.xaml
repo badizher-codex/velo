@@ -46,35 +46,72 @@
                                Margin="0,8,0,0"/>
                 </StackPanel>
 
-                <!-- Search bar -->
-                <Border Grid.Row="2" MaxWidth="600"
-                        Background="{StaticResource SurfaceLightBrush}"
+                <!-- v2.4.50 — Modernised search bar. MDL2 magnifier (E721) replaces 🔍 emoji,
+                     larger pill, soft purple glow on focus, ghost-keystroke ⏎ hint on the right
+                     so the user discovers Enter-to-go without a label. -->
+                <Border Grid.Row="2" MaxWidth="640"
+                        Background="{StaticResource SurfaceMidBrush}"
                         BorderBrush="{StaticResource BorderSubtleBrush}"
                         BorderThickness="1"
-                        CornerRadius="28"
-                        Padding="18,0"
-                        Margin="0,0,0,30">
+                        CornerRadius="32"
+                        Padding="22,0,16,0"
+                        Margin="0,0,0,30"
+                        x:Name="SearchPill">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#7C5CFF"
+                                          BlurRadius="0"
+                                          ShadowDepth="0"
+                                          Opacity="0"
+                                          x:Name="SearchGlow"/>
+                    </Border.Effect>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="🔍" FontSize="16"
-                                   VerticalAlignment="Center" Margin="0,0,10,0"
-                                   Foreground="{StaticResource TextMutedBrush}"/>
+                        <!-- MDL2 Search glyph — same font + style as URL bar icons (v2.4.36). -->
+                        <TextBlock Grid.Column="0"
+                                   Text="&#xE721;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="15"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,14,0"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   x:Name="SearchIcon"/>
                         <TextBox x:Name="SearchBox"
                                  Grid.Column="1"
                                  Background="Transparent"
                                  BorderThickness="0"
                                  Foreground="{StaticResource TextPrimaryBrush}"
-                                 CaretBrush="{StaticResource AccentPurpleBrush}"
+                                 CaretBrush="{StaticResource AccentPurpleLightBrush}"
                                  SelectionBrush="{StaticResource AccentPurpleBrush}"
-                                 FontSize="14"
-                                 Padding="0,14"
+                                 FontSize="14.5"
+                                 Padding="0,16"
                                  VerticalAlignment="Center"
                                  KeyDown="SearchBox_KeyDown"
+                                 GotFocus="SearchBox_GotFocus"
+                                 LostFocus="SearchBox_LostFocus"
+                                 TextChanged="SearchBox_TextChanged"
                                  AutomationProperties.Name="Busca o escribe una URL"
                                  Text=""/>
+                        <!-- ⏎ ghost hint — only visible when the box has text, fades when not. -->
+                        <Border Grid.Column="2"
+                                x:Name="EnterHint"
+                                CornerRadius="6"
+                                Background="{StaticResource SurfaceLightBrush}"
+                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                BorderThickness="1"
+                                Padding="7,3"
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed">
+                            <TextBlock Text="&#xE751;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="10"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       ToolTip="Enter para navegar"/>
+                        </Border>
                     </Grid>
                 </Border>
 

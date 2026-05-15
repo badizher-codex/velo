@@ -434,8 +434,10 @@ public partial class BrowserTab
         NewTabPageControl.Focus();
 
         // Sprint 6: load top sites from history DB (fire-and-forget; never blocks nav)
+        // v2.4.50 — also pass the FaviconRepository so the tiles render with real
+        // site icons instead of letter-circle fallbacks.
         if (_historyRepo != null)
-            _ = NewTabPageControl.LoadTopSitesAsync(_historyRepo);
+            _ = NewTabPageControl.LoadTopSitesAsync(_historyRepo, _faviconRepo);
     }
 
     private void ShowWebView()

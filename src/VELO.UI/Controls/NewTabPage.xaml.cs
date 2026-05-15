@@ -1,7 +1,11 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using VELO.Core.Localization;
 using VELO.Data.Repositories;
@@ -13,6 +17,10 @@ public partial class NewTabPage : UserControl
     private readonly DispatcherTimer _clockTimer;
     private bool _sitesLoaded;
     private (int Trackers, int Blocked, int Sites) _lastStats;
+    // v2.4.50 — Cache of favicon bytes per host, populated once when LoadTopSitesAsync runs.
+    // Lookups are O(1) and Empty when the host has no cached favicon yet — BuildTile falls
+    // back to the letter circle in that case.
+    private readonly Dictionary<string, byte[]> _faviconsByHost = new(StringComparer.OrdinalIgnoreCase);
 
     public event EventHandler<string>? NavigationRequested;
 
@@ -54,10 +62,13 @@ public partial class NewTabPage : UserControl
     // ── Public API ────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Loads top sites and lifetime stats from the history DB.
+    /// Loads top sites and lifetime stats from the history DB. When
+    /// <paramref name="favicons"/> is supplied, also pre-fetches the cached
+    /// favicon bytes per host so the tiles render with real site icons
+    /// instead of letter-circle fallbacks.
     /// Safe to call multiple times (only runs once per page lifetime).
     /// </summary>
-    public async Task LoadTopSitesAsync(HistoryRepository repo)
+    public async Task LoadTopSitesAsync(HistoryRepository repo, FaviconRepository? favicons = null)
     {
         if (_sitesLoaded) return;
         _sitesLoaded = true;
@@ -66,6 +77,21 @@ public partial class NewTabPage : UserControl
         {
             var topSites = await repo.GetTopSitesAsync(MaxTiles);
             var stats    = await repo.GetLifetimeStatsAsync();
+
+            // v2.4.50 — pre-fetch favicons in parallel so PopulateTiles can render
+            // them inline. Cache misses fall back to the letter-circle treatment.
+            if (favicons is not null && topSites.Count > 0)
+            {
+                var fetches = topSites
+                    .Select(s => (Host: s.Host, Task: favicons.GetFreshAsync(s.Host)))
+                    .ToArray();
+                await Task.WhenAll(fetches.Select(f => f.Task));
+                foreach (var (host, task) in fetches)
+                {
+                    var bytes = task.Result;
+                    if (bytes is { Length: > 0 }) _faviconsByHost[host] = bytes;
+                }
+            }
 
             Dispatcher.Invoke(() =>
             {
@@ -128,26 +154,48 @@ public partial class NewTabPage : UserControl
         var accent    = (Color)ColorConverter.ConvertFromString(accentHex);
         var letter    = GetInitial(site.Host);
 
-        // Letter circle
-        var circle = new Border
+        // v2.4.50 — prefer the cached favicon when we have it; fall back to the
+        // letter circle when it's missing (covers brand-new visits, blocked
+        // favicons, or hosts that never set <link rel="icon">).
+        Border circle;
+        if (TryBuildFaviconImage(site.Host) is { } favImg)
         {
-            Width           = 44,
-            Height          = 44,
-            CornerRadius    = new CornerRadius(22),
-            Background      = new SolidColorBrush(Color.FromArgb(40, accent.R, accent.G, accent.B)),
-            BorderBrush     = new SolidColorBrush(Color.FromArgb(120, accent.R, accent.G, accent.B)),
-            BorderThickness = new Thickness(1.5),
-            Margin          = new Thickness(0, 0, 0, 6),
-            Child           = new TextBlock
+            // Favicon tile: white-ish soft chip so the brand mark reads on dark.
+            circle = new Border
             {
-                Text                = letter,
-                FontSize            = 18,
-                FontWeight          = FontWeights.SemiBold,
-                Foreground          = new SolidColorBrush(accent),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment   = VerticalAlignment.Center,
-            }
-        };
+                Width           = 44,
+                Height          = 44,
+                CornerRadius    = new CornerRadius(22),
+                Background      = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x2A)),
+                BorderBrush     = new SolidColorBrush(Color.FromArgb(60, accent.R, accent.G, accent.B)),
+                BorderThickness = new Thickness(1.5),
+                Margin          = new Thickness(0, 0, 0, 6),
+                Child           = favImg,
+            };
+        }
+        else
+        {
+            // Letter circle fallback (original v2.4.x treatment).
+            circle = new Border
+            {
+                Width           = 44,
+                Height          = 44,
+                CornerRadius    = new CornerRadius(22),
+                Background      = new SolidColorBrush(Color.FromArgb(40, accent.R, accent.G, accent.B)),
+                BorderBrush     = new SolidColorBrush(Color.FromArgb(120, accent.R, accent.G, accent.B)),
+                BorderThickness = new Thickness(1.5),
+                Margin          = new Thickness(0, 0, 0, 6),
+                Child           = new TextBlock
+                {
+                    Text                = letter,
+                    FontSize            = 18,
+                    FontWeight          = FontWeights.SemiBold,
+                    Foreground          = new SolidColorBrush(accent),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment   = VerticalAlignment.Center,
+                }
+            };
+        }
 
         // Label (truncated host)
         var label = new TextBlock
@@ -251,6 +299,83 @@ public partial class NewTabPage : UserControl
         {
             NavigationRequested?.Invoke(this, SearchBox.Text.Trim());
             SearchBox.Clear();
+        }
+    }
+
+    // v2.4.50 — Subtle UX polish on the search pill: focused state pulses a
+    // soft purple glow so the user knows the input is live; defocused state
+    // fades back to neutral. EnterHint chip shows ⏎ only when there's text
+    // (otherwise it's noise on an empty box).
+    private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
+    {
+        AnimateGlow(toOpacity: 0.45, toBlur: 18);
+        SearchPill.BorderBrush = (Brush)FindResource("AccentPurpleLightBrush");
+    }
+
+    private void SearchBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        AnimateGlow(toOpacity: 0, toBlur: 0);
+        SearchPill.BorderBrush = (Brush)FindResource("BorderSubtleBrush");
+    }
+
+    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        EnterHint.Visibility = string.IsNullOrEmpty(SearchBox.Text)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+    }
+
+    private void AnimateGlow(double toOpacity, double toBlur)
+    {
+        const int durationMs = 180;
+        var opAnim = new DoubleAnimation(toOpacity, TimeSpan.FromMilliseconds(durationMs))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+        };
+        var blurAnim = new DoubleAnimation(toBlur, TimeSpan.FromMilliseconds(durationMs))
+        {
+            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+        };
+        SearchGlow.BeginAnimation(DropShadowEffect.OpacityProperty,    opAnim);
+        SearchGlow.BeginAnimation(DropShadowEffect.BlurRadiusProperty, blurAnim);
+    }
+
+    // ── Favicon helpers (v2.4.50) ───────────────────────────────────────
+
+    /// <summary>Materialises the cached PNG bytes for <paramref name="host"/> into a
+    /// frozen WPF <see cref="Image"/> sized for the top-site circle. Returns null
+    /// when no cache entry exists OR the bytes can't be decoded (rare — WebView2
+    /// already validates favicons before SaveAsync).</summary>
+    private Image? TryBuildFaviconImage(string host)
+    {
+        if (!_faviconsByHost.TryGetValue(host, out var bytes) || bytes is null || bytes.Length == 0)
+            return null;
+        try
+        {
+            using var ms = new MemoryStream(bytes, writable: false);
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.StreamSource = ms;
+            bmp.CacheOption  = BitmapCacheOption.OnLoad;
+            bmp.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+            bmp.EndInit();
+            bmp.Freeze();
+
+            var img = new Image
+            {
+                Source              = bmp,
+                Width               = 24,
+                Height              = 24,
+                Stretch             = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment   = VerticalAlignment.Center,
+            };
+            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.HighQuality);
+            return img;
+        }
+        catch
+        {
+            return null;
         }
     }
 }

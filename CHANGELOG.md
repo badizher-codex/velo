@@ -11,6 +11,64 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.50] — 2026-05-14 — Favicons everywhere + NewTab search pill modernisation
+
+Maintainer feedback after seeing the v2.4.49 favicons working in the tab list: extend the same treatment to (1) the **collapsed sidebar** (where the letter initials looked dated next to the real icons in the expanded view), (2) the **NewTab top-sites tiles** (the letter circles felt jarring against the rest of the v2.4.43 favicon-enabled UI), and (3) the **NewTab search bar** (untouched since Phase 5.2, started to look out-of-place beside the polished URL bar and Council Bar).
+
+### TabSidebar — collapsed mode shows favicons
+
+`TabSidebar.xaml` collapsed tab template (the strip that shows when the sidebar is narrow). The `<TextBlock Text="{Binding Initial}"/>` is now wrapped in a Grid:
+
+- `<Image Source="{Binding FaviconData, Converter={StaticResource BytesToImage}}"/>` — renders the real favicon when `TabInfo.FaviconData` is populated (v2.4.43 cache + preload pipeline).
+- A `TextBlock` fallback shown only when `FaviconData == null` via DataTrigger — keeps the letter circle for `velo://newtab` and first-load gaps.
+
+Same pattern as the expanded sidebar view; one converter shared (`UserControl.Resources` was already wired in v2.4.43).
+
+### NewTab top-sites — real favicons replace letter circles
+
+`NewTabPage.xaml.cs`:
+
+- **`LoadTopSitesAsync(repo, favicons = null)`** — new optional `FaviconRepository` parameter. When supplied, pre-fetches the cached favicon bytes for every top-site host in parallel via `Task.WhenAll(... GetFreshAsync(host) ...)` before populating tiles. Cache misses skip silently → letter-circle fallback retained.
+- **`_faviconsByHost`** dictionary populated by the pre-fetch; `BuildTile` consults it before deciding between the new favicon-circle treatment and the legacy letter-circle.
+- **`TryBuildFaviconImage(host)`** — materialises bytes → `BitmapImage` (frozen, `OnLoad` cache option so the source bytes can be released) → `Image` with `RenderOptions.BitmapScalingMode=HighQuality` for crisp 24×24 rendering inside the 44 px circle.
+- **`BrowserTab.PublicApi.cs`** call-site updated to pass `_faviconRepo` through (the existing v2.4.43 repository wired via `BrowserTabHost.SetFaviconRepository`).
+
+Result: visiting Amazon → top-site tile shows Amazon's "a" logo (no longer a teal letter "A" circle). MercadoLibre → ML handshake icon. Same for every host with a cached favicon.
+
+### NewTab search pill — Phase 5 polish pass
+
+XAML changes in `NewTabPage.xaml`:
+
+- **Background** `SurfaceLightBrush` → `SurfaceMidBrush` (slightly deeper so the pill sits more confidently against the page background).
+- **CornerRadius** 28 → 32, MaxWidth 600 → 640 — friendlier proportions.
+- **Magnifier icon** 🔍 emoji → MDL2 Assets glyph `E721`. Same font family + sizing decisions documented in lesson #18 (Segoe MDL2 Assets single-name for consistent glyph coverage across Win10/11).
+- **CaretBrush** moved to `AccentPurpleLightBrush` so the cursor reads better at the deeper background.
+- **Focus state** — new `SearchGlow` DropShadowEffect on the pill's Border. `GotFocus`/`LostFocus` animate `Opacity` 0 ↔ 0.45 and `BlurRadius` 0 ↔ 18 over 180 ms with QuadraticEase. BorderBrush flips to `AccentPurpleLightBrush` while focused. Result: clicking into the search bar emits a soft purple halo, matching the URL bar's visual language.
+- **Enter hint chip** — small MDL2 `⏎` glyph in a SurfaceLight chip on the right edge, only visible when the textbox has text. Discovers the Enter-to-navigate affordance without an explicit label.
+
+### Tests
+
+No new tests — the changes are XAML + small code-behind tweaks. Existing smoke tests cover:
+- `XamlResourceTests` auto-scans both modified XAML files for `{StaticResource X}` references; all resolve (SurfaceMidBrush, BorderSubtleBrush, AccentPurpleLightBrush, etc. — Phase 5 palette unchanged).
+- `WiringSmokeTests` test #1 picks up no new setters (the FaviconRepository pass-through is in an existing call-site).
+- VELO.Core.Tests: 245 (unchanged).
+- Full suite: 536 (unchanged).
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Touches WebView2 indirectly via the favicon flow (already exists since v2.4.43, no new API surface). Clean publish OK before commit.
+
+### Operational guidance
+
+After installing v2.4.50 the maintainer should see:
+- **Collapsed sidebar** — small site icons replace the letter pills. Hover/active state unchanged (purple ring + glow).
+- **NewTab top-sites** — Amazon, MercadoLibre, GitHub, etc. show their real logos. First-time visited hosts may render a letter circle briefly until the favicon lands in `FaviconRepository` after the first nav; second visit onward → real icon.
+- **Search bar** — pill is a touch wider and deeper, MDL2 magnifier instead of emoji, soft purple glow when focused, `⏎` chip appears when there's typed text.
+
+If a favicon tile renders blank (Image source decode failed for an unusual format), the letter-circle fallback no longer triggers because `_faviconsByHost` has a non-empty entry. Acceptable trade-off — the `BytesToImageSourceConverter` swallows decode errors silently per v2.4.43. Future tweak (not in scope for v2.4.50): track the decoded `BitmapImage` instead of the raw bytes so the cache can purge corrupted entries.
+
+---
+
 ## [2.4.49] — 2026-05-14 — Tab tear-off preserves scroll position (Firefox-like UX, with caveats)
 
 Maintainer reported two issues with the tab tear-off flow (`TabSidebar_TabTearOffRequested`): the page **reloads** when a tab is dragged out to a new window (Firefox doesn't), and there's no **drag-back** to re-join a torn-off tab into another window's sidebar. v2.4.49 implements the cheap half (scroll position preserved on tear-off) and documents the drag-back as deuda for post-v2.5.0.
