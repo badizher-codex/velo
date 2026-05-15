@@ -121,7 +121,22 @@ public partial class BrowserTab
     {
         _currentContainerId  = containerId;
         _isBankingContainer  = BankingContainerPolicy.Applies(containerId);
+        // v2.4.46 Phase 4.1 chunk E — resolve Council provider from container ID.
+        // Returns null for non-Council containers (Personal, Work, Banking, Shopping,
+        // None …), in which case the bridge JS is never injected and the
+        // WebMessageReceived dispatcher ignores council/* payloads. The mapping
+        // is canonical: council-claude → Claude, council-chatgpt → ChatGpt, etc.
+        _councilProvider = VELO.Core.Council.CouncilProviderMap.FromContainerId(containerId);
     }
+
+    /// <summary>True when this tab lives in a Council container — i.e. the
+    /// bridge JS is supposed to be active for it.</summary>
+    public bool IsCouncilPanel => _councilProvider is not null;
+
+    /// <summary>The Council provider this panel hosts, or null when the tab is
+    /// not a Council slot. Resolved from <see cref="_currentContainerId"/>
+    /// inside <see cref="SetContainer"/>.</summary>
+    public VELO.Core.Council.CouncilProvider? CouncilProvider => _councilProvider;
 
     // ── Navigation ──────────────────────────────────────────────────────
 

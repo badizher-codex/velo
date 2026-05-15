@@ -302,6 +302,26 @@ public partial class BrowserTab
         try
         {
             var json = e.TryGetWebMessageAsString();
+
+            // v2.4.46 Phase 4.1 chunk E — Council bridge fast-path. Council
+            // payloads use a "type":"council/..." discriminator (NOT the
+            // legacy "kind" field other features use), so we fork before
+            // touching the kind-based switch. CouncilBridgeParser fast-fails
+            // on non-council/* types, so non-Council messages flow through
+            // unchanged. Only routes to the host when this tab is actually a
+            // Council panel AND the parse succeeded.
+            if (IsCouncilPanel && _councilProvider is { } prov &&
+                !string.IsNullOrEmpty(json) &&
+                json.Contains("\"council/", StringComparison.Ordinal))
+            {
+                var msg = VELO.Core.Council.CouncilBridgeParser.Parse(json, prov);
+                if (msg is not null)
+                {
+                    Dispatcher.Invoke(() => CouncilBridgeMessageReceived?.Invoke(this, msg));
+                    return; // Council payload — don't fall through to the legacy switch.
+                }
+            }
+
             var node = JsonNode.Parse(json);
             if (node == null) return;
 
@@ -377,6 +397,47 @@ public partial class BrowserTab
                     : TlsStatus.Secure; // velo:// pages are "secure"
             TlsStatusChanged?.Invoke(this, tlsStatus);
         });
+
+        // v2.4.46 Phase 4.1 chunk E — push the per-provider selector pack to
+        // the page-side bridge so __veloCouncil's observer wires against the
+        // fresh DOM. Fire-and-forget: failures (network nav stall, page not
+        // ready, bridge not injected for some reason) silently fall back to
+        // the inert state — the panel won't capture but won't crash either.
+        if (IsCouncilPanel && _councilBridgeInjected &&
+            _councilProvider is { } prov && _councilAdapters is not null)
+        {
+            _ = PushCouncilAdapterAsync(prov);
+        }
+    }
+
+    /// <summary>v2.4.46 — Serialises the adapter JSON for <paramref name="provider"/>
+    /// and hands it to <c>window.__veloCouncil.setAdapter(...)</c>. Runs on the
+    /// dispatcher because ExecuteScriptAsync wants to be marshalled to the
+    /// browser thread.</summary>
+    private async Task PushCouncilAdapterAsync(VELO.Core.Council.CouncilProvider provider)
+    {
+        try
+        {
+            var json = _councilAdapters?.GetAdapterJson(provider);
+            if (string.IsNullOrEmpty(json)) return;
+            // The bridge's setAdapter accepts either an object or a JSON string.
+            // We embed as a JSON string literal so we don't have to worry about
+            // the consumer's quote-escaping for nested selectors.
+            var jsLiteral = System.Text.Json.JsonSerializer.Serialize(json);
+            var script    = $"if (window.__veloCouncil) {{ window.__veloCouncil.setAdapter({jsLiteral}); }}";
+            await Dispatcher.InvokeAsync(async () =>
+            {
+                try { await WebView.CoreWebView2.ExecuteScriptAsync(script); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine($"[VELO] Council setAdapter exec failed: {ex.Message}");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Council setAdapter outer failed: {ex.Message}");
+        }
     }
 
     private void OnTitleChanged(object? sender, object e)

@@ -552,7 +552,16 @@ public partial class MainWindow : Window
                 {
                     var t = _tabManager.GetTab(tabId);
                     if (t is not null) t.FaviconData = bytes;
-                }));
+                }),
+                // v2.4.46 Phase 4.1 chunk E — bridge from BrowserTab.CouncilBridgeMessageReceived
+                // into the singleton CouncilOrchestrator. Council Mode is still
+                // inert in production (no UI activation in chunk E) — but with
+                // the orchestrator wired the future chunk F/G can flip the
+                // toggle and have a working end-to-end flow without further
+                // plumbing. The dispatch happens on the dispatcher thread the
+                // BrowserTab raised on, because the orchestrator is single-threaded
+                // and the UI subscribers (chunk F) need updates on the UI thread.
+                OnCouncilBridgeMessage:   (tabId, msg) => OnCouncilBridgeMessage(tabId, msg));
 
             // Phase 4.0 chunk D — per-container fingerprint override. Council
             // containers (council-claude / -chatgpt / -grok / -ollama) drop
@@ -1656,6 +1665,48 @@ public partial class MainWindow : Window
     /// arrives, returning its plain text reply. Listening on a per-call basis
     /// keeps requests independent (no shared promise state).
     /// </summary>
+    /// <summary>
+    /// v2.4.46 Phase 4.1 chunk E — routes a parsed Council bridge payload from
+    /// a per-tab BrowserTab into the singleton <c>CouncilOrchestrator</c>. The
+    /// orchestrator is responsible for state mutation (panel reply, capture
+    /// list, transcript) and for raising its own UI-side events (chunks F/G).
+    /// Council Mode is still inert end-to-end in this release — the
+    /// orchestrator only acts on a started session and there is no
+    /// command-palette / menu entry yet — but with the dispatch wired the
+    /// upcoming UI activation in chunk G can flip the toggle without further
+    /// plumbing.
+    /// </summary>
+    private void OnCouncilBridgeMessage(string tabId, VELO.Core.Council.CouncilBridgeMessage msg)
+    {
+        try
+        {
+            var orch = _services.GetService(typeof(VELO.Core.Council.CouncilOrchestrator))
+                       as VELO.Core.Council.CouncilOrchestrator;
+            if (orch is null || !orch.HasActiveSession) return; // inert when no session.
+
+            switch (msg)
+            {
+                case VELO.Core.Council.CouncilCaptureMessage cap:
+                    orch.AddCapture(VELO.Core.Council.CouncilCapture.Create(
+                        cap.Provider, cap.CaptureType, cap.Content, cap.SourceUrl));
+                    break;
+                case VELO.Core.Council.CouncilReplyDetectedMessage reply:
+                    orch.RecordPanelReply(reply.Provider, reply.Text);
+                    break;
+                case VELO.Core.Council.CouncilBridgeErrorMessage err:
+                    Log.Warning("Council bridge error on tab {TabId} ({Provider}): {Text}",
+                        tabId, err.Provider, err.ErrorText);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Council bridge handler is cosmetic-grade — never propagate a
+            // failure that would taint the WebMessageReceived caller chain.
+            Log.Warning(ex, "Council bridge dispatch failed for tab {TabId}", tabId);
+        }
+    }
+
     private Task<string> WireAgentChat(string system, string user, CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<string>();

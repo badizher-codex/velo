@@ -61,7 +61,8 @@ public sealed class BrowserTabHost
         Action<string, string>                                        OnGlanceLinkHovered,
         Action<string, string>                                        OnAutofillFormDetected,
         Action<string, (string Host, string Username, string Password)> OnAutofillFormSubmitted,
-        Action<string, byte[]>                                        OnFaviconCaptured);
+        Action<string, byte[]>                                        OnFaviconCaptured,
+        Action<string, VELO.Core.Council.CouncilBridgeMessage>        OnCouncilBridgeMessage);
 
     private readonly IServiceProvider _services;
 
@@ -113,6 +114,7 @@ public sealed class BrowserTabHost
         browserTab.AutofillFormDetected    += (_, host)    => handlers.OnAutofillFormDetected(tabId, host);
         browserTab.AutofillFormSubmitted   += (_, payload) => handlers.OnAutofillFormSubmitted(tabId, payload);
         browserTab.FaviconCaptured         += (_, bytes)   => handlers.OnFaviconCaptured(tabId, bytes);
+        browserTab.CouncilBridgeMessageReceived += (_, msg) => handlers.OnCouncilBridgeMessage(tabId, msg);
 
         // ── Setters — resolved from DI ───────────────────────────────────
         // Sprint 6: history repo so NewTab v2 can render top sites.
@@ -123,6 +125,16 @@ public sealed class BrowserTabHost
         // bitmap once bytes arrive via the FaviconCaptured event above.
         browserTab.SetFaviconRepository(
             _services.GetRequiredService<FaviconRepository>());
+
+        // v2.4.46 Phase 4.1 chunk E — Council Mode panel integration.
+        // Only Council-container tabs ever inject council-bridge.js or push
+        // an adapter (the BrowserTab.IsCouncilPanel gate handles that — these
+        // setters are cheap when the tab is non-Council, the references just
+        // stay un-consulted).
+        browserTab.SetCouncilOrchestrator(
+            _services.GetRequiredService<VELO.Core.Council.CouncilOrchestrator>());
+        browserTab.SetCouncilAdaptersRegistry(
+            _services.GetRequiredService<VELO.Core.Council.CouncilAdaptersRegistry>());
 
         // Phase 3 / Sprint 1E — IA menu (composes the inner ContextMenuBuilder).
         browserTab.SetAIContextMenuBuilder(

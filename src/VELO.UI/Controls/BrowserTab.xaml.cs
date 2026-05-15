@@ -123,6 +123,32 @@ public partial class BrowserTab : UserControl
     public event EventHandler<byte[]>? FaviconCaptured;
     public void SetFaviconRepository(FaviconRepository repo) => _faviconRepo = repo;
 
+    // v2.4.46 Phase 4.1 chunk E — Council Mode integration.
+    //   _councilProvider populates inside SetContainer when the tab belongs
+    //     to a council-* container; null for normal tabs.
+    //   _councilOrchestrator + _councilAdapters are DI-injected by the host
+    //     (BrowserTabHost). The bridge JS is injected once at WebView init
+    //     when IsCouncilPanel is true; the adapter JSON is pushed via
+    //     ExecuteScriptAsync after NavigationCompleted so the page-side
+    //     observer wires against fresh DOM.
+    //   CouncilBridgeMessageReceived fires after OnWebMessageReceived parses
+    //     a council/* payload — the host (MainWindow) forwards it to the
+    //     orchestrator. Routing the dispatch through an event keeps BrowserTab
+    //     framework-agnostic (no direct ref to MainWindow).
+    private VELO.Core.Council.CouncilProvider? _councilProvider;
+    private VELO.Core.Council.CouncilOrchestrator? _councilOrchestrator;
+    private VELO.Core.Council.CouncilAdaptersRegistry? _councilAdapters;
+    private bool _councilBridgeInjected;
+
+    /// <summary>Raised when a council/* WebMessage is parsed successfully.
+    /// Host subscribes and forwards to <c>CouncilOrchestrator</c>.</summary>
+    public event EventHandler<VELO.Core.Council.CouncilBridgeMessage>? CouncilBridgeMessageReceived;
+
+    public void SetCouncilOrchestrator(VELO.Core.Council.CouncilOrchestrator orch)
+        => _councilOrchestrator = orch;
+    public void SetCouncilAdaptersRegistry(VELO.Core.Council.CouncilAdaptersRegistry reg)
+        => _councilAdapters = reg;
+
     // FillCredentialAsync, OpenDevTools, SetContainer live in BrowserTab.PublicApi.cs (v2.4.31).
 
     public string TabId => _tabId;
@@ -272,6 +298,37 @@ public partial class BrowserTab : UserControl
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.WriteLine($"[VELO] Banking FP inject failed: {ex.Message}");
+            }
+        }
+
+        // v2.4.46 Phase 4.1 chunk E — Council Mode panel bridge.
+        // Inject council-bridge.js only when this tab lives in a council-*
+        // container (resolved by SetContainer). The bridge exposes
+        // window.__veloCouncil and posts council/* WebMessages back to us;
+        // OnWebMessageReceived parses those and raises CouncilBridgeMessageReceived
+        // for the host to forward to CouncilOrchestrator. Adapter JSON
+        // is pushed via ExecuteScriptAsync in OnNavigationCompleted (chunk E,
+        // see BrowserTab.Events.cs) so the page-side observer wires against
+        // the freshly-loaded DOM.
+        if (IsCouncilPanel)
+        {
+            try
+            {
+                var bridgeScript = await LoadScriptResourceAsync("council-bridge.js");
+                if (bridgeScript != null)
+                {
+                    await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(bridgeScript);
+                    _councilBridgeInjected = true;
+                }
+                else
+                {
+                    System.Diagnostics.Trace.WriteLine(
+                        "[VELO] Council bridge script not found in resources/scripts/ — panel will be inert.");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] Council bridge inject failed: {ex.Message}");
             }
         }
 

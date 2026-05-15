@@ -11,6 +11,67 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.46] — 2026-05-14 — Phase 4.1 chunk E: BrowserTab ↔ Council bridge wiring (still no UI entry point)
+
+Continues Phase 4.1 from v2.4.44 (chunks A-D = DTOs + Orchestrator + bridge JS + adapters registry). This release plugs the page-side bridge into the host so that **whenever Council Mode is eventually activated by chunk G, the dispatch path is already in place**. Nothing is exposed in the UI yet — no menu item, no command-palette entry, no hotkey. The toggles in Settings → 🤝 Council remain disabled. Council Mode stays inert at runtime.
+
+### What chunk E adds
+
+- **`BrowserTab._councilProvider`** populates in `SetContainer(containerId)` via `CouncilProviderMap.FromContainerId`. Tabs in `council-claude` / `council-chatgpt` / `council-grok` / `council-ollama` containers report `IsCouncilPanel = true`. All other tabs (Personal, Work, Banking, Shopping, None) are unaffected.
+
+- **Conditional bridge injection in `EnsureWebViewInitializedAsync`** (chunk C resource `council-bridge.js`). When `IsCouncilPanel == true`, the bridge is added via `AddScriptToExecuteOnDocumentCreatedAsync` alongside the existing scripts (autofill, paste-guard, glance-hover, fingerprint-noise). For non-Council tabs the bridge is never injected — the page pays zero overhead. Inject failure is logged and swallowed (panel becomes inert; never crashes the tab).
+
+- **Adapter push in `OnNavigationCompleted`**. After a Council panel finishes navigating, `PushCouncilAdapterAsync(provider)` reads `CouncilAdaptersRegistry.GetAdapterJson(provider)` (chunk D) and calls `window.__veloCouncil.setAdapter(jsonString)` via `ExecuteScriptAsync`. The page-side observer wires against the fresh DOM. Fire-and-forget — failure logs + falls back to inert state.
+
+- **`OnWebMessageReceived` fast-path for council/* payloads**. Before the existing legacy `kind`-based switch (autofill / glance / pasteguard), the handler peeks the JSON string for `"council/"`. When the tab is `IsCouncilPanel` and the parser succeeds, the parsed `CouncilBridgeMessage` is raised via the new `CouncilBridgeMessageReceived` event and the handler returns early — non-Council messages flow through untouched. Parser fast-fails on non-Council prefixes (chunk C) so the peek-and-route pattern is safe.
+
+- **`MainWindow.OnCouncilBridgeMessage`** routes each event into the singleton `CouncilOrchestrator`:
+  - `CouncilCaptureMessage` → `orch.AddCapture(...)`
+  - `CouncilReplyDetectedMessage` → `orch.RecordPanelReply(...)`
+  - `CouncilBridgeErrorMessage` → `Log.Warning` only
+  Inert when `orch.HasActiveSession == false` — the dispatch silently no-ops if no session has been started, which is the entire runtime state of chunk E.
+
+- **`BrowserTabHost.TabWiringHandlers`** gains an `OnCouncilBridgeMessage` action and two new DI-injected setters (`SetCouncilOrchestrator`, `SetCouncilAdaptersRegistry`). WiringSmokeTests test #1 picks up the new setters automatically through its file scan — both are called in `BuildAndWire` alongside the existing per-tab service setters.
+
+### Why this lands inert
+
+Chunk E ships the **wiring** for Council Mode but **no caller** activates a session. `CouncilOrchestrator.StartSession(...)` is never invoked in production code yet — it's reachable only from the tests. Chunk G (next in the queue) is the one that:
+1. Removes `IsEnabled="False"` from the Settings → Council toggles.
+2. Adds a "Open Council Mode" entry in command palette + menu.
+3. Calls `MainWindow.ActivateCouncilModeAsync` which spins up the 2×2 layout (Phase 4.0), opens four `council-*` container tabs, **then** calls `_orchestrator.StartSession(opted-in-providers)`.
+
+Until G ships, the dispatch path in this release is dead code at runtime but live in tests.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Followed the new rule from v2.4.45 — ran a full clean publish locally before push to mirror the CI build path. No CS1061 / FQN drift / SDK shape mismatch surfaced. The build that ships is the build CI will produce.
+
+### Tests
+
+- **`CouncilDispatchIntegrationTests`** (6 new): full end-to-end of the parser-to-orchestrator pipeline that production runtime traverses. Coverage:
+  - `council/capture` payload → matching panel's Captures list grows.
+  - `council/replyDetected` → panel `LatestReply` + transcript Panel-role message.
+  - Dispatch with no active session → no-op.
+  - Multiple captures in order land sequentially with correct types.
+  - Provider on parsed message wins over tab identity (regression guard for future routing shortcuts).
+  - `council/error` does NOT mutate orchestrator state (log-only).
+- Smoke tests #1 (`BrowserTab.SetX has caller in host`) automatically picks up `SetCouncilOrchestrator` + `SetCouncilAdaptersRegistry` — both wired in `BrowserTabHost.BuildAndWire`. No snapshot update required.
+- VELO.Core.Tests: 209 → **215** (+6).
+- Full suite: 500 → **506**. All green.
+
+### Phase 4.1 progress
+
+- ✅ Chunk A (DTOs) — v2.4.41
+- ✅ Chunk B (orchestrator) — v2.4.41
+- ✅ Chunk C (bridge JS + parser) — v2.4.44
+- ✅ Chunk D (adapters JSON + registry) — v2.4.44
+- ✅ **Chunk E (BrowserTab ↔ Council bridge wiring) — this release**
+- ⏳ Chunk F (Council Bar UI + per-panel mini-toolbar) — next
+- ⏳ Chunk G (enable provider toggles + activation flow) — first runtime-testable chunk
+- ⏳ Chunk H (smoke + release v2.5.0)
+
+---
+
 ## [2.4.45] — 2026-05-14 — Hotfix: CI build failure inherited from v2.4.43 (favicon Stream type)
 
 **v2.4.43 + v2.4.44 builds failed in CI** with `CS1061: 'Task<Stream>' does not contain a definition for 'AsTask'`, so no installer was published for either tag. v2.4.42 stayed the latest shippable release. This hotfix lands the missing favicon binary path and unblocks the Phase 4.1 chain.
