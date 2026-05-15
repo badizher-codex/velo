@@ -565,14 +565,17 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Per-provider opt-in. Disabled until v2.5.x (Phase 4.1) -->
-                    <TextBlock Text="PROVEEDORES (activables en v2.5.x)"
+                    <!-- v2.4.48 — Per-provider opt-in. Activable end-to-end con chunk G.
+                         Cuando todos los toggles están off, "Council Mode" en command palette
+                         no abre (no hay paneles). Cuando 1+ están on, abre los tabs council-*
+                         correspondientes + 2x2 layout + bar/overlays. -->
+                    <TextBlock Text="PROVEEDORES"
                                FontSize="10.5" FontWeight="SemiBold"
                                Foreground="{StaticResource TextMutedBrush}"
                                Margin="0,0,0,10"/>
 
                     <CheckBox x:Name="CouncilEnabledClaudeCheck"
-                              IsEnabled="False" Margin="0,0,0,10">
+                              Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Text="Claude (Anthropic)" FontWeight="SemiBold"/>
                             <TextBlock Text="Vía claude.ai. Tu prompt llega a Anthropic."
@@ -581,7 +584,7 @@
                     </CheckBox>
 
                     <CheckBox x:Name="CouncilEnabledChatGptCheck"
-                              IsEnabled="False" Margin="0,0,0,10">
+                              Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Text="ChatGPT (OpenAI)" FontWeight="SemiBold"/>
                             <TextBlock Text="Vía chat.openai.com. Tu prompt entra al pipeline de OpenAI."
@@ -590,7 +593,7 @@
                     </CheckBox>
 
                     <CheckBox x:Name="CouncilEnabledGrokCheck"
-                              IsEnabled="False" Margin="0,0,0,10">
+                              Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Text="Grok (xAI)" FontWeight="SemiBold"/>
                             <TextBlock Text="Vía grok.com. Necesita sesión activa de X/Twitter."
@@ -599,9 +602,9 @@
                     </CheckBox>
 
                     <CheckBox x:Name="CouncilEnabledOllamaCheck"
-                              IsEnabled="False" Margin="0,0,0,12">
+                              Margin="0,0,0,12">
                         <StackPanel>
-                            <TextBlock Text="Ollama (local)" FontWeight="SemiBold"/>
+                            <TextBlock Text="Local (Ollama / LM Studio)" FontWeight="SemiBold"/>
                             <TextBlock Text="100% local. También corre la síntesis final."
                                        FontSize="11" Foreground="{StaticResource BadgeGreenBrush}"/>
                         </StackPanel>

@@ -83,6 +83,17 @@ public partial class MainWindow : Window
     private bool _isCouncilMode;
     private VELO.App.Controllers.CouncilLayoutController? _councilLayout;
 
+    // v2.4.48 Phase 4.1 chunk G — UI surfaces brought up by OpenCouncilModeAsync.
+    // Bar lives at the top of BrowserContent's parent grid; overlays float over
+    // each 2×2 cell. Maps panel-index → overlay so the host can show/hide
+    // them consistently with CouncilLayoutController.GetPanelCell.
+    private VELO.UI.Controls.CouncilBar? _councilBar;
+    private VELO.Core.Council.CouncilBarViewModel? _councilBarVm;
+    private readonly Dictionary<VELO.Core.Council.CouncilProvider, VELO.UI.Controls.CouncilPanelOverlay> _councilOverlays = new();
+    /// <summary>Maps provider → tabId so the SendRequested handler can call
+    /// ExecuteScriptAsync against the right BrowserTab without a linear scan.</summary>
+    private readonly Dictionary<VELO.Core.Council.CouncilProvider, string> _councilTabIds = new();
+
     private VELO.App.Controllers.CouncilLayoutController GetCouncilLayout() =>
         _councilLayout ??= new VELO.App.Controllers.CouncilLayoutController(
             BrowserContent,
@@ -2324,6 +2335,14 @@ public partial class MainWindow : Window
                 Badge = "comando", Tag = (Action)(() => { if (_tabManager.ActiveTab is { } t) _tabManager.CloseTab(t.Id); }) },
         new() { Kind = CommandResultKind.Command, Icon = "⊞", Title = "Vista dividida",
                 Badge = "comando", Tag = (Action)(() => TabSidebar_SplitRequested(this, EventArgs.Empty)) },
+        // v2.4.48 Phase 4.1 chunk G — Council Mode entry. Opens (or closes if already
+        // open) the 2×2 multi-LLM workspace.
+        new() { Kind = CommandResultKind.Command, Icon = "🤝", Title = "Council Mode",
+                Badge = "comando", Tag = (Action)(() =>
+                {
+                    if (_isCouncilMode) _ = CloseCouncilModeAsync();
+                    else                 _ = OpenCouncilModeAsync();
+                }) },
         new() { Kind = CommandResultKind.Command, Icon = "⚙", Title = "Configuración",
                 Badge = "comando", Tag = (Action)(async () =>
                 {
@@ -2782,6 +2801,342 @@ public partial class MainWindow : Window
             {
                 bt.Visibility = Visibility.Collapsed;
             }
+        }
+    }
+
+    // ── Phase 4.1 chunk G (v2.4.48) — Council Mode end-to-end activation ──
+
+    /// <summary>
+    /// User-facing entry point for Council Mode. Reads the opted-in providers from
+    /// Settings, opens one council-* tab per provider, activates the Phase 4.0 2×2
+    /// layout, brings up the chunk F Council Bar + per-panel overlays, wires their
+    /// events into the orchestrator and starts a fresh CouncilSession.
+    ///
+    /// Fail-soft: any step that throws leaves Council inert and logs the cause.
+    /// The caller (command palette / menu item) does NOT need to wrap in try/catch.
+    /// </summary>
+    private async Task OpenCouncilModeAsync()
+    {
+        if (_isCouncilMode) return; // already open
+
+        try
+        {
+            // 1. Resolve opted-in providers from Settings.
+            var enabled = new List<VELO.Core.Council.CouncilProvider>();
+            foreach (var p in VELO.Core.Council.CouncilProviderMap.All)
+            {
+                var key  = VELO.Core.Council.CouncilProviderMap.EnabledSettingKey(p);
+                var raw  = await _settings.GetAsync(key, "no");
+                if (raw == "yes") enabled.Add(p);
+            }
+            if (enabled.Count == 0)
+            {
+                MessageBox.Show(this,
+                    "Activá al menos un proveedor en Settings → 🤝 Council antes de abrir Council Mode.",
+                    "Council Mode", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // 2. First-run disclaimer (chunk G in Phase 4.0). Modal blocks until accepted.
+            var accepted = await _settings.GetAsync(SettingKeys.CouncilDisclaimerAccepted, "no");
+            if (accepted != "yes")
+            {
+                var preflight  = new VELO.Core.AI.CouncilPreflightService(_settings);
+                var disclaimer = new VELO.UI.Dialogs.CouncilFirstRunDisclaimer(_settings, preflight) { Owner = this };
+                var result = disclaimer.ShowDialog();
+                if (result != true) return; // user dismissed without accepting
+                await _settings.SetAsync(SettingKeys.CouncilDisclaimerAccepted, "yes");
+            }
+
+            // 3. Open one council-* tab per enabled provider. Tab creation is sync;
+            //    the BrowserTabHost.BuildAndWire path handles WebView2 init lazily,
+            //    so the tabs come back ready to host the bridge by the time the
+            //    layout activates.
+            _councilTabIds.Clear();
+            var orderedTabIds = new List<string>(VELO.App.Controllers.CouncilLayoutController.PanelCount);
+            foreach (var provider in VELO.Core.Council.CouncilProviderMap.All)
+            {
+                var containerId = VELO.Core.Council.CouncilProviderMap.ToContainerId(provider);
+                var homeUrl     = VELO.Core.Council.CouncilProviderMap.DefaultHomeUrl(provider);
+
+                if (enabled.Contains(provider))
+                {
+                    var tab = _tabManager.CreateTab(homeUrl, containerId);
+                    _councilTabIds[provider] = tab.Id;
+                    orderedTabIds.Add(tab.Id);
+                }
+                else
+                {
+                    // Provider not opted-in — open a blank placeholder tab so the
+                    // 2×2 layout still has four cells. Phase 4.4 polish may render
+                    // a "click to enable" stub there; for v2.5.0 a blank container
+                    // tab is acceptable (matches the chunk F overlay's hidden state).
+                    var tab = _tabManager.CreateTab("velo://newtab", containerId);
+                    orderedTabIds.Add(tab.Id);
+                }
+            }
+
+            // 4. Activate the 2×2 layout (Phase 4.0).
+            var layoutOk = await ActivateCouncilModeAsync(orderedTabIds);
+            if (!layoutOk)
+            {
+                Log.Warning("Council layout activation failed; aborting Open.");
+                _councilTabIds.Clear();
+                return;
+            }
+
+            // 5. Bring up the Council Bar (chunk F) above BrowserContent and a per-panel
+            //    overlay over each enabled cell.
+            await EnsureCouncilUiAsync(enabled);
+
+            // 6. Start the orchestrator session (chunk B). The dispatch path wired by
+            //    chunk E becomes live now — every council/* WebMessage from the four
+            //    panels lands as a typed event on the orchestrator.
+            var orch = _services.GetRequiredService<VELO.Core.Council.CouncilOrchestrator>();
+            orch.StartSession(enabled);
+
+            // Refresh the bar VM with the post-startSession state.
+            if (_councilBarVm is not null)
+            {
+                _councilBarVm.AvailablePanelCount = orch.CurrentSession?.AvailablePanelCount ?? enabled.Count;
+                _councilBarVm.Status              = VELO.Core.Council.CouncilBarStatus.Idle;
+            }
+
+            Log.Information("Council Mode opened with {Count} providers: {Providers}",
+                enabled.Count, string.Join(",", enabled));
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "OpenCouncilModeAsync failed; tearing down");
+            await CloseCouncilModeAsync();
+        }
+    }
+
+    /// <summary>
+    /// User-facing teardown for Council Mode. Ends the orchestrator session, hides
+    /// the Bar + overlays, deactivates the 2×2 layout. Council tabs stay open so
+    /// the user can review them; the user closes them manually via the sidebar.
+    /// Fail-soft.
+    /// </summary>
+    private async Task CloseCouncilModeAsync()
+    {
+        try
+        {
+            var orch = _services.GetService(typeof(VELO.Core.Council.CouncilOrchestrator))
+                       as VELO.Core.Council.CouncilOrchestrator;
+            orch?.EndSession();
+
+            _councilBar?.HideAndReset();
+            foreach (var ov in _councilOverlays.Values) ov.HideAndReset();
+            _councilOverlays.Clear();
+            _councilTabIds.Clear();
+            _councilBarVm = null;
+
+            await DeactivateCouncilModeAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "CloseCouncilModeAsync swallowed an exception");
+        }
+    }
+
+    /// <summary>
+    /// Lazy-instantiates the Council Bar + four overlays and inserts them into the
+    /// visual tree. Idempotent — repeated calls reuse existing controls. Overlays
+    /// are placed at the same Grid cell as the BrowserTab they sit on top of so
+    /// they're visually pinned to each panel.
+    /// </summary>
+    private Task EnsureCouncilUiAsync(IReadOnlyList<VELO.Core.Council.CouncilProvider> enabled)
+    {
+        if (_councilBar is null)
+        {
+            _councilBarVm = new VELO.Core.Council.CouncilBarViewModel();
+            _councilBar   = new VELO.UI.Controls.CouncilBar();
+            _councilBar.SendRequested += OnCouncilSendRequested;
+
+            // Place the bar at the top of BrowserContent's parent grid. The parent
+            // is a Grid in MainWindow.xaml that hosts the URL bar above and the
+            // BrowserContent below; we insert above BrowserContent with Row=0
+            // (the URL bar row) span via Margin so the bar lives in the chrome
+            // strip and doesn't compete with the content. For v2.5.0 we'll add
+            // a dedicated row in MainWindow.xaml; for now the bar lives in
+            // BrowserContent's own row as a top-pinned banner.
+            BrowserContent.Children.Add(_councilBar);
+            Grid.SetRow(_councilBar, 0);
+            Grid.SetColumnSpan(_councilBar, BrowserContent.ColumnDefinitions.Count > 0
+                ? BrowserContent.ColumnDefinitions.Count : 1);
+            _councilBar.VerticalAlignment = VerticalAlignment.Top;
+        }
+        _councilBar.ShowAndFocus(_councilBarVm!);
+
+        // Per-panel overlays — one per enabled provider, placed in the same Grid
+        // cell as the matching BrowserTab.
+        foreach (var provider in enabled)
+        {
+            if (!_councilTabIds.TryGetValue(provider, out var tabId)) continue;
+            if (!_browserTabs.TryGetValue(tabId, out var bt)) continue;
+
+            if (!_councilOverlays.TryGetValue(provider, out var overlay))
+            {
+                overlay = new VELO.UI.Controls.CouncilPanelOverlay();
+                overlay.CaptureRequested += OnCouncilCaptureRequested;
+                BrowserContent.Children.Add(overlay);
+                _councilOverlays[provider] = overlay;
+            }
+            overlay.SetProvider(provider);
+            Grid.SetRow(overlay,    Grid.GetRow(bt));
+            Grid.SetColumn(overlay, Grid.GetColumn(bt));
+            overlay.Show();
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// User clicked "Enviar a todos" in the Council Bar. Pastes the master prompt
+    /// into every enabled panel's bridge, sends, appends the user message to the
+    /// transcript, then awaits the orchestrator's panel-reply events and triggers
+    /// synthesis once every available panel has reported a reply.
+    /// </summary>
+    private async void OnCouncilSendRequested(object? sender, string prompt)
+    {
+        var orch = _services.GetService(typeof(VELO.Core.Council.CouncilOrchestrator))
+                   as VELO.Core.Council.CouncilOrchestrator;
+        if (orch is null || !orch.HasActiveSession || _councilBarVm is null) return;
+
+        _councilBarVm.Status = VELO.Core.Council.CouncilBarStatus.Sending;
+        orch.AppendUserPrompt(prompt);
+
+        var safePrompt = System.Text.Json.JsonSerializer.Serialize(prompt);
+        foreach (var (provider, tabId) in _councilTabIds)
+        {
+            if (!_browserTabs.TryGetValue(tabId, out var bt)) continue;
+            try
+            {
+                await bt.ExecuteScriptAsync(
+                    $"window.__veloCouncil && window.__veloCouncil.paste({safePrompt})");
+                await bt.ExecuteScriptAsync(
+                    "window.__veloCouncil && window.__veloCouncil.send()");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Council send failed for {Provider}", provider);
+            }
+        }
+
+        // Synthesis runs once every available panel has reported back via
+        // CouncilReplyDetectedMessage (chunk E). The orchestrator's
+        // MessageAppended event fires for each reply; when all panels have
+        // a non-empty LatestReply, we trigger the moderator. For now we
+        // schedule a synthesis attempt after a short delay so the user
+        // sees the synthesised output without manual confirmation; the
+        // moderator itself fails-soft and we mark Error on the bar.
+        _ = ScheduleCouncilSynthesisAsync(prompt);
+    }
+
+    /// <summary>Waits until every available panel has a LatestReply OR until a 90-second
+    /// timeout elapses, then runs <c>orchestrator.SynthesizeAsync</c>. Idempotent: only
+    /// runs while the session is still active.</summary>
+    private async Task ScheduleCouncilSynthesisAsync(string masterPrompt)
+    {
+        try
+        {
+            var orch = _services.GetService(typeof(VELO.Core.Council.CouncilOrchestrator))
+                       as VELO.Core.Council.CouncilOrchestrator;
+            if (orch is null || _councilBarVm is null) return;
+
+            // Wait up to 90s for every available panel to report a reply.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+            while (DateTime.UtcNow < deadline)
+            {
+                if (!orch.HasActiveSession) return;
+                var session = orch.CurrentSession;
+                if (session is null) return;
+
+                bool allReady = true;
+                foreach (var p in session.Panels)
+                {
+                    if (!p.IsAvailable) continue;
+                    if (string.IsNullOrWhiteSpace(p.LatestReply)) { allReady = false; break; }
+                }
+                if (allReady) break;
+                await Task.Delay(500);
+            }
+
+            if (!orch.HasActiveSession || _councilBarVm is null) return;
+
+            _councilBarVm.Status = VELO.Core.Council.CouncilBarStatus.Synthesising;
+            try
+            {
+                await orch.SynthesizeAsync(masterPrompt);
+                Dispatcher.Invoke(() =>
+                {
+                    if (_councilBarVm is not null)
+                    {
+                        _councilBarVm.ResetForNextTurn();
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Council synthesis failed");
+                Dispatcher.Invoke(() =>
+                {
+                    if (_councilBarVm is not null)
+                    {
+                        _councilBarVm.ErrorText = $"Síntesis falló: {ex.Message}";
+                        _councilBarVm.Status    = VELO.Core.Council.CouncilBarStatus.Error;
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ScheduleCouncilSynthesisAsync outer failure");
+        }
+    }
+
+    /// <summary>
+    /// User clicked a capture button on a panel overlay. Calls the matching
+    /// __veloCouncil.captureXxx() against the right BrowserTab, materialises
+    /// the returned text into a CouncilCapture, and hands it to the orchestrator.
+    /// </summary>
+    private async void OnCouncilCaptureRequested(object? sender,
+        (VELO.Core.Council.CouncilProvider Provider, VELO.Core.Council.CouncilCaptureType Type) args)
+    {
+        try
+        {
+            var orch = _services.GetService(typeof(VELO.Core.Council.CouncilOrchestrator))
+                       as VELO.Core.Council.CouncilOrchestrator;
+            if (orch is null || !orch.HasActiveSession) return;
+            if (!_councilTabIds.TryGetValue(args.Provider, out var tabId)) return;
+            if (!_browserTabs.TryGetValue(tabId, out var bt)) return;
+
+            var method = args.Type switch
+            {
+                VELO.Core.Council.CouncilCaptureType.Text     => "captureText",
+                VELO.Core.Council.CouncilCaptureType.Code     => "captureCode",
+                VELO.Core.Council.CouncilCaptureType.Table    => "captureTable",
+                VELO.Core.Council.CouncilCaptureType.Citation => "captureCitation",
+                _                                              => "captureText",
+            };
+            var raw = await bt.ExecuteScriptAsync(
+                $"window.__veloCouncil ? window.__veloCouncil.{method}() : ''");
+            // ExecuteScriptAsync returns a JSON-encoded string; unwrap once.
+            var content = System.Text.Json.JsonSerializer.Deserialize<string>(raw) ?? "";
+            if (string.IsNullOrWhiteSpace(content)) return;
+
+            var sourceUrl = _tabManager.GetTab(tabId)?.Url ?? "";
+            var cap = VELO.Core.Council.CouncilCapture.Create(args.Provider, args.Type, content, sourceUrl);
+            orch.AddCapture(cap);
+
+            if (_councilBarVm is not null)
+            {
+                _councilBarVm.CaptureCount = orch.CurrentSession?.Panels.Sum(p => p.Captures.Count) ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Council capture failed");
         }
     }
 

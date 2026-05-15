@@ -11,6 +11,90 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.48] — 2026-05-14 — Phase 4.1 chunk G: Council Mode goes live (first runtime-testable activation)
+
+The chunk every prior Phase 4.1 release was inert in preparation for. This release wires together everything chunks A-F shipped and exposes **a real, clickable Council Mode**: the Settings toggles are enabled, the command palette has a "🤝 Council Mode" entry, and clicking it opens the 2×2 layout populated with the four `council-*` container tabs, the master-prompt Bar on top, and the per-panel capture toolbars over each cell.
+
+**This is the first end-to-end runtime path in Phase 4.1.** Up to v2.4.47 every chunk was guarded by `if (IsCouncilPanel)` / `HasActiveSession` checks that returned early because no caller ever flipped the bits. v2.4.48 flips them.
+
+### Added — runtime entry points
+
+- **Settings → 🤝 Council toggles unlocked**: removed `IsEnabled="False"` from the four CheckBox controls (Claude / ChatGPT / Grok / Local). Section header relabelled "PROVEEDORES" (the "(activables en v2.5.x)" hint is gone). The Ollama option's label updated to "Local (Ollama / LM Studio)" to match the v2.4.40 backend-agnostic story. Save/Load already wired since Phase 4.0 chunk H.
+- **Command palette entry "🤝 Council Mode"** (`MainWindow.BuiltInCommands`). Single command that toggles: opens Council if inactive, closes it if active. No new keyboard shortcut yet — chunk H will pick the binding after the maintainer reviews the runtime feel.
+
+### Added — `MainWindow.OpenCouncilModeAsync`
+
+Six-step orchestrated activation:
+
+1. **Resolve opted-in providers** from `SettingKeys.CouncilEnabled{Claude,ChatGpt,Grok,Ollama}`. Zero providers → friendly MessageBox + abort.
+2. **First-run disclaimer**: shows `CouncilFirstRunDisclaimer` (Phase 4.0 chunk G) if the user hasn't accepted yet. Dismiss-without-accept aborts cleanly.
+3. **Open four `council-*` tabs**: one per provider in canonical order (Claude → ChatGpt → Grok → Local). Enabled providers navigate to their adapter's `homeUrl` (claude.ai/new, chat.openai.com/, grok.com/, about:blank). Disabled providers get a blank placeholder tab so the 2×2 layout has all four cells filled.
+4. **Activate the 2×2 layout** via the Phase 4.0 `CouncilLayoutController.ActivateAsync`. Mutually exclusive with the 2-pane split (auto-deactivated first).
+5. **Bring up the chunk F UI** via `EnsureCouncilUiAsync(enabled)`: instantiates the `CouncilBar` at the top of `BrowserContent`, hooks its `SendRequested` event, instantiates a `CouncilPanelOverlay` over each enabled cell and hooks its `CaptureRequested` event.
+6. **Start the session**: `CouncilOrchestrator.StartSession(enabled)` flips the chunk E dispatch path live — every council/* WebMessage now lands as a typed event on the orchestrator and mutates session state.
+
+Fail-soft at every step: an exception anywhere triggers `CloseCouncilModeAsync` which tears down the session, hides UI, deactivates the layout. The user sees a Spanish error toast if synthesis fails — Council never crashes VELO.
+
+### Added — `MainWindow.OnCouncilSendRequested` (Send-all flow)
+
+User clicks "Enviar a todos" → handler:
+1. Sets `_councilBarVm.Status = Sending`.
+2. `orchestrator.AppendUserPrompt(prompt)`.
+3. For each opted-in panel: `ExecuteScriptAsync("window.__veloCouncil.paste(prompt)")` then `ExecuteScriptAsync("window.__veloCouncil.send()")`. Failures per-panel logged but don't abort the others.
+4. Schedules `ScheduleCouncilSynthesisAsync` in the background — waits up to 90 s for every available panel's `LatestReply` to be populated (via chunk E's `replyDetected` dispatch), then calls `orchestrator.SynthesizeAsync(prompt)`.
+5. On success: bar resets for next turn. On failure: `Status = Error`, `ErrorText` populated (retry path opens).
+
+### Added — `MainWindow.OnCouncilCaptureRequested` (capture flow)
+
+User clicks 📝/💻/📊/🔗 button on an overlay → handler:
+1. Finds the matching BrowserTab via `_councilTabIds[provider]`.
+2. `ExecuteScriptAsync("window.__veloCouncil.captureXxx()")` — returns JSON-encoded string.
+3. Unwraps via `JsonSerializer.Deserialize<string>(raw)`.
+4. Materialises `CouncilCapture.Create(provider, type, content, sourceUrl)` and hands to `orchestrator.AddCapture(...)`.
+5. Updates `_councilBarVm.CaptureCount` from `session.Panels.Sum(p => p.Captures.Count)`.
+
+### Added — `MainWindow.CloseCouncilModeAsync`
+
+`orchestrator.EndSession()` → `bar.HideAndReset()` → overlay teardown → `DeactivateCouncilModeAsync()` (Phase 4.0). The four `council-*` tabs **stay open** in the sidebar so the user can review the conversation; manual close via TabSidebar context menu.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Touches three ExecuteScriptAsync calls — clean-published before commit. CS1061 / FQN / SDK shape mismatch checks all clean.
+
+### Tests
+
+No new dedicated tests for chunk G — the runtime path is WPF + WebView2 + dispatcher-heavy and the existing unit tests (orchestrator state, parser, ViewModel state machine) cover every non-WPF surface the path traverses. **Manual verification is the gate for v2.5.0** (chunk H): the maintainer needs to flip Settings toggles + open Council + send a prompt + click captures + watch the synthesis land. Findings drive chunk H polish + the v2.5.0 release.
+
+- VELO.Core.Tests: 238 (unchanged).
+- Full suite: **529** (unchanged).
+
+### Phase 4.1 progress
+
+- ✅ Chunk A (DTOs) — v2.4.41
+- ✅ Chunk B (orchestrator) — v2.4.41
+- ✅ Chunk C (bridge JS + parser) — v2.4.44
+- ✅ Chunk D (adapters JSON + registry) — v2.4.44
+- ✅ Chunk E (BrowserTab ↔ Council bridge wiring) — v2.4.46
+- ✅ Chunk F (Council Bar + per-panel mini-toolbar) — v2.4.47
+- ✅ **Chunk G (Settings unlock + command palette + activation flow) — this release**
+- ⏳ Chunk H (manual verification + smoke + release v2.5.0) — next
+
+### Operational guidance for the maintainer
+
+After installing v2.4.48 and **before opening Council Mode**:
+1. Settings → 🤝 Council → enable at least one provider toggle (the disclaimer modal blocks until accepted on first activation).
+2. Verify "Verificar conexión" works against your local moderator backend (LM Studio at 1234 with qwen3.6-35b-a3b OR Ollama at 11434 with qwen3:32b).
+3. Open Council via command palette (Ctrl+K → "Council Mode") or via the new entry.
+4. Type a prompt → Enviar a todos. You'll see four panels load the providers' chat surfaces.
+5. After each panel replies, click 📝 Texto on the panels you want to include in the synthesis.
+6. Wait ~90 s max for the synthesis (timeout governed by `ScheduleCouncilSynthesisAsync`).
+7. Findings → file as issues for chunk H polish. Especially watch for:
+   - Adapter selector drift (chunk D JSON files may need re-tuning if a provider changed DOM since 2026-05-14).
+   - 2×2 layout overlap with FindBar or other top-pinned controls.
+   - ExecuteScriptAsync timing — adapter setAdapter happens on NavigationCompleted; if the page lazy-loads chat surfaces after first paint, captures may return empty until the user has interacted with the panel.
+
+---
+
 ## [2.4.47] — 2026-05-14 — Phase 4.1 chunk F: Council Bar UI + per-panel mini-toolbar (still no activator)
 
 Continues Phase 4.1 from v2.4.46 (chunk E = BrowserTab ↔ bridge wiring). This release lands **the two WPF surfaces** Council Mode needs once activation flips on: the Council Bar that hosts the master prompt + Send-all button, and the per-panel mini-toolbar that floats over each cell of the 2×2 layout for capture clicks. Both controls ship with `Visibility="Collapsed"` and **no caller instantiates them yet** — chunk G is the one that brings them up alongside the Phase 4.0 `CouncilLayoutController`. Council Mode stays inert at runtime; the toggles in Settings → 🤝 Council remain disabled.
