@@ -1460,6 +1460,91 @@ public partial class MainWindow : Window
         newWindow.Show();
     }
 
+    // ── v2.4.52: drag-back (cross-window tab transfer) handlers ──────────
+
+    /// <summary>
+    /// Source-side: TabSidebar fires this synchronously BEFORE
+    /// <c>DragDrop.DoDragDrop</c> blocks the UI thread. We resolve the
+    /// matching BrowserTab and capture its scroll snapshot so the payload
+    /// carries it across the OLE boundary. Best-effort — if capture fails
+    /// the payload travels with a null Snapshot and the receiving window
+    /// just lands at the top of the page.
+    /// </summary>
+    private void TabSidebar_PreDragSnapshot(object? sender,
+        (string TabId, Action<VELO.Core.Navigation.TabSnapshot> SetSnapshot) args)
+    {
+        if (!_browserTabs.TryGetValue(args.TabId, out var bt)) return;
+        try
+        {
+            // CaptureSnapshotAsync is async but sub-50 ms in practice. Sync wait
+            // is acceptable here because the UI is already paused (the drag-drop
+            // gesture is mid-flight). Wrap in a short timeout to defend against
+            // a hung ExecuteScriptAsync — fall back to Empty if it takes too long.
+            var task = bt.CaptureSnapshotAsync();
+            if (task.Wait(TimeSpan.FromMilliseconds(150)))
+                args.SetSnapshot(task.Result);
+        }
+        catch
+        {
+            // PreDragSnapshotRequested is cosmetic — never propagate a failure.
+        }
+    }
+
+    /// <summary>
+    /// Target-side: another VELO window dropped a tab payload onto our sidebar.
+    /// Recreate the tab here using the URL + container + snapshot. The source
+    /// window's TabSidebar will close its original tab via its own
+    /// TabTransferAcceptedByOtherWindow event.
+    /// </summary>
+    private async void TabSidebar_TabRejoinAccepted(object? sender,
+        VELO.Core.Navigation.TabTransferPayload payload)
+    {
+        try
+        {
+            // Park the snapshot on the same field tear-off uses (v2.4.49) so
+            // OnBrowserLoadingChanged restores it on the first NavigationCompleted.
+            // Single-use — clears itself after one restore.
+            if (payload.Snapshot is { } snap) _pendingTearOffSnapshot = snap;
+
+            var tab = _tabManager.CreateTab(payload.Url, payload.ContainerId);
+
+            // Optimistic title — the WebView2 will overwrite once it parses the
+            // page, but the user sees the proper label during the load instead
+            // of "Nueva pestaña".
+            if (!string.IsNullOrWhiteSpace(payload.Title))
+                _tabManager.UpdateTab(tab.Id, t => t.Title = payload.Title);
+
+            _tabManager.ActivateTab(tab.Id);
+
+            // Bring this window to the foreground — the user just dragged to it.
+            Activate();
+            await Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Drag-back accept failed for {Url}", payload.Url);
+        }
+    }
+
+    /// <summary>
+    /// Source-side: the other window accepted our tab. Close it locally so the
+    /// transfer is single-source-of-truth across the two windows.
+    /// </summary>
+    private void TabSidebar_TabTransferAccepted(object? sender, string tabId)
+    {
+        try
+        {
+            _tabManager.CloseTab(tabId);
+            // If this was the last tab, close the (now empty) window — same
+            // graceful exit pattern Firefox uses when all tabs are moved away.
+            if (_tabManager.Tabs.Count == 0) Close();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Drag-back source close failed for {TabId}", tabId);
+        }
+    }
+
     private void TabSidebar_WorkspaceSelected(object? sender, string workspaceId)
     {
         // Arc-like UX: restore the tab the user was last viewing in this workspace

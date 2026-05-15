@@ -28,7 +28,10 @@
                        AddWorkspaceRequested="TabSidebar_AddWorkspaceRequested"
                        WorkspaceSelected="TabSidebar_WorkspaceSelected"
                        WorkspaceRemoved="TabSidebar_WorkspaceRemoved"
-                       TabTearOffRequested="TabSidebar_TabTearOffRequested"/>
+                       TabTearOffRequested="TabSidebar_TabTearOffRequested"
+                       TabRejoinAccepted="TabSidebar_TabRejoinAccepted"
+                       TabTransferAcceptedByOtherWindow="TabSidebar_TabTransferAccepted"
+                       PreDragSnapshotRequested="TabSidebar_PreDragSnapshot"/>
 
         <!-- ── Main area: url bar + find bar + content ───────────────── -->
         <Grid Grid.Column="1">

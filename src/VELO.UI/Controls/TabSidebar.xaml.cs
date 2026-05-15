@@ -24,6 +24,23 @@ public partial class TabSidebar : UserControl
     public event EventHandler<string>?      TabTearOffRequested;
     /// <summary>Raised after a workspace is removed. Arg = workspace ID.</summary>
     public event EventHandler<string>?      WorkspaceRemoved;
+    /// <summary>v2.4.52 — Raised when this sidebar accepts a foreign drag-drop
+    /// payload from another VELO window. Host re-creates the tab here using
+    /// the payload (URL + container + snapshot). Reorder-within-window drops
+    /// are rejected before this event fires, so the host always knows the
+    /// payload is genuinely cross-window.</summary>
+    public event EventHandler<TabTransferPayload>? TabRejoinAccepted;
+    /// <summary>v2.4.52 — Raised on the source side AFTER a successful cross-
+    /// window drop: the other window accepted the payload, so the host should
+    /// close this tab in this window. Arg = tab ID.</summary>
+    public event EventHandler<string>? TabTransferAcceptedByOtherWindow;
+    /// <summary>v2.4.52 — Raised synchronously on the source side BEFORE
+    /// DragDrop.DoDragDrop blocks the UI thread. Host fills the
+    /// <c>SetSnapshot</c> callback with the current scroll position so the
+    /// payload carries it across to the target window. Host MUST be sync —
+    /// the drag-drop blocks until the user releases the mouse, and the
+    /// payload has to be ready before that.</summary>
+    public event EventHandler<(string TabId, Action<TabSnapshot> SetSnapshot)>? PreDragSnapshotRequested;
 
     // ── Internal state ────────────────────────────────────────────────────
     private readonly ObservableCollection<TabInfo>  _visibleTabs = [];
@@ -43,6 +60,13 @@ public partial class TabSidebar : UserControl
     private static readonly double DragThreshold =
         Math.Max(SystemParameters.MinimumHorizontalDragDistance,
                  SystemParameters.MinimumVerticalDragDistance);
+
+    /// <summary>v2.4.52 — Unique id assigned at construction so cross-window
+    /// drag-drop payloads can distinguish "drop on the same sidebar
+    /// instance" (local reorder, rejected for now) from "drop on a foreign
+    /// sidebar" (re-join, accepted). Stable across the sidebar's lifetime
+    /// in the process; differs between processes.</summary>
+    private readonly string _sidebarId = Guid.NewGuid().ToString("N");
 
     private static readonly (string Id, string Color)[] ContainerDefs =
     [
@@ -266,14 +290,114 @@ public partial class TabSidebar : UserControl
         // Threshold exceeded → start drag-drop
         _isDragging = true;
 
-        var data   = new DataObject(DataFormats.Text, tabId);
+        // v2.4.52 — build cross-window transfer payload. Source captures the
+        // scroll snapshot via the PreDragSnapshotRequested callback (host
+        // resolves the BrowserTab and runs CaptureSnapshotAsync). Whether
+        // the user drops on another VELO sidebar (re-join), inside this
+        // sidebar (rejected — see Sidebar_Drop), or outside any sidebar
+        // (legacy tear-off) is decided after DoDragDrop returns.
+        var tab = _allTabs.FirstOrDefault(t => t.Id == tabId);
+        TabSnapshot? snapshot = null;
+        if (tab is not null)
+        {
+            PreDragSnapshotRequested?.Invoke(this, (tabId, snap => snapshot = snap));
+        }
+
+        var data = new DataObject();
+        // VELO-specific format — picked up by Sidebar_Drop in any VELO window.
+        if (tab is not null)
+        {
+            var payload = new TabTransferPayload(
+                SourceSidebarId: _sidebarId,
+                TabId:           tabId,
+                Url:             tab.Url,
+                Title:           tab.Title,
+                ContainerId:     tab.ContainerId,
+                Snapshot:        snapshot);
+            try
+            {
+                data.SetData(TabTransferPayload.DataFormat,
+                    System.Text.Json.JsonSerializer.Serialize(payload));
+            }
+            catch
+            {
+                // If serialisation fails for any reason, the drop still works as
+                // a legacy tear-off via the Text fallback below.
+            }
+        }
+        // Back-compat: existing tear-off code paths still pick up Text=tabId.
+        data.SetData(DataFormats.Text, tabId);
+
         var result = DragDrop.DoDragDrop(border, data, DragDropEffects.Move);
 
         _isDragging = false;
 
-        // If the drop landed outside any registered target, the effect is None → tear off
-        if (result == DragDropEffects.None)
+        if (result == DragDropEffects.Move)
+        {
+            // Another VELO window accepted the payload (Sidebar_Drop set
+            // e.Effects = Move). Host closes the tab here so the move is
+            // single-source-of-truth across the two windows.
+            TabTransferAcceptedByOtherWindow?.Invoke(this, tabId);
+        }
+        else if (result == DragDropEffects.None)
+        {
+            // Drop landed outside any registered target → legacy tear-off.
             TabTearOffRequested?.Invoke(this, tabId);
+        }
+    }
+
+    // ── v2.4.52: cross-window drop handlers ──────────────────────────────
+
+    /// <summary>Drag entered the sidebar's drop zone. Accept Move only if we
+    /// see our custom VELO format; everything else (random text from another
+    /// app, etc.) gets rejected so the cursor reflects "no" to the user.</summary>
+    private void Sidebar_DragEnter(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(TabTransferPayload.DataFormat)
+            ? DragDropEffects.Move
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    /// <summary>Same predicate as DragEnter — WPF needs both to keep the
+    /// cursor effect in sync as the user moves around inside the zone.</summary>
+    private void Sidebar_DragOver(object sender, DragEventArgs e) => Sidebar_DragEnter(sender, e);
+
+    /// <summary>Drop fired. Deserialise the payload, reject local drops
+    /// (reorder within the same sidebar is out of scope for v0.1), and raise
+    /// <see cref="TabRejoinAccepted"/> for cross-window transfers.</summary>
+    private void Sidebar_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(TabTransferPayload.DataFormat)) return;
+        try
+        {
+            var json    = e.Data.GetData(TabTransferPayload.DataFormat) as string;
+            if (string.IsNullOrEmpty(json)) return;
+            var payload = System.Text.Json.JsonSerializer.Deserialize<TabTransferPayload>(json);
+            if (payload is null) return;
+
+            // Reject local drops — the source's DragDrop.DoDragDrop returns
+            // None as a result, the host falls back to the tear-off legacy
+            // path (which for "dropped where it came from" is a benign no-op
+            // since the source tab is still alive).
+            if (payload.SourceSidebarId == _sidebarId)
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+
+            e.Effects = DragDropEffects.Move;
+            e.Handled = true;
+            TabRejoinAccepted?.Invoke(this, payload);
+        }
+        catch
+        {
+            // Malformed payload (cross-version drag from an older / newer VELO).
+            // Reject silently so the source falls back to tear-off.
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+        }
     }
 
     private void Tab_RightClick(object sender, MouseButtonEventArgs e)

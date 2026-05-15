@@ -11,6 +11,87 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.52] — 2026-05-14 — Drag-back to re-join tabs across VELO windows (scope mínimo)
+
+Closes the second half of the v2.4.49 feedback loop. v2.4.49 mitigated the **tear-off** reload by preserving scroll position; v2.4.52 lands the inverse flow — **dragging a tab from one VELO window's sidebar onto another VELO window's sidebar re-joins it there**, no second-class manual workaround needed (Ctrl+T + paste URL is no longer necessary).
+
+The "scope mínimo" path documented in `memory/feature_tearoff_drag_back.md` — still reloads the page (`WebView2` won't reparent across WPF Windows, lesson documented in v2.4.49) but the **scroll snapshot from v2.4.49 rides along the payload**, so the re-joined tab restores the user's scroll position on first NavigationCompleted same way a tear-off does. HTTP cache + cookies + localStorage stay intact across the move (shared `Profile/` user-data folder).
+
+### Added — `VELO.Core.Navigation.TabTransferPayload`
+
+```csharp
+public sealed record TabTransferPayload(
+    string  SourceSidebarId,  // GUID per-TabSidebar instance — distinguishes local-reorder drops from cross-window transfers
+    string  TabId,            // diagnostics-only in v0.1
+    string  Url,              // re-navigates target to this
+    string  Title,            // optimistic seed for the target's TabInfo
+    string  ContainerId,      // preserves "personal" / "work" / "banking" / "shopping" / "none"
+    TabSnapshot?  Snapshot);  // reuses v2.4.49 scroll snapshot
+```
+
+Serialised as JSON into a `DataObject` keyed on `TabTransferPayload.DataFormat = "VELO.Tab.Transfer"` — VELO-prefixed so the dragged tab never accidentally lands inside an unrelated app (Notepad accepting a stray Text drop, etc.). Cross-process OLE drag-drop marshals strings safely between WPF processes, so the wire format works across two separate VELO processes (e.g. user opened a second window via tear-off).
+
+### Added — `TabSidebar` drag-drop surface
+
+- **`AllowDrop="True"` + `DragEnter` / `DragOver` / `Drop`** handlers on the UserControl. The drag-enter handler accepts only the `VELO.Tab.Transfer` format — random text from another app shows a "not allowed" cursor.
+- **`_sidebarId`** GUID assigned at construction. Both source (encodes it in the payload) and target (compares against its own on drop) use it to filter local-reorder drops (out of scope for v0.1).
+- **`Sidebar_Drop`** deserialises the payload, rejects local drops with `e.Effects = None`, fires `TabRejoinAccepted` for cross-window. Malformed JSON (e.g. cross-version drag from an older / newer VELO) is rejected silently — falls back to legacy tear-off path.
+
+### Added — three events on `TabSidebar`
+
+- **`TabRejoinAccepted(payload)`** — target side: a foreign sidebar dropped a tab onto us; host re-creates the tab.
+- **`TabTransferAcceptedByOtherWindow(tabId)`** — source side: another window accepted our tab; host closes it locally so the move is single-source-of-truth.
+- **`PreDragSnapshotRequested((tabId, setSnapshot))`** — source side: fires synchronously before `DragDrop.DoDragDrop` blocks the UI thread. Host runs `BrowserTab.CaptureSnapshotAsync()` with a 150 ms hard timeout (defends against a hung ExecuteScriptAsync) and pipes the result back via the callback.
+
+### Modified — `TabSidebar.Tab_MouseMove`
+
+Now constructs the full payload + serialises into the DataObject before `DragDrop.DoDragDrop` blocks. Result handling:
+
+- `DragDropEffects.Move` → another window accepted it → fire `TabTransferAcceptedByOtherWindow` so the host closes here.
+- `DragDropEffects.None` → drop outside any sidebar → fire `TabTearOffRequested` (legacy v2.4.49 path).
+- Same/local reorder drops are rejected by the target with `None`, so they fall through to the legacy tear-off path — current behaviour preserved.
+
+### Added — three handlers in `MainWindow`
+
+- **`TabSidebar_PreDragSnapshot`** — captures via `bt.CaptureSnapshotAsync().Wait(150 ms)`. Best-effort; null on timeout.
+- **`TabSidebar_TabRejoinAccepted(payload)`** — parks the snapshot in `_pendingTearOffSnapshot` (so the existing v2.4.49 `OnBrowserLoadingChanged` restore consumes it on first load), calls `CreateTab(Url, ContainerId)`, seeds the title optimistically, activates the tab, and brings the window to the foreground (`Activate()`) so the user lands on the dragged tab without a second click.
+- **`TabSidebar_TabTransferAccepted(tabId)`** — closes the tab in the source window; if it was the last tab, closes the (now empty) window. Same graceful exit Firefox uses when all tabs are moved away.
+
+### Tests
+
+- **`TabTransferPayloadTests`** (6 new):
+  - `DataFormat_isStable_VELOPrefixed` — pins the OLE format identifier so a refactor renaming `DataFormat` breaks at test time, not at OLE registration time.
+  - `JsonRoundTrip_preservesAllFields` — full round-trip with non-null snapshot.
+  - `JsonRoundTrip_handlesNullSnapshot` — null snapshot survives.
+  - `RecordEquality_isValueBased` — pins `==` semantics for tests that compare payloads.
+  - `DifferentSourceSidebarIds_areUnequal` — guards against a future field reordering collapsing the discriminator.
+  - `Deserialize_handlesMalformedJson_gracefully` — pins the throw behaviour the host's try/catch handles.
+- Cross-window drag-drop itself is **not** unit-testable (needs an STA dispatcher + a second process). Manual verification is the gate.
+- VELO.Core.Tests: 245 → **251** (+6).
+- Full suite: 536 → **542**. All green.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Clean publish OK. The new XAML attributes (`AllowDrop` + 3 event handlers on `TabSidebar`) auto-scanned by `XamlResourceTests`; no StaticResource references added.
+
+### What's still NOT solved (limitation, not bug)
+
+Same caveats as v2.4.49 — WebView2 reparent across WPF Windows isn't supported, so the dragged-back tab still re-renders from cache. Form values, in-flight WebSocket connections, video playback time and JS runtime state are lost on the move. Documented in `memory/feature_tearoff_drag_back.md` for the eventual reparent POC (post-v2.5.0).
+
+### Operational guidance for the maintainer
+
+After installing v2.4.52:
+
+1. Open two VELO windows (tear-off a tab to make the second one).
+2. In window B, navigate to any page and scroll into it.
+3. Drag the tab pill from window B's sidebar onto window A's sidebar.
+4. **Expected**: tab appears in window A's sidebar, is auto-activated, and (after ~200 ms layout settle) scrolls to the same position you had in window B. Window B's tab disappears.
+5. If window B had only one tab → window B closes itself gracefully.
+6. If the drop hits window B's own sidebar (drag from a tab onto itself): falls through to legacy tear-off (cursor outside any sidebar) — current behaviour preserved.
+7. Multi-monitor with different DPI: untested in CI, please report any cursor offset or "tab vanishes" issues.
+
+---
+
 ## [2.4.51] — 2026-05-14 — Phase 5 micro-items: Security Inspector shortcut + Workspace pill colour
 
 Two backlog micro-items from the Phase 5 review (memory `MEMORY.md` quick reference) that were sweepable in any micro-release. Picked up while the maintainer was verifying v2.4.48 + v2.4.49 + v2.4.50 in runtime.
