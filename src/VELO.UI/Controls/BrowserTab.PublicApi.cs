@@ -277,6 +277,54 @@ public partial class BrowserTab
         catch { return ""; }
     }
 
+    /// <summary>v2.4.49 — Captures the current page's scroll position so a tear-off
+    /// can restore it after the new window navigates to the same URL. Returns
+    /// <see cref="VELO.Core.Navigation.TabSnapshot.Empty"/> on any failure (page
+    /// not loaded, script execution refused, malformed JSON).</summary>
+    public async Task<VELO.Core.Navigation.TabSnapshot> CaptureSnapshotAsync()
+    {
+        if (!_webViewInitialized) return VELO.Core.Navigation.TabSnapshot.Empty;
+        try
+        {
+            var raw = await WebView.CoreWebView2.ExecuteScriptAsync(
+                "JSON.stringify({x: window.scrollX || 0, y: window.scrollY || 0})");
+            if (string.IsNullOrEmpty(raw) || raw == "null") return VELO.Core.Navigation.TabSnapshot.Empty;
+            // ExecuteScriptAsync returns the JSON-encoded string of the expression's
+            // value — i.e. "{\"x\":0,\"y\":42}". Deserialise once to unwrap.
+            var inner = System.Text.Json.JsonSerializer.Deserialize<string>(raw);
+            if (string.IsNullOrEmpty(inner)) return VELO.Core.Navigation.TabSnapshot.Empty;
+            using var doc = System.Text.Json.JsonDocument.Parse(inner);
+            var x = doc.RootElement.TryGetProperty("x", out var xEl) && xEl.TryGetDouble(out var xv) ? xv : 0;
+            var y = doc.RootElement.TryGetProperty("y", out var yEl) && yEl.TryGetDouble(out var yv) ? yv : 0;
+            return new VELO.Core.Navigation.TabSnapshot(x, y);
+        }
+        catch
+        {
+            return VELO.Core.Navigation.TabSnapshot.Empty;
+        }
+    }
+
+    /// <summary>v2.4.49 — Restores the scroll position captured by
+    /// <see cref="CaptureSnapshotAsync"/>. Called after NavigationCompleted in
+    /// the new window. The 200 ms delay lets layout settle for pages with
+    /// lazy-loaded images / dynamic content above the fold; without it
+    /// <c>window.scrollTo</c> can run before the document reaches its full
+    /// height and the scroll silently clamps to 0.</summary>
+    public async Task RestoreSnapshotAsync(VELO.Core.Navigation.TabSnapshot snapshot)
+    {
+        if (!_webViewInitialized) return;
+        if (!snapshot.HasContent) return;
+        try
+        {
+            await Task.Delay(200);
+            var x = snapshot.ScrollX.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var y = snapshot.ScrollY.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await WebView.CoreWebView2.ExecuteScriptAsync(
+                $"window.scrollTo({{ left: {x}, top: {y}, behavior: 'instant' }})");
+        }
+        catch { /* cosmetic — never propagate */ }
+    }
+
     /// <summary>Clears cookies and/or cache for this tab's WebView2 profile.</summary>
     public async Task ClearBrowsingDataAsync(bool cookies, bool cache)
     {

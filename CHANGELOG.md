@@ -11,6 +11,75 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.49] — 2026-05-14 — Tab tear-off preserves scroll position (Firefox-like UX, with caveats)
+
+Maintainer reported two issues with the tab tear-off flow (`TabSidebar_TabTearOffRequested`): the page **reloads** when a tab is dragged out to a new window (Firefox doesn't), and there's no **drag-back** to re-join a torn-off tab into another window's sidebar. v2.4.49 implements the cheap half (scroll position preserved on tear-off) and documents the drag-back as deuda for post-v2.5.0.
+
+### Why the page reloaded (architectural finding)
+
+WebView2 (`Microsoft.Web.WebView2.Wpf.WebView2`) does not support reparenting a control between WPF Windows without destroying its backing `CoreWebView2`. Each control is tied to its host Window by construction. Firefox sidesteps this because its tabs are process renderers in the parent process and only the compositor handle moves between Windows; WebView2 (Edge Chromium embeddable) doesn't expose that API.
+
+VELO's tear-off model is intentionally privacy-isolated — each window owns its own `IServiceProvider` (TabManager, EventBus, security engine, AI services). The new window navigates from scratch to the same URL. HTTP cache + cookies + localStorage are **already shared** (same `Profile/` user-data folder), so the re-fetch is a cache hit (~200 ms instead of ~5 s of network round-trip). But the DOM re-renders, scroll resets, JavaScript runtime state is gone.
+
+### What v2.4.49 fixes
+
+- **`TabSnapshot` record** (`src/VELO.Core/Navigation/TabSnapshot.cs`) — tiny value type carrying `ScrollX` + `ScrollY`. `Empty` static + `HasContent` predicate so the receiver can skip the round-trip when there's nothing to restore. Designed additively so future fields (form values, selection range, zoom factor) land without breaking the constructor surface.
+
+- **`BrowserTab.CaptureSnapshotAsync` + `RestoreSnapshotAsync`** (`BrowserTab.PublicApi.cs`):
+  - Capture: `ExecuteScriptAsync("JSON.stringify({x: window.scrollX, y: window.scrollY})")`, unwrap, parse. Returns `TabSnapshot.Empty` on any failure (page not loaded, malformed JSON, transport exception).
+  - Restore: 200 ms delay (lets layout settle for pages with lazy-loaded images / dynamic content above the fold) then `window.scrollTo({left, top, behavior:'instant'})`. Fail-soft: cosmetic feature must never crash a tab.
+
+- **`MainWindow.TabSidebar_TabTearOffRequested`** captures the snapshot **before** `CloseTab` destroys the WebView, passes it to the new MainWindow via a new constructor parameter (`MainWindow(services, url, tearOffSnapshot)`), and the new window stores it in `_pendingTearOffSnapshot`.
+
+- **`MainWindow.OnBrowserLoadingChanged`** consumes the pending snapshot on the **first** `loading == false` event of any tab in the new window, then clears it. Single-use: subsequent navigations behave normally.
+
+### What's still lost on tear-off (limitation, not bug)
+
+Documented for posterity in `memory/feature_tearoff_drag_back.md`:
+- Form values (campos sin submit)
+- JavaScript runtime state (timers, intervals)
+- WebSocket connections in-flight
+- Video playback position
+- DOM mutations no-persistentes
+- Component state if not persisted to localStorage
+
+All of these require **WebView2 reparent**, which isn't viable on WPF without rewriting the privacy-isolation contract (DI services would have to alias across windows, breaking the "complete isolation" decision documented in `TabSidebar_TabTearOffRequested:1402-1404`).
+
+### Drag-back to re-join — documented as deuda
+
+Memoria: [`feature_tearoff_drag_back.md`](memory/feature_tearoff_drag_back.md).
+
+- **Scope mínimo (con reload)** — ~100 líneas. Cross-window `DragDrop` from TabSidebar to TabSidebar; target receives `tabId + url + containerId + snapshot`; opens a new tab + restores snapshot; source closes the tab (or the window if it was the last). Works as UX parity with Firefox but still reloads. Recommended for post-v2.5.0.
+- **Scope completo (sin reload, reparent)** — ~300-500 líneas, high risk, breaks privacy-isolation. NOT recommended.
+
+When chunk G is verified and v2.5.0 ships, this is the natural next pickup.
+
+### Tests
+
+- **`TabSnapshotTests`** (7 new):
+  - `Empty` has zero scroll + `HasContent = false`.
+  - Default constructor matches `Empty`.
+  - `HasContent` true when any axis ≠ 0.
+  - `HasContent` false when both zero.
+  - Record equality is value-based.
+  - Negative scroll allowed (overscroll / rubber-banding).
+  - Fractional scroll preserved (DPI-scaled pages).
+- VELO.Core.Tests: 238 → **245** (+7).
+- Full suite: 529 → **536**. All green.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Touches WebView2 ExecuteScriptAsync — clean-published before push. No CS1061 / shape mismatch.
+
+### Operational guidance
+
+After installing v2.4.49:
+- Arrastrar una tab fuera de la ventana → la nueva ventana se abre con la página cargada y **el scroll position preservado**. Login + cookies se mantienen.
+- Form fields, video playback time, WebSocket-driven UIs (chat live, dashboards real-time) **siguen perdiéndose** en el move — limitación WebView2 documentada.
+- Drag-back para re-unir pestañas aún no implementado; usar Ctrl+T + URL del clipboard como workaround manual hasta v2.5.x.
+
+---
+
 ## [2.4.48] — 2026-05-14 — Phase 4.1 chunk G: Council Mode goes live (first runtime-testable activation)
 
 The chunk every prior Phase 4.1 release was inert in preparation for. This release wires together everything chunks A-F shipped and exposes **a real, clickable Council Mode**: the Settings toggles are enabled, the command palette has a "🤝 Council Mode" entry, and clicking it opens the 2×2 layout populated with the four `council-*` container tabs, the master-prompt Bar on top, and the per-panel capture toolbars over each cell.

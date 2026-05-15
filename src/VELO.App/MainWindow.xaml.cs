@@ -65,6 +65,11 @@ public partial class MainWindow : Window
     private HashSet<string> _capturedThreatTypes = [];
     private DownloadsWindow? _downloadsWindow;
     private string _initialUrl = "velo://newtab";
+    // v2.4.49 — When a tab is torn off into a new window, the source captures
+    // a TabSnapshot (scroll position today; form values + selection in the
+    // future) and hands it to the new MainWindow via this field. The first
+    // NavigationCompleted in the new window restores from it, then clears.
+    private VELO.Core.Navigation.TabSnapshot? _pendingTearOffSnapshot;
 
     // ── Split view state ─────────────────────────────────────────────────
     private bool _isSplitMode;
@@ -108,9 +113,11 @@ public partial class MainWindow : Window
     // Singleton inspector window (non-modal, stays open)
     private SecurityInspectorWindow? _inspectorWindow;
 
-    public MainWindow(IServiceProvider services, string? initialUrl = null)
+    public MainWindow(IServiceProvider services, string? initialUrl = null,
+        VELO.Core.Navigation.TabSnapshot? tearOffSnapshot = null)
     {
         if (initialUrl != null) _initialUrl = initialUrl;
+        _pendingTearOffSnapshot = tearOffSnapshot;
         _services = services;
         _tabManager       = services.GetRequiredService<TabManager>();
         _navController    = services.GetRequiredService<NavigationController>();
@@ -998,6 +1005,18 @@ public partial class MainWindow : Window
                 // Recompute shield score once the page finishes loading
                 if (!loading)
                 {
+                    // v2.4.49 — restore tear-off snapshot on first navigation
+                    // completion of this window. Single-use: the snapshot is
+                    // cleared after one restore so subsequent navigations
+                    // behave normally. Best-effort — BrowserTab.RestoreSnapshotAsync
+                    // swallows any failure.
+                    if (_pendingTearOffSnapshot is { } pending &&
+                        _browserTabs.TryGetValue(tabId, out var btForSnapshot))
+                    {
+                        _pendingTearOffSnapshot = null;
+                        _ = btForSnapshot.RestoreSnapshotAsync(pending);
+                    }
+
                     RefreshShieldScore(tabId);
 
                     // v2.4.12 — Sprint 9C: page is fully loaded; check whether
@@ -1395,6 +1414,20 @@ public partial class MainWindow : Window
         // Don't tear off if it's the only tab — that would leave an empty window
         if (_tabManager.Tabs.Count <= 1) return;
 
+        // v2.4.49 — capture scroll position BEFORE CloseTab destroys the WebView.
+        // The new window navigates to the same URL (cache hit thanks to shared
+        // user-data folder under Profile/) and restores the snapshot on its
+        // first NavigationCompleted. Result: a torn-off tab no longer jumps
+        // back to the top of the page after the move. Form values / WebSocket
+        // state still lost — those need WebView2 reparent which WPF doesn't
+        // support cross-window (documented in feature_tearoff_drag_back.md).
+        VELO.Core.Navigation.TabSnapshot? snapshot = null;
+        if (_browserTabs.TryGetValue(tabId, out var sourceBt))
+        {
+            try { snapshot = await sourceBt.CaptureSnapshotAsync(); }
+            catch { /* cosmetic — proceed without snapshot if capture fails */ }
+        }
+
         // Close the tab in this window first
         _tabManager.CloseTab(tabId);
 
@@ -1413,7 +1446,7 @@ public partial class MainWindow : Window
         }
 
         var cursorPos = CursorScreenPosition();
-        var newWindow = new MainWindow(newServices, url)
+        var newWindow = new MainWindow(newServices, url, snapshot)
         {
             Left   = cursorPos.X - 100,
             Top    = cursorPos.Y - 30,
