@@ -11,6 +11,61 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.47] — 2026-05-14 — Phase 4.1 chunk F: Council Bar UI + per-panel mini-toolbar (still no activator)
+
+Continues Phase 4.1 from v2.4.46 (chunk E = BrowserTab ↔ bridge wiring). This release lands **the two WPF surfaces** Council Mode needs once activation flips on: the Council Bar that hosts the master prompt + Send-all button, and the per-panel mini-toolbar that floats over each cell of the 2×2 layout for capture clicks. Both controls ship with `Visibility="Collapsed"` and **no caller instantiates them yet** — chunk G is the one that brings them up alongside the Phase 4.0 `CouncilLayoutController`. Council Mode stays inert at runtime; the toggles in Settings → 🤝 Council remain disabled.
+
+### Added — Council Bar
+
+- **`CouncilBarViewModel`** (`src/VELO.Core/Council/CouncilBarViewModel.cs`) — pure-C# INPC state machine for the bar. Properties: `PromptText`, `AvailablePanelCount`, `CaptureCount`, `Status` (4-state: Idle / Sending / Synthesising / Error), `ErrorText`. Computed surfaces: `IsSendEnabled` (gated on prompt + panels + status), `IsBusy`, `StatusText` (Spanish copy adapted per state). Lives in VELO.Core so the state machine is unit-testable without WPF — 23 tests cover the gating, status copy, INPC dependency propagation, and the negative-clamp / reset helpers.
+
+- **`CouncilBar.xaml(.cs)`** (`src/VELO.UI/Controls/CouncilBar.xaml`) — UserControl bound to the VM via DataContext. Layout: `SurfaceDarkBrush` panel, prompt TextBox (Phase 5 `ModernTextBox` style), status banner under the prompt, captures badge (visible only when `CaptureCount > 0` via the local `ZeroToCollapsedConverter`), Send-all button (`PrimaryButton` Phase 5 style). Public API: `ShowAndFocus(viewModel)` brings the bar up and focuses the prompt box on the next layout pass; `HideAndReset()` collapses + clears DataContext; `SendRequested` event raises with the trimmed prompt text when the user clicks Send (and `IsSendEnabled` was true).
+
+### Added — Per-panel mini-toolbar
+
+- **`CouncilPanelOverlay.xaml(.cs)`** (`src/VELO.UI/Controls/CouncilPanelOverlay.xaml`) — UserControl that floats top-right over each 2×2 cell. Provider chip (purple, label from `SetProvider(provider)`) + four `GhostButton` capture buttons with brand emojis (📝 Texto, 💻 Código, 📊 Tabla, 🔗 Cita). DropShadow + 0.95 opacity so the toolbar reads "above" the panel without obscuring content. Public API: `SetProvider(provider)` updates the chip label and stores the provider; `Show()` / `HideAndReset()` for activation/teardown; `CaptureRequested` event raises with `(provider, captureType)` so the host can route through `ExecuteScriptAsync("window.__veloCouncil.captureXxx()")` against the matching panel's bridge.
+
+### Why this lands inert
+
+Same pattern as chunks A-E: the controls exist but no caller instantiates them from MainWindow. The host wiring (Council Bar visibility, per-panel overlay placement over each 2×2 cell, event subscriptions into the orchestrator) lands in chunk G alongside the activation toggles and the command-palette entry. Keeping chunk F purely additive avoids the v2.4.38 trap where 8 chunks landed together and a single misbehaviour was impossible to localise.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Two new XAML files added — the XamlResourceTests smoke test auto-scans the new resources without snapshot updates. Followed the clean-publish rule from v2.4.45 again before push.
+
+### Tests
+
+- **`CouncilBarViewModelTests`** (23 new):
+  - Send enable gating: empty prompt → disabled; whitespace-only → disabled; zero panels → disabled; busy states (Sending / Synthesising) → disabled; Error state → re-enabled (retry path).
+  - `IsBusy` truth-table across all four statuses.
+  - `StatusText` adapts per state: zero panels (CTA to activate), ready count, captures-attached suffix, sending target, synthesis copy, error text or fallback when blank.
+  - INPC: prompt change raises `PromptText` + `IsSendEnabled` + `StatusText`; status change raises `Status` + `IsBusy` + `IsSendEnabled` + `StatusText`; setting same value is a no-op.
+  - Negative-value clamping on `AvailablePanelCount` + `CaptureCount`.
+  - `ResetForNextTurn` clears prompt + error + status.
+- **XamlResourceTests** (existing smoke) auto-scans `CouncilBar.xaml` + `CouncilPanelOverlay.xaml` for `{StaticResource X}` refs; all resolve against `Themes/Colors.xaml` and `Themes/DarkTheme.xaml` (Phase 5 styles).
+- VELO.Core.Tests: 215 → **238** (+23).
+- Full suite: 506 → **529**. All green.
+
+### Phase 4.1 progress
+
+- ✅ Chunk A (DTOs) — v2.4.41
+- ✅ Chunk B (orchestrator) — v2.4.41
+- ✅ Chunk C (bridge JS + parser) — v2.4.44
+- ✅ Chunk D (adapters JSON + registry) — v2.4.44
+- ✅ Chunk E (BrowserTab ↔ Council bridge wiring) — v2.4.46
+- ✅ **Chunk F (Council Bar + per-panel mini-toolbar) — this release**
+- ⏳ Chunk G (enable provider toggles + activation flow) — **first chunk runtime-testable end-to-end**
+- ⏳ Chunk H (smoke + release v2.5.0)
+
+### What chunk G will plug together
+
+Once chunk G ships:
+1. Remove `IsEnabled="False"` from the four Settings → Council toggles (one line per).
+2. Add a "Council Mode" command-palette entry + menu item that calls `MainWindow.ActivateCouncilModeAsync()`.
+3. In `ActivateCouncilModeAsync`: invoke `CouncilLayoutController.ActivateAsync` (Phase 4.0), open four `council-*` container tabs, instantiate **this release's** Council Bar + four overlays, wire the events, and call `_orchestrator.StartSession(opted-in-providers)` so the chunk E dispatch path becomes live.
+
+---
+
 ## [2.4.46] — 2026-05-14 — Phase 4.1 chunk E: BrowserTab ↔ Council bridge wiring (still no UI entry point)
 
 Continues Phase 4.1 from v2.4.44 (chunks A-D = DTOs + Orchestrator + bridge JS + adapters registry). This release plugs the page-side bridge into the host so that **whenever Council Mode is eventually activated by chunk G, the dispatch path is already in place**. Nothing is exposed in the UI yet — no menu item, no command-palette entry, no hotkey. The toggles in Settings → 🤝 Council remain disabled. Council Mode stays inert at runtime.

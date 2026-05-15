@@ -1,0 +1,104 @@
+<UserControl x:Class="VELO.UI.Controls.CouncilBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:VELO.UI.Converters"
+             Visibility="Collapsed"
+             AutomationProperties.Name="Council Bar"
+             d:DesignHeight="64" d:DesignWidth="900"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <conv:ZeroToCollapsedConverter x:Key="ZeroToCollapsed"/>
+    </UserControl.Resources>
+
+    <!-- Phase 4.1 chunk F (v2.4.47) — Council Bar.
+         Sits above the 2×2 panel layout when Council Mode is active.
+         Hosts the master-prompt input, the Send-all button, the live
+         status banner and the captured-fragments badge. DataContext is
+         a VELO.Core.Council.CouncilBarViewModel instance owned by the
+         host (MainWindow when activation lands in chunk G); the
+         control itself is purely presentational.
+
+         Inert in this release: Visibility=Collapsed by default + no
+         caller instantiates it from MainWindow yet. Chunk G flips
+         visibility, sets DataContext, and wires the SendRequested
+         event into the orchestrator.SynthesizeAsync path. -->
+
+    <Border Background="{StaticResource SurfaceDarkBrush}"
+            BorderBrush="{StaticResource BorderSubtleBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="16,10">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>     <!-- Prompt -->
+                <ColumnDefinition Width="Auto"/>  <!-- Captures badge + Send -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Master prompt input + status banner stacked vertically -->
+            <Grid Grid.Column="0" Margin="0,0,16,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBox x:Name="PromptBox"
+                         Grid.Row="0"
+                         Style="{StaticResource ModernTextBox}"
+                         Text="{Binding PromptText, UpdateSourceTrigger=PropertyChanged}"
+                         AcceptsReturn="False"
+                         FontSize="13"
+                         Padding="10,8"
+                         AutomationProperties.Name="Master prompt for Council Mode">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter"
+                                    Modifiers="Control"
+                                    Command="{x:Static ApplicationCommands.NotACommand}"/>
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <TextBlock x:Name="StatusLabel"
+                           Grid.Row="1"
+                           Text="{Binding StatusText}"
+                           FontSize="11"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Margin="2,4,0,0"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding StatusText}"/>
+            </Grid>
+
+            <!-- Captures badge + Send-all button -->
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+
+                <!-- Captures badge — only visible when CaptureCount > 0 -->
+                <Border x:Name="CapturesBadge"
+                        CornerRadius="10"
+                        Background="{StaticResource BadgeBlueBgBrush}"
+                        Padding="8,3"
+                        Margin="0,0,12,0"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding CaptureCount,
+                                              Converter={StaticResource ZeroToCollapsed}}">
+                    <TextBlock FontSize="11"
+                               Foreground="{StaticResource BadgeBlueBrush}"
+                               VerticalAlignment="Center">
+                        <Run Text="📎"/>
+                        <Run Text="{Binding CaptureCount, Mode=OneWay}"/>
+                    </TextBlock>
+                </Border>
+
+                <Button x:Name="SendAllButton"
+                        Style="{StaticResource PrimaryButton}"
+                        Content="Enviar a todos"
+                        Padding="20,8"
+                        FontSize="12.5"
+                        IsEnabled="{Binding IsSendEnabled}"
+                        Click="OnSendAllClick"
+                        AutomationProperties.Name="Send master prompt to all enabled Council panels"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>
