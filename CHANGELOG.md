@@ -11,6 +11,70 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.54] — 2026-05-15 — CRITICAL HOTFIX: Council toggles never persisted + menu entry
+
+Maintainer hit two issues running v2.4.53 Council Mode for the first time:
+
+1. **Activated all 4 provider toggles in Settings → 🤝 Council, clicked Save, opened Council Mode via Ctrl+K, got `"Activá al menos un proveedor en Settings → 🤝 Council"`.** Reopening Settings showed only 2 of the 4 toggles still ticked.
+2. **"No tengo cómo descubrir Council Mode salvo Ctrl+K."** Visibility issue — the only entry point was the command palette.
+
+### Root cause — Issue 1 (the critical bug)
+
+`SettingsWindow.Save_Click` was missing the persistence calls for the four `SettingKeys.CouncilEnabled{Claude,ChatGpt,Grok,Ollama}` toggles. `LoadCouncilStateAsync` READ them (line 631-634, since Phase 4.0 chunk H = v2.4.38) but Save_Click never WROTE them. Pure oversight that stayed dormant for **16 releases** (v2.4.38 → v2.4.53) because every Phase 4.1 chunk A-G shipped inert at runtime — the bug only surfaces once `OpenCouncilModeAsync` reads the toggles and finds them all `"no"` (default).
+
+Fixed in `Save_Click` — 4 lines, follows the existing `CouncilDisclaimerAccepted` "yes"/"no" string convention so `LoadCouncilStateAsync`'s `GetCouncilBoolAsync` (which compares against `"yes"`) round-trips correctly.
+
+```csharp
+// In Save_Click after the Council backend/endpoint/model block:
+await _settings.SetAsync(SettingKeys.CouncilEnabledClaude,
+    CouncilEnabledClaudeCheck.IsChecked == true ? "yes" : "no");
+await _settings.SetAsync(SettingKeys.CouncilEnabledChatGpt, /* … */);
+await _settings.SetAsync(SettingKeys.CouncilEnabledGrok,    /* … */);
+await _settings.SetAsync(SettingKeys.CouncilEnabledOllama,  /* … */);
+```
+
+### Fix — Issue 2 (visibility)
+
+Added a "🤝 Abrir / Cerrar Council Mode" entry to the **main menu dropdown** (3-dots) in `MainWindow.xaml.cs:BuildMenu` between Security Inspector and the bottom separator. Header flips dynamically based on `_isCouncilMode` state:
+
+- Closed: `"🤝 Abrir Council Mode  Ctrl+K → Council"` (includes the keyboard hint to teach the palette shortcut)
+- Open: `"🤝 Cerrar Council Mode"`
+
+The command-palette entry stays as-is — users can use either path.
+
+### Lesson #23 added to memory
+
+`Load` without matching `Save` = setting dormant. Caught only when a downstream consumer actually reads the value at runtime. Fifth instance of the wiring-without-callsite anti-pattern (lessons #8, #11, #15, #21, #23) — this time it's the INVERSE shape: consumer exists, producer was missed. **New rule**: when adding a new `Load*` for a setting, **add the matching `Save*` in the same commit** — never as a follow-up.
+
+Pending: smoke test that validates every `_settings.Get*` in any `LoadX` method has a corresponding `_settings.Set*` in the same dialog's `Save_Click`. Would have caught this in v2.4.38.
+
+### Command palette discoverability — broader feedback documented
+
+Maintainer also asked "todas las opciones que se activan con Ctrl+K pueda verlas en alguna parte". v2.4.54 doesn't address the systemic issue (only Council Mode is now visible in the dropdown). Documented in `memory/feature_command_palette_discoverability.md` with three proposal options:
+
+- **A**: URL-bar Ctrl+K hint button (Recommended for post-v2.5.0)
+- **B**: Settings → Atajos section (pasivo, easy)
+- **C**: Ctrl+/ cheat-sheet overlay (industry standard)
+
+Recommendation: combo A+C in a future polish release.
+
+### Verified locally with `dotnet publish --self-contained` (lesson #22)
+
+Build clean. Tests 551/551 green (no new tests — both fixes are surgical / UX-only).
+
+### Operational guidance
+
+After installing v2.4.54:
+
+1. Open Settings → 🤝 Council → tick the providers you want (Local is enough for testing).
+2. Click **Save** → close the dialog.
+3. Reopen Settings → 🤝 Council → **toggles should now stay ticked** (was the bug).
+4. Either Ctrl+K → "Council Mode" OR open the 3-dots menu → "🤝 Abrir Council Mode".
+5. Accept the disclaimer (first time only).
+6. Council Mode should now open with the 2×2 layout + Bar + overlays.
+
+---
+
 ## [2.4.53] — 2026-05-15 — YouTube Ad-Block v0.1 (scope completo, default ON)
 
 Closes the YouTube ad-block backlog from `memory/project_youtube_adblock_analysis.md`. Maintainer originally requested it 2026-05-14 after observing Malwarebytes Browser Guard's flicker-then-skip pattern; doc was written then with priority "post-Council Mode". With Phase 4.1 chunks A-G done (Council clickeable end-to-end), this picks up the next backlog item.

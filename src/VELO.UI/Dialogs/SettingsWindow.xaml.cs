@@ -351,6 +351,23 @@ public partial class SettingsWindow : Window
             councilModel = VELO.Core.AI.CouncilPreflightService.DefaultModeratorModel;
         await _settings.SetAsync(SettingKeys.CouncilModeratorModel, councilModel);
 
+        // v2.4.54 — CRITICAL HOTFIX: persist the 4 Council provider toggles.
+        // From Phase 4.0 chunk H (v2.4.38) through v2.4.53 these toggles
+        // were READ in LoadCouncilStateAsync but NEVER WRITTEN here. Users
+        // who ticked them and clicked Save saw "Activá al menos un proveedor"
+        // when invoking Council Mode because OpenCouncilModeAsync read all
+        // four as "no". Convention follows the existing CouncilDisclaimerAccepted
+        // pattern: string "yes"/"no" (NOT SetBoolAsync — keep parity with
+        // GetCouncilBoolAsync below that compares against "yes").
+        await _settings.SetAsync(SettingKeys.CouncilEnabledClaude,
+            CouncilEnabledClaudeCheck.IsChecked == true ? "yes" : "no");
+        await _settings.SetAsync(SettingKeys.CouncilEnabledChatGpt,
+            CouncilEnabledChatGptCheck.IsChecked == true ? "yes" : "no");
+        await _settings.SetAsync(SettingKeys.CouncilEnabledGrok,
+            CouncilEnabledGrokCheck.IsChecked == true ? "yes" : "no");
+        await _settings.SetAsync(SettingKeys.CouncilEnabledOllama,
+            CouncilEnabledOllamaCheck.IsChecked == true ? "yes" : "no");
+
         // v2.4.18 — Sprint 9B: BookmarkAI auto-tag
         await _settings.SetBoolAsync(SettingKeys.BookmarkAutoTag, BookmarkAutoTagCheck.IsChecked == true);
 

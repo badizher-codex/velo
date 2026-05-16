@@ -1325,6 +1325,20 @@ public partial class MainWindow : Window
         var itemInspector = new MenuItem { Header = "🔍 Security Inspector  Ctrl+Shift+I" };
         itemInspector.Click += (_, _) => OpenSecurityInspector();
 
+        // v2.4.54 — Council Mode entry in the main dropdown so users discover it
+        // without having to know about the Ctrl+K command palette. Same toggle
+        // semantics as the command-palette entry (open when inactive, close when
+        // active). Label flips dynamically to communicate current state.
+        var itemCouncil = new MenuItem
+        {
+            Header = _isCouncilMode ? "🤝 Cerrar Council Mode" : "🤝 Abrir Council Mode  Ctrl+K → Council",
+        };
+        itemCouncil.Click += (_, _) =>
+        {
+            if (_isCouncilMode) _ = CloseCouncilModeAsync();
+            else                 _ = OpenCouncilModeAsync();
+        };
+
         var itemAbout = new MenuItem { Header = loc.T("menu.about") };
         itemAbout.Click += async (_, _) =>
         {
@@ -1342,6 +1356,7 @@ public partial class MainWindow : Window
         menu.Items.Add(new Separator());
         menu.Items.Add(itemImport);
         menu.Items.Add(itemInspector);
+        menu.Items.Add(itemCouncil);
         menu.Items.Add(new Separator());
         menu.Items.Add(itemClearData);
         menu.Items.Add(itemAbout);
