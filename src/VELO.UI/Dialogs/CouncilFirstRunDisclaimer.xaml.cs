@@ -102,9 +102,17 @@ public partial class CouncilFirstRunDisclaimer : Window
     {
         LastPreflightWasHealthy = preflightHealthy;
 
-        // The Accept button needs: healthy preflight (so synthesis works)
-        // AND at least one provider checked (otherwise there's nothing to
-        // moderate). Both conditions visible in the UI's current state.
+        // v2.4.55 — Provider_Toggled fires while InitializeComponent is still binding
+        // the four <CheckBox IsChecked="True" Checked="Provider_Toggled"/> instances,
+        // BEFORE AcceptButton (defined later in the XAML) has been assigned. Touching
+        // AcceptButton.IsEnabled in that window threw NullReferenceException, which
+        // OpenCouncilModeAsync's catch swallowed as a silent teardown. Phase 4.0 chunk G
+        // never hit this path until v2.4.54 unlocked the Settings provider toggles —
+        // 6 releases dormant. The Loaded-driven RunPreflightAsync path reaches this
+        // method too, where AcceptButton is guaranteed assigned, so the guard is a no-op
+        // for the legitimate call sites.
+        if (AcceptButton is null) return;
+
         var anyProvider = ChkClaude.IsChecked  == true
                        || ChkChatGpt.IsChecked == true
                        || ChkGrok.IsChecked    == true

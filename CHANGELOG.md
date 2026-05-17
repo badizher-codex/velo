@@ -11,6 +11,63 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.55] — 2026-05-17 — CRITICAL HOTFIX: Council disclaimer NRE blocked Council Mode end-to-end
+
+Maintainer hit the v2.4.54 follow-up issue running `Ctrl+K → Council Mode` for the first time after the v2.4.54 persistence fix: command palette closed, nothing else happened. No 2×2 layout, no disclaimer modal, no MessageBox, no `council-*` tabs created — fully silent.
+
+### Root cause (autoritative diagnosis from `velo-20260517_001.log`)
+
+```
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at VELO.UI.Dialogs.CouncilFirstRunDisclaimer.UpdateAcceptEnabled(Boolean preflightHealthy)
+   at VELO.UI.Dialogs.CouncilFirstRunDisclaimer.Provider_Toggled(Object sender, RoutedEventArgs e)
+   at VELO.UI.Dialogs.CouncilFirstRunDisclaimer.InitializeComponent()
+   at VELO.UI.Dialogs.CouncilFirstRunDisclaimer..ctor(SettingsRepository settings, CouncilPreflightService preflight)
+   at VELO.App.MainWindow.OpenCouncilModeAsync()
+```
+
+Phase 4.0 chunk G (v2.4.38) defined the disclaimer with four `<CheckBox IsChecked="True" Checked="Provider_Toggled"/>` controls early in the XAML (rows 3 of the Grid) and the `AcceptButton` near the bottom (row 5). During `InitializeComponent()`, BAML loading assigns the CheckBoxes first; each one fires its `Checked` handler the moment `IsChecked="True"` binds. The handler called `UpdateAcceptEnabled` which touched `AcceptButton.IsEnabled` — but `AcceptButton` had not yet been assigned to its named field. NRE.
+
+`OpenCouncilModeAsync`'s outer `try/catch (Exception ex)` swallowed the throw and tore down silently via `CloseCouncilModeAsync` (also silent, `Log.Warning` only). End user saw a no-op.
+
+The bug was dormant from v2.4.38 through v2.4.53 (16 releases) because Settings → 🤝 Council toggles were `IsEnabled="False"` until Phase 4.1 chunk G (v2.4.48), and `enabled.Count == 0` aborted `OpenCouncilModeAsync` with the MessageBox path before ever constructing the disclaimer. v2.4.54 unblocked persistence, the first toggle-enabled run hit the disclaimer ctor, the NRE fired. **The maintainer's runtime check immediately after v2.4.54 was the first time the disclaimer was actually instantiated end-to-end since Phase 4.0 shipped.**
+
+### Fix
+
+`src/VELO.UI/Dialogs/CouncilFirstRunDisclaimer.xaml.cs` — null guard at the top of `UpdateAcceptEnabled`:
+
+```csharp
+private void UpdateAcceptEnabled(bool preflightHealthy)
+{
+    LastPreflightWasHealthy = preflightHealthy;
+    if (AcceptButton is null) return; // see comment in source for why
+    /* …unchanged logic… */
+}
+```
+
+Three lines including the comment. The legitimate call sites (`ApplyPreflightResult` and the catch block in `RunPreflightAsync`) reach this method via the `Loaded` event, where `AcceptButton` is guaranteed assigned — the guard is a no-op for them.
+
+### Lesson #24 added to memory
+
+**WPF `<Control IsChecked="True" Checked="Handler"/>` fires the handler DURING `InitializeComponent()` for any named widget defined later in the XAML.** Touching such a widget from the handler without a null guard throws `NullReferenceException`. The crash is silent if the ctor caller has a swallowing `try/catch`. **Rule:** event handlers that read widget state during init must either guard `if (NamedField is null) return;` or defer the work to `Loaded`. Sixth instance of "shipped-but-never-runtime-tested" anti-pattern (#8 IA menu, #11 BookmarkAI, #15 PasteGuard, #21 favicons, #23 Council toggles persist, now #24 disclaimer NRE).
+
+### Tests
+
+No new tests this release. A unit test for the disclaimer's `InitializeComponent` would require an STA dispatcher harness (the WPF smoke test project runs file-scan only, not BAML load). Logged as deferred debt: a smoke test that scans XAML for `<*… IsChecked="True" *Checked="Handler"/>` patterns and asserts the handler doesn't dereference fields named after later-defined `x:Name` widgets.
+
+### Files touched
+
+- `src/VELO.UI/Dialogs/CouncilFirstRunDisclaimer.xaml.cs` (+10 lines net — guard + explanatory comment)
+- `src/VELO.App/VELO.App.csproj` (version bump 3 strings)
+- `docs/index.html` (~11 string replacements)
+- `CHANGELOG.md` (this entry)
+
+### Tests run
+
+551/551 (unchanged from v2.4.54).
+
+---
+
 ## [2.4.54] — 2026-05-15 — CRITICAL HOTFIX: Council toggles never persisted + menu entry
 
 Maintainer hit two issues running v2.4.53 Council Mode for the first time:
