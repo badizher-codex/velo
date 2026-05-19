@@ -3088,8 +3088,8 @@ public partial class MainWindow : Window
             orch?.EndSession();
 
             _councilBar?.HideAndReset();
-            foreach (var ov in _councilOverlays.Values) ov.HideAndReset();
-            _councilOverlays.Clear();
+            // v2.4.56 — per-panel overlays dropped from v0.1 (see EnsureCouncilUiAsync
+            // comment). _councilOverlays remains as a future hook for v2.5.x.
             _councilTabIds.Clear();
             _councilBarVm = null;
 
@@ -3102,53 +3102,32 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Lazy-instantiates the Council Bar + four overlays and inserts them into the
-    /// visual tree. Idempotent — repeated calls reuse existing controls. Overlays
-    /// are placed at the same Grid cell as the BrowserTab they sit on top of so
-    /// they're visually pinned to each panel.
+    /// v2.4.56 — Brings up the Council Bar by wiring its event + flipping
+    /// visibility on the static <c>CouncilBarControl</c> instance that lives
+    /// in <c>MainWindow.xaml</c> in its own grid row. The static-XAML approach
+    /// replaces the v2.4.47 dynamic insertion into <c>BrowserContent.Children</c>
+    /// which silently rendered behind the WebView2 panels due to HWND airspace
+    /// (the panels are child HWNDs that win z-order over WPF siblings inside
+    /// the same parent Grid). Putting the bar in the outer grid above
+    /// BrowserContent matches how <c>CommandBar</c> already renders above the
+    /// active tab, and removes the airspace contention entirely.
+    ///
+    /// Per-panel overlays (capture buttons over each cell of the 2×2 layout)
+    /// were dropped for v0.1 — they hit the same airspace issue but the fix
+    /// requires either DOM injection per-provider (brittle, 4 adapter
+    /// surfaces) or a WPF Popup per cell (placement complexity). For v2.5.0
+    /// the send-all + synthesis flow is the critical path; capture buttons
+    /// are deferred to v2.5.x once we pick the right approach.
     /// </summary>
     private Task EnsureCouncilUiAsync(IReadOnlyList<VELO.Core.Council.CouncilProvider> enabled)
     {
         if (_councilBar is null)
         {
             _councilBarVm = new VELO.Core.Council.CouncilBarViewModel();
-            _councilBar   = new VELO.UI.Controls.CouncilBar();
+            _councilBar   = CouncilBarControl;          // static x:Name instance
             _councilBar.SendRequested += OnCouncilSendRequested;
-
-            // Place the bar at the top of BrowserContent's parent grid. The parent
-            // is a Grid in MainWindow.xaml that hosts the URL bar above and the
-            // BrowserContent below; we insert above BrowserContent with Row=0
-            // (the URL bar row) span via Margin so the bar lives in the chrome
-            // strip and doesn't compete with the content. For v2.5.0 we'll add
-            // a dedicated row in MainWindow.xaml; for now the bar lives in
-            // BrowserContent's own row as a top-pinned banner.
-            BrowserContent.Children.Add(_councilBar);
-            Grid.SetRow(_councilBar, 0);
-            Grid.SetColumnSpan(_councilBar, BrowserContent.ColumnDefinitions.Count > 0
-                ? BrowserContent.ColumnDefinitions.Count : 1);
-            _councilBar.VerticalAlignment = VerticalAlignment.Top;
         }
         _councilBar.ShowAndFocus(_councilBarVm!);
-
-        // Per-panel overlays — one per enabled provider, placed in the same Grid
-        // cell as the matching BrowserTab.
-        foreach (var provider in enabled)
-        {
-            if (!_councilTabIds.TryGetValue(provider, out var tabId)) continue;
-            if (!_browserTabs.TryGetValue(tabId, out var bt)) continue;
-
-            if (!_councilOverlays.TryGetValue(provider, out var overlay))
-            {
-                overlay = new VELO.UI.Controls.CouncilPanelOverlay();
-                overlay.CaptureRequested += OnCouncilCaptureRequested;
-                BrowserContent.Children.Add(overlay);
-                _councilOverlays[provider] = overlay;
-            }
-            overlay.SetProvider(provider);
-            Grid.SetRow(overlay,    Grid.GetRow(bt));
-            Grid.SetColumn(overlay, Grid.GetColumn(bt));
-            overlay.Show();
-        }
         return Task.CompletedTask;
     }
 

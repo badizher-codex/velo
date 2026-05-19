@@ -38,6 +38,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>   <!-- UrlBar -->
                 <RowDefinition Height="Auto"/>   <!-- FindBar (hidden by default) -->
+                <RowDefinition Height="Auto"/>   <!-- Council Bar (hidden by default, v2.4.56) -->
                 <RowDefinition Height="*"/>      <!-- Browser content + panels -->
             </Grid.RowDefinitions>
 
@@ -116,8 +117,17 @@
                 </Grid>
             </Border>
 
+            <!-- Council Bar (Phase 4.1 chunk H / v2.4.56). Lives in a dedicated
+                 row outside BrowserContent so the WebView2 panels in the 2×2
+                 layout don't clip it via HWND airspace. Visibility="Collapsed"
+                 by default; flipped to Visible by EnsureCouncilUiAsync when
+                 Council Mode opens. Replaces the v2.4.47 dynamic insertion that
+                 was lost behind the WebView2 cells. -->
+            <ui:CouncilBar x:Name="CouncilBarControl"
+                           Grid.Row="2"/>
+
             <!-- Content area: browser tabs + security panel + agent panel -->
-            <Grid Grid.Row="2">
+            <Grid Grid.Row="3">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -155,7 +165,7 @@
             <!-- ── CommandBar overlay (spans all rows, floats above everything) ── -->
             <ui:CommandBar x:Name="CommandBarControl"
                            Grid.Row="0"
-                           Grid.RowSpan="3"
+                           Grid.RowSpan="4"
                            Panel.ZIndex="100"
                            ResultSelected="CommandBar_ResultSelected"
                            QueryChanged="CommandBar_QueryChanged"
@@ -163,7 +173,7 @@
 
             <!-- ── Glance popup (positioned via Canvas.Left/Top in code-behind) ── -->
             <Canvas Grid.Row="0"
-                    Grid.RowSpan="3"
+                    Grid.RowSpan="4"
                     Panel.ZIndex="90"
                     IsHitTestVisible="False">
                 <ui:GlancePopup x:Name="GlancePopupControl"/>
@@ -172,7 +182,7 @@
             <!-- ── Autofill toast (Phase 3 / Sprint 5) — bottom-right anchor ── -->
             <ui:AutofillToast x:Name="AutofillToastControl"
                               Grid.Row="0"
-                              Grid.RowSpan="3"
+                              Grid.RowSpan="4"
                               HorizontalAlignment="Right"
                               VerticalAlignment="Bottom"
                               Margin="0,0,16,16"
@@ -183,7 +193,7 @@
                  they don't collide on the rare event both fire concurrently. -->
             <ui:BlockNarrationToast x:Name="BlockNarrationToastControl"
                                     Grid.Row="0"
-                                    Grid.RowSpan="3"
+                                    Grid.RowSpan="4"
                                     HorizontalAlignment="Right"
                                     VerticalAlignment="Bottom"
                                     Margin="0,0,16,116"

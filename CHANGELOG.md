@@ -11,6 +11,83 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.56] — 2026-05-17 — Phase 4.1 chunk H first pass: Council Bar visibility + COMException Deferral spam + overlays deferred
+
+First runtime end-to-end of Council Mode after v2.4.55 unlocked the disclaimer modal exposed three more issues. Bundled instead of three more single-line hotfixes — same scope of change as the Council Bar restructure already required.
+
+### Issue 1 — Council Bar invisible (the primary unlock)
+
+Maintainer saw the disclaimer accept correctly, the 2×2 layout open with all four `council-*` tabs loaded — but the **Council Bar** (input + "Enviar a todos" button) and the per-panel capture overlays were nowhere to be seen. Without the bar there's no way to send the master prompt, so the whole send-all + synthesis path was unreachable from the UI.
+
+Root cause: `EnsureCouncilUiAsync` (chunk F, v2.4.47) instantiated the bar dynamically and inserted it into `BrowserContent.Children` at `Grid.Row=0` with column span. The bar sat in the same Grid as the four `BrowserTab` controls hosting WebView2. WebView2 in WPF is a child HWND that wins z-order over WPF siblings inside the same Grid — the bar was technically present but rendered behind the panels. `CommandBar` (Ctrl+K palette) works in the same surface because it lives in **MainWindow's outer grid** (sibling of BrowserContent, not child), so its `Panel.ZIndex="100"` actually wins composition order.
+
+The chunk F source had a TODO comment anticipating exactly this: *"For v2.5.0 we'll add a dedicated row in MainWindow.xaml; for now the bar lives in BrowserContent's own row as a top-pinned banner."* The "for now" was never runtime-tested — chunk F shipped inert, and chunks G + H + v2.4.55 hotfix each unblocked a layer until the layout-airspace issue finally surfaced.
+
+Fix: added a dedicated row to MainWindow.xaml outer grid (between FindBar and Content), declared `<ui:CouncilBar x:Name="CouncilBarControl" Grid.Row="2"/>` statically with `Visibility="Collapsed"` by default. `EnsureCouncilUiAsync` collapses to:
+
+```csharp
+if (_councilBar is null)
+{
+    _councilBarVm = new CouncilBarViewModel();
+    _councilBar   = CouncilBarControl;          // static x:Name instance
+    _councilBar.SendRequested += OnCouncilSendRequested;
+}
+_councilBar.ShowAndFocus(_councilBarVm!);
+```
+
+Same pattern as FindBar. Outer grid `Grid.RowDefinitions` widened to 4 rows; existing controls with `Grid.RowSpan="3"` (CommandBar, GlancePopup Canvas, AutofillToast, BlockNarrationToast) updated to `Grid.RowSpan="4"`. Content sub-grid moved from `Grid.Row="2"` to `Grid.Row="3"`.
+
+### Issue 2 — Per-panel capture overlays dropped from v0.1
+
+The per-cell capture overlays (📝 💻 📊 🔗 buttons floating top-right of each 2×2 panel) hit the same HWND airspace issue as the Bar — they sit *inside* each WebView2-occupied cell, where WPF z-order cannot win. The Bar fix doesn't help because the overlays *must* be visually pinned to each panel.
+
+Options considered:
+- **A (chosen) — drop for v0.1.** Send-all + synthesis is the critical path for v2.5.0; captures are a power-user feature that can be re-added in v2.5.x once we pick the right rendering approach. Users who want captures today can copy-paste manually from a panel into the moderator.
+- **B — JS-inject via the bridge.** Render the four buttons as DOM inside each `council-*` page. 4 adapter surfaces to maintain (Claude / ChatGPT / Grok DOM changes weekly); brittle without a remote refresh path (Phase 4.4 work).
+- **C — WPF Popup per cell with `IsTopmost`.** Placement complexity around the GridSplitter resize + multi-monitor DPI.
+
+Implementation: `EnsureCouncilUiAsync`'s overlay foreach is removed; `CloseCouncilModeAsync`'s overlay teardown removed. The `_councilOverlays` field and the `OnCouncilCaptureRequested` handler stay in place as the future v2.5.x re-introduction hook — both are dead-code-clean (`_councilOverlays` is initialized at declaration so no CS0414, the handler is private so no unused-method warning).
+
+### Issue 3 — `CoreWebView2Deferral` COMException spam in logs
+
+Eight identical exceptions per Council Mode open in `velo-20260517_001.log`:
+
+```
+[ERR] Unhandled UI exception
+System.Runtime.InteropServices.COMException (0x8000000E): Se llamó a un método en un momento inesperado.
+   at Microsoft.Web.WebView2.Core.CoreWebView2Deferral.Complete()
+   at VELO.UI.Controls.BrowserTab.OnWebResourceRequested(...)
+   at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__128_0(Object state)
+```
+
+`OnWebResourceRequested` already had `try { deferral.Complete(); } catch { }` (lesson #14 originally), but the following `deferral.Dispose()` was not wrapped. When `Complete()` failed (typically because the WebView2 panel was torn down mid-request — happens during Council Mode close), the swallowed Complete left the deferral in invalid state; `Dispose()` then internally re-invokes Complete and re-throws on the same 0x8000000E. Because `OnWebResourceRequested` is `async void`, the throw escapes to `DispatcherUnhandledException`.
+
+Fix: wrap `Dispose()` in its own `try/catch`. Symmetric with the existing Complete guard. ~3 lines including a comment block.
+
+### Why bundle instead of three hotfixes
+
+Lesson the maintainer named on this session: hotfix-on-hotfix cycle was burning two releases per day with no end-to-end runtime confirmation in between. v2.4.55 was the last single-line hotfix; v2.4.56 bundles every issue surfaced in the first real end-to-end runtime check. Path forward: if v2.4.56 verifies clean (send-all → synthesis with LM Studio → Council close) and YouTube mid-roll DOM-inspect lands its own one-shot fix, **v2.5.0 = stable release** with overlays + remote adapter refresh deferred to v2.5.x.
+
+### Files touched
+
+- `src/VELO.App/MainWindow.xaml` — outer grid row added, RowSpan updates, static CouncilBar declaration
+- `src/VELO.App/MainWindow.xaml.cs` — `EnsureCouncilUiAsync` rewrite, `CloseCouncilModeAsync` overlay teardown removed
+- `src/VELO.UI/Controls/BrowserTab.Events.cs` — Deferral.Dispose try/catch
+- `src/VELO.App/VELO.App.csproj` — version bump 3 strings
+- `docs/index.html` — 11 version-string replacements
+- `CHANGELOG.md` — this entry
+
+### Tests
+
+552/552 (251 Core + 130 Security + 136 Agent + 18 Vault + 8 Import + 9 Smoke). No changes to test count — the lesson #24 smoke from `fcf200b` (post-v2.4.55) still passes; the XAML restructure doesn't introduce a new init-order pattern. Deferred: a WPF-runtime smoke that asserts the Council Bar actually renders above WebView2 (would require an STA dispatcher harness, not in scope for the file-scan smoke project).
+
+### Pending — does NOT block v2.4.56
+
+- **YouTube mid-roll skip** — maintainer is DOM-inspecting next mid-roll occurrence to copy the player container classes. v2.4.57 one-shot with surgical selectors.
+- **Council Mode end-to-end runtime verification** — gated on this release. If send-all → synthesis works, v2.5.0 is next.
+
+---
+
 ## [2.4.55] — 2026-05-17 — CRITICAL HOTFIX: Council disclaimer NRE blocked Council Mode end-to-end
 
 Maintainer hit the v2.4.54 follow-up issue running `Ctrl+K → Council Mode` for the first time after the v2.4.54 persistence fix: command palette closed, nothing else happened. No 2×2 layout, no disclaimer modal, no MessageBox, no `council-*` tabs created — fully silent.

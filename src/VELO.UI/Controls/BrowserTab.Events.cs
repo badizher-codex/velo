@@ -32,8 +32,16 @@ public partial class BrowserTab
         catch { /* never let async void propagate to DispatcherUnhandledException */ }
         finally
         {
+            // v2.4.56 — Dispose() internally re-invokes Complete() when the
+            // deferral was not successfully completed. If Complete throws
+            // COMException 0x8000000E ("method called at unexpected time" —
+            // observed when the WebView2 panel is torn down mid-request, e.g.
+            // during Council Mode close), the swallowed Complete still leaves
+            // the deferral in an invalid state and Dispose re-throws on the
+            // re-entrant Complete. Wrapping both calls keeps the async void
+            // path quiet instead of spamming DispatcherUnhandledException.
             try { deferral.Complete(); } catch { }
-            deferral.Dispose();
+            try { deferral.Dispose();  } catch { }
         }
     }
 
