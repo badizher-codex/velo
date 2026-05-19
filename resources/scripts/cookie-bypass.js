@@ -245,12 +245,26 @@
         setTimeout(bypass, 3500);
     });
 
-    // MutationObserver: fire bypass on any DOM change (debounced 200ms)
-    let _debounce = null;
-    const observer = new MutationObserver(() => {
-        clearTimeout(_debounce);
-        _debounce = setTimeout(bypass, 200);
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    // MutationObserver: fire bypass on any DOM change (debounced 200ms).
+    //
+    // v2.4.57 — same documentElement-may-be-null race as autofill.js;
+    // gate the observe call so it never throws "parameter 1 is not of
+    // type 'Node'" when AddScriptToExecuteOnDocumentCreatedAsync fires
+    // before the parser produces <html>.
+    const startObserver = () => {
+        if (!document.documentElement) return;
+        let _debounce = null;
+        const observer = new MutationObserver(() => {
+            clearTimeout(_debounce);
+            _debounce = setTimeout(bypass, 200);
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+    } else {
+        startObserver();
+    }
 
 })();

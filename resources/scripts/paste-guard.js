@@ -18,30 +18,46 @@
     };
 
     // ── 1. Intercept navigator.clipboard.readText / read ────────────────────
+    // v2.4.57 — Chromium 121+ ships navigator.clipboard.readText/read as
+    // non-configurable native properties (anti-fingerprinting / -tampering
+    // hardening). Object.defineProperty against them throws
+    // "Cannot redefine property: readText", which kills the IIFE and leaves
+    // sections 2 and 3 unwired. Worse, the uncaught throw bubbles into the
+    // page and broke the Google OAuth flow on accounts.google.com (the
+    // sign-in callback page stayed blank after "Continuar"). Each defineProperty
+    // is now wrapped — if the native property is locked, we silently skip
+    // clipboard-read detection on that page (the execCommand path and
+    // paste-listener path still arm in sections 2 and 3 below).
     if (navigator.clipboard) {
         const origReadText = navigator.clipboard.readText?.bind(navigator.clipboard);
         const origRead     = navigator.clipboard.read?.bind(navigator.clipboard);
 
         if (origReadText) {
-            Object.defineProperty(navigator.clipboard, 'readText', {
-                get() {
-                    return function () {
-                        report('clipboard-read');
-                        return origReadText();
-                    };
-                }
-            });
+            try {
+                Object.defineProperty(navigator.clipboard, 'readText', {
+                    configurable: true,
+                    get() {
+                        return function () {
+                            report('clipboard-read');
+                            return origReadText();
+                        };
+                    }
+                });
+            } catch (_) { /* native non-configurable — see comment above */ }
         }
 
         if (origRead) {
-            Object.defineProperty(navigator.clipboard, 'read', {
-                get() {
-                    return function () {
-                        report('clipboard-read');
-                        return origRead();
-                    };
-                }
-            });
+            try {
+                Object.defineProperty(navigator.clipboard, 'read', {
+                    configurable: true,
+                    get() {
+                        return function () {
+                            report('clipboard-read');
+                            return origRead();
+                        };
+                    }
+                });
+            } catch (_) { /* native non-configurable — see comment above */ }
         }
     }
 

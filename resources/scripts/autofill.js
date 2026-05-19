@@ -94,14 +94,29 @@
   }
 
   // Run after initial render and on dynamic SPAs.
+  //
+  // v2.4.57 — AddScriptToExecuteOnDocumentCreatedAsync fires before
+  // document.documentElement is attached on some pages (notably
+  // accounts.google.com/gsi/transform during the OAuth callback). Calling
+  // mo.observe(null, ...) threw "parameter 1 is not of type 'Node'",
+  // which left the page in a partially-initialised state and broke the
+  // OAuth flow. The observer setup is now gated inside the readyState
+  // branch so it only runs once the parser has produced documentElement.
+  const startObserver = () => {
+    if (!document.documentElement) return;
+    const mo = new MutationObserver(() => pingHost());
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+  };
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', pingHost, { once: true });
+    document.addEventListener('DOMContentLoaded', () => {
+      pingHost();
+      startObserver();
+    }, { once: true });
   } else {
     pingHost();
+    startObserver();
   }
-
-  const mo = new MutationObserver(() => pingHost());
-  mo.observe(document.documentElement, { childList: true, subtree: true });
 
   // ── Submission capture ─────────────────────────────────────────────────
 

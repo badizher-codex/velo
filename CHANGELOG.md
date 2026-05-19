@@ -11,6 +11,61 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.57] — 2026-05-17 — HOTFIX: Pre-existing script crashes broke Google OAuth flow (blocked Council Mode logins)
+
+Maintainer hit a blank page mid Google OAuth (`accounts.google.com/gsi/transform`) when trying to log into Claude inside a `council-claude` panel of v2.4.56. The OAuth callback page rendered for a moment, the user clicked "Continuar", then the page went blank. Login impossible → no panel was actually receiving paste/send from the Bar in Council Mode end-to-end.
+
+Both root causes are **pre-existing** — neither introduced by Council Mode work. They were dormant on every VELO page that uses these scripts, but only surfaced as a hard block now that the v2.4.56 Bar fix made Google login the next dependency on the critical path.
+
+### Bug 1 — `paste-guard.js` `Cannot redefine property: readText`
+
+Chromium 121+ ships `navigator.clipboard.readText` and `navigator.clipboard.read` as **non-configurable** native properties (anti-fingerprinting hardening). `paste-guard.js` at lines 26 + 37 was doing:
+
+```js
+Object.defineProperty(navigator.clipboard, 'readText', { get() { ... } });
+```
+
+with no `try`. The throw escaped the IIFE, killed the rest of `paste-guard.js` (execCommand + paste-listener detection silently unwired), and the uncaught exception bubbled into Google's GSI library — sufficient to brick `accounts.google.com/gsi/transform`'s rendering. Probable dormancy reason: on most non-Google pages the broken IIFE doesn't block the host page; Google's GSI has its own MutationObserver chain that's sensitive to the unhandled rejection (see bug 2).
+
+Fix: each `defineProperty` now wrapped in `try { ... } catch (_) { }`. On hardened browsers the clipboard-read detection silently degrades to "execCommand + paste-listener only" — the two remaining sections of the script still arm normally. Symmetric to the v2.4.56 Deferral.Dispose fix.
+
+### Bug 2 — `autofill.js` / `cookie-bypass.js` `MutationObserver: parameter 1 is not of type 'Node'`
+
+Both scripts called
+
+```js
+observer.observe(document.documentElement, { childList: true, subtree: true });
+```
+
+at top-level of the IIFE. `AddScriptToExecuteOnDocumentCreatedAsync` runs scripts at document-create time, BEFORE the parser produces `<html>`. On pages that take long to attach the root (Google GSI transform is one — it bootstraps via XHR into about:blank-like state), `document.documentElement` is null at that moment. `observe(null, ...)` throws.
+
+Fix: gated the observer setup inside a `startObserver()` helper with `if (!document.documentElement) return;` belt-and-braces guard, called either immediately when `readyState !== 'loading'` or deferred to `DOMContentLoaded`. Applied to both `autofill.js` (the actual error line) and `cookie-bypass.js` (same anti-pattern, preventive).
+
+### Why v2.4.57 instead of bundling with v2.5.0
+
+The Council Mode end-to-end flow IS blocked on user being able to log into Claude / ChatGPT inside the `council-*` containers. Without this fix, even with v2.4.56's Bar visible, the send-all has nothing to send to. Shipping standalone gets the maintainer unblocked for the next runtime verification pass. YouTube mid-roll fix still waiting on DOM-inspect, queued separately.
+
+### Files touched
+
+- `resources/scripts/paste-guard.js` — try/catch around the two `Object.defineProperty` calls (+11 lines including comment + `configurable: true` on the redefinition)
+- `resources/scripts/autofill.js` — gated `mo.observe` inside `startObserver()` + readyState branch (+11 lines including comment)
+- `resources/scripts/cookie-bypass.js` — same gating pattern (+10 lines including comment)
+- `src/VELO.App/VELO.App.csproj` — version bump 3 strings
+- `docs/index.html` — 11 version-string replacements
+- `CHANGELOG.md` — this entry
+
+### Tests
+
+552/552 unchanged. These are JS resource files; no C# touched. Smoke project doesn't currently scan injected JS (deferred debt — a "scripts inject without throwing on document-create" smoke would need a headless Chromium harness, not in the file-scan smoke project's scope).
+
+### Verified
+
+- `fingerprint-noise.js` already has `try { ... } catch (e) { }` around each `Object.defineProperty` (line 133/134/137) — no change needed.
+- Grep across `resources/scripts/` for `observe(document.` after fix: only the two gated occurrences remain.
+- Grep for `defineProperty(navigator|window|document` across `resources/scripts/`: only `paste-guard.js` (fixed) and `fingerprint-noise.js` (already safe) hit.
+
+---
+
 ## [2.4.56] — 2026-05-17 — Phase 4.1 chunk H first pass: Council Bar visibility + COMException Deferral spam + overlays deferred
 
 First runtime end-to-end of Council Mode after v2.4.55 unlocked the disclaimer modal exposed three more issues. Bundled instead of three more single-line hotfixes — same scope of change as the Council Bar restructure already required.
