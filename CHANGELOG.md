@@ -15,6 +15,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 Council Mode paused by the maintainer after the v2.4.54→v2.4.57 runtime hotfix cycle. A systematic codebase audit (`memory/audit_2026-06.md`) found three actionable issues; this release fixes the top three. New model on the project (Opus 4.7 → 4.8); co-author trailer updated.
 
+> **Note:** the first dispatch of v2.4.58 (`846f9a7`) failed CI — the H1 signature change (`PageContentProvider` → `Func<Task<string>>`) broke `SlashCommandRouterTests.cs:22`, which still assigned a `() => string` lambda. The local `dotnet test` masked it: the test project failed to *compile* and silently dropped out of the `grep "Correctas"` summary rather than reporting a failure (lesson #25). This release also folds in the T1 smoke test (`WiringSmokeTests` test 5 — lesson #23 Load↔Save pairing) committed in `759a701`.
+
 ### H1 (HIGH) — `PageContentProvider` sync-over-async → UI-thread deadlock
 
 `MainWindow` wired `SlashCommandRouter.PageContentProvider` as:

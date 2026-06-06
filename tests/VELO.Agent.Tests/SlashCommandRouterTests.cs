@@ -19,7 +19,7 @@ public class SlashCommandRouterTests
         };
         var router = new SlashCommandRouter(actions)
         {
-            PageContentProvider = () => pageContent,
+            PageContentProvider = () => Task.FromResult(pageContent),
         };
         return (router, actions, calls);
     }
