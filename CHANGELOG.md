@@ -11,6 +11,78 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.58] — 2026-06-06 — Audit pass 1: UI-thread deadlock (H1) + silent drag-back scroll loss (M1) + dependency pinning (A1)
+
+Council Mode paused by the maintainer after the v2.4.54→v2.4.57 runtime hotfix cycle. A systematic codebase audit (`memory/audit_2026-06.md`) found three actionable issues; this release fixes the top three. New model on the project (Opus 4.7 → 4.8); co-author trailer updated.
+
+### H1 (HIGH) — `PageContentProvider` sync-over-async → UI-thread deadlock
+
+`MainWindow` wired `SlashCommandRouter.PageContentProvider` as:
+
+```csharp
+() => ActiveBrowserTab() is { } bt
+    ? bt.GetPageContentAsync().GetAwaiter().GetResult().Content
+    : "";
+```
+
+`GetPageContentAsync` awaits `WebView.CoreWebView2.ExecuteScriptAsync(...)`, whose continuation is marshaled back to the UI thread (WebView2 COM objects are UI-thread-affine). `SlashCommandRouter.TryDispatchAsync` runs on the UI thread when a slash command is dispatched from the agent panel; the `.GetAwaiter().GetResult()` then blocks that thread waiting for a continuation that needs the same thread → **hard freeze**. Dormant because slash commands that read page content (`/tldr`, `/resumen`, `/explicar`, `/preguntas`, `/traducir` against the active page) are used rarely.
+
+Fix: `PageContentProvider` changed from `Func<string>?` to `Func<Task<string>>?`; `TryDispatchAsync` now `await`s it; the MainWindow lambda is `async () => (await bt.GetPageContentAsync()).Content`. No sync-over-async anywhere on the path. The sibling `AskAboutPageRequested` handler already did this correctly with `await` — H1 was the odd one out.
+
+### M1 (MEDIUM) — drag-back scroll snapshot always timed out → feature silently dead
+
+`TabSidebar_PreDragSnapshot` (the sync callback fired before `DragDrop.DoDragDrop` blocks) did:
+
+```csharp
+var task = bt.CaptureSnapshotAsync();
+if (task.Wait(TimeSpan.FromMilliseconds(150)))   // blocks UI thread
+    args.SetSnapshot(task.Result);
+```
+
+`CaptureSnapshotAsync` also awaits `ExecuteScriptAsync`. `task.Wait(150ms)` blocks the UI thread the continuation needs, so it **always** elapsed → `SetSnapshot` was skipped → the cross-window drag-back scroll preservation (v2.4.52) never actually worked. No freeze (the timeout protected) but the feature was silently a no-op.
+
+Fix: the snapshot is now captured asynchronously at **mouse-down** instead of mid-drag. New `TabSidebar.TabDragArmed` event fires from `Tab_Click`; `MainWindow.TabSidebar_TabDragArmed` kicks off `CaptureSnapshotAsync` and stores the running task keyed by tab ID. By the time the user crosses the drag threshold (~100ms+ of mouse movement vs a ~20ms script round-trip) the capture has completed on the dispatcher's own pump. The sync `PreDragSnapshot` callback then consumes the result only if `Task.Status == RanToCompletion` (reading `.Result` on a completed task does not block) — otherwise it skips, same as before but without ever blocking.
+
+### A1 (MEDIUM) — pin all `Version="*"` package references (lesson #19)
+
+13 floating refs across 6 projects pinned to their currently-resolved, known-good versions:
+
+| Package | Pinned |
+|---|---|
+| Anthropic.SDK | 5.10.0 |
+| Microsoft.Web.WebView2 | 1.0.3967.48 |
+| ModernWpfUI | 0.9.6 |
+| Serilog | 4.3.1 |
+| Serilog.Sinks.File | 7.0.0 |
+| Serilog.Extensions.Logging | 10.0.0 |
+| sqlite-net-pcl | 1.9.172 |
+| SQLitePCLRaw.bundle_e_sqlite3 | 3.0.3 |
+| SQLitePCLRaw.bundle_sqlcipher | 1.1.14 |
+
+Lesson #19 (v2.4.31 broke CI twice from floating transitive drift) said out-of-band packages never float; the out-of-band ones (`Microsoft.Extensions.*`, `System.*`) were already pinned. This extends the discipline to every floating ref — `Anthropic.SDK`, `ModernWpfUI`, `Microsoft.Web.WebView2` and `sqlite-net-pcl` are all actively developed and a single upstream patch with inconsistent transitives can turn CI red without a code change. Removing the floating refs removes that entire failure class.
+
+### Not in this release (from the audit, deferred)
+
+- **MW1** — `MainWindow.xaml.cs` is 3450 lines (Council added ~700). Extract a `CouncilModeController` + finish Sprint 10b chunk 3. Deferred until Council un-pauses.
+- **T1** — smoke test for the lesson #23 Load↔Save settings pairing (manual check is clean today, nothing prevents regression).
+- **T2/T3** — injected-JS robustness lint; `DirectChatAdapter` → `IHttpClientFactory`.
+
+### Verification
+
+- Build clean (0 errors). `dotnet publish -c Release -r win-x64 --self-contained` clean (lesson #22 — touches WebView2 package + BrowserTab-adjacent code).
+- 552/552 green after a clean `dotnet restore` (the pinned versions resolve identically to the previously-floated ones).
+
+### Files touched
+
+- `src/VELO.Agent/SlashCommandRouter.cs` — `PageContentProvider` → `Func<Task<string>>?`, awaited
+- `src/VELO.App/MainWindow.xaml.cs` — async PageContentProvider lambda; `TabDragArmed` handler + `_armedDragSnapshot` field; `PreDragSnapshot` no longer sync-waits
+- `src/VELO.UI/Controls/TabSidebar.xaml.cs` — `TabDragArmed` event + raise in `Tab_Click`
+- `src/VELO.App/MainWindow.xaml` — `TabDragArmed` wiring
+- 6 `.csproj` — pinned versions
+- `src/VELO.App/VELO.App.csproj` (version bump) · `docs/index.html` (11 strings) · `CHANGELOG.md`
+
+---
+
 ## [2.4.57] — 2026-05-17 — HOTFIX: Pre-existing script crashes broke Google OAuth flow (blocked Council Mode logins)
 
 Maintainer hit a blank page mid Google OAuth (`accounts.google.com/gsi/transform`) when trying to log into Claude inside a `council-claude` panel of v2.4.56. The OAuth callback page rendered for a moment, the user clicked "Continuar", then the page went blank. Login impossible → no panel was actually receiving paste/send from the Bar in Council Mode end-to-end.

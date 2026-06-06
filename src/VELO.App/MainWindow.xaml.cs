@@ -278,9 +278,14 @@ public partial class MainWindow : Window
         var pageCtx     = _services.GetRequiredService<VELO.Agent.PageContextManager>();
         // Provide live page-content lookup so slash commands operate on the
         // active tab's reader-extracted text.
-        slashRouter.PageContentProvider = () =>
+        // v2.4.58 audit H1 — async to avoid a UI-thread deadlock. The old
+        // `.GetAwaiter().GetResult()` blocked the dispatcher while
+        // GetPageContentAsync awaited WebView2 ExecuteScriptAsync, whose
+        // continuation needs that same blocked thread → hard freeze. Dormant
+        // because slash commands that read page content are used rarely.
+        slashRouter.PageContentProvider = async () =>
             ActiveBrowserTab() is { } bt
-                ? bt.GetPageContentAsync().GetAwaiter().GetResult().Content
+                ? (await bt.GetPageContentAsync()).Content
                 : "";
         AgentPanelControl.SetSlashServices(slashRouter, pageCtx);
         AgentPanelControl.AskAboutPageRequested += async (_, _) =>
@@ -1489,24 +1494,40 @@ public partial class MainWindow : Window
     /// the payload travels with a null Snapshot and the receiving window
     /// just lands at the top of the page.
     /// </summary>
+    /// <summary>v2.4.58 audit M1 — snapshot capture armed at mouse-down by
+    /// <see cref="TabSidebar_TabDragArmed"/>, consumed synchronously by
+    /// <see cref="TabSidebar_PreDragSnapshot"/> if it has completed.</summary>
+    private (string TabId, Task<VELO.Core.Navigation.TabSnapshot> Task)? _armedDragSnapshot;
+
+    private void TabSidebar_TabDragArmed(object? sender, string tabId)
+    {
+        // Kick off the scroll-snapshot capture as soon as the user presses on a
+        // tab. The capture awaits a UI-thread-affine WebView2 ExecuteScriptAsync,
+        // so it must NOT be sync-waited later — by starting it here it runs to
+        // completion on the dispatcher's own message pump while the user moves
+        // the mouse past the drag threshold (~100ms+ of motion vs ~20ms script).
+        if (_browserTabs.TryGetValue(tabId, out var bt))
+            _armedDragSnapshot = (tabId, bt.CaptureSnapshotAsync());
+        else
+            _armedDragSnapshot = null;
+    }
+
     private void TabSidebar_PreDragSnapshot(object? sender,
         (string TabId, Action<VELO.Core.Navigation.TabSnapshot> SetSnapshot) args)
     {
-        if (!_browserTabs.TryGetValue(args.TabId, out var bt)) return;
-        try
+        // Consume the snapshot pre-captured at mouse-down. Do NOT sync-wait
+        // CaptureSnapshotAsync here: .Wait()/.Result on a still-running task
+        // blocks the UI thread that ExecuteScriptAsync's continuation needs,
+        // so the old 150ms wait always timed out → scroll silently lost on
+        // drag-back (the v2.4.52 feature never actually worked). Reading
+        // .Result on a RanToCompletion task does not block.
+        if (_armedDragSnapshot is { } armed &&
+            armed.TabId == args.TabId &&
+            armed.Task.Status == TaskStatus.RanToCompletion)
         {
-            // CaptureSnapshotAsync is async but sub-50 ms in practice. Sync wait
-            // is acceptable here because the UI is already paused (the drag-drop
-            // gesture is mid-flight). Wrap in a short timeout to defend against
-            // a hung ExecuteScriptAsync — fall back to Empty if it takes too long.
-            var task = bt.CaptureSnapshotAsync();
-            if (task.Wait(TimeSpan.FromMilliseconds(150)))
-                args.SetSnapshot(task.Result);
+            try { args.SetSnapshot(armed.Task.Result); } catch { }
         }
-        catch
-        {
-            // PreDragSnapshotRequested is cosmetic — never propagate a failure.
-        }
+        _armedDragSnapshot = null;
     }
 
     /// <summary>

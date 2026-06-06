@@ -31,7 +31,8 @@
                        TabTearOffRequested="TabSidebar_TabTearOffRequested"
                        TabRejoinAccepted="TabSidebar_TabRejoinAccepted"
                        TabTransferAcceptedByOtherWindow="TabSidebar_TabTransferAccepted"
-                       PreDragSnapshotRequested="TabSidebar_PreDragSnapshot"/>
+                       PreDragSnapshotRequested="TabSidebar_PreDragSnapshot"
+                       TabDragArmed="TabSidebar_TabDragArmed"/>
 
         <!-- ── Main area: url bar + find bar + content ───────────────── -->
         <Grid Grid.Column="1">

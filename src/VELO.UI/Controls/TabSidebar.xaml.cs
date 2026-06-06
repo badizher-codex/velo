@@ -41,6 +41,13 @@ public partial class TabSidebar : UserControl
     /// the drag-drop blocks until the user releases the mouse, and the
     /// payload has to be ready before that.</summary>
     public event EventHandler<(string TabId, Action<TabSnapshot> SetSnapshot)>? PreDragSnapshotRequested;
+    /// <summary>v2.4.58 audit M1 — Raised on mouse-down on a tab (before any
+    /// drag is confirmed) so the host can kick off the async scroll-snapshot
+    /// capture. By the time the drag threshold is crossed (~100ms+ of human
+    /// movement) the ~20ms ExecuteScriptAsync has completed, and the sync
+    /// <see cref="PreDragSnapshotRequested"/> callback can consume the result
+    /// without blocking the UI thread. Arg = tab ID.</summary>
+    public event EventHandler<string>? TabDragArmed;
 
     // ── Internal state ────────────────────────────────────────────────────
     private readonly ObservableCollection<TabInfo>  _visibleTabs = [];
@@ -273,6 +280,9 @@ public partial class TabSidebar : UserControl
         {
             _dragStart  = e.GetPosition(this);
             _isDragging = false;
+            // v2.4.58 audit M1 — arm the async scroll-snapshot capture now so it's
+            // ready if this mouse-down turns into a cross-window drag.
+            TabDragArmed?.Invoke(this, tabId);
             TabSelected?.Invoke(this, tabId);
         }
     }

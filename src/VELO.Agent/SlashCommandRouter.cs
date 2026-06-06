@@ -13,8 +13,12 @@ namespace VELO.Agent;
 /// </summary>
 public sealed class SlashCommandRouter
 {
-    /// <summary>Function that returns the active page's plain-text content (Reader-Mode-extracted).</summary>
-    public Func<string>? PageContentProvider { get; set; }
+    /// <summary>Async function that returns the active page's plain-text content
+    /// (Reader-Mode-extracted). Async because the underlying
+    /// <c>BrowserTab.GetPageContentAsync</c> awaits a WebView2 ExecuteScriptAsync
+    /// whose continuation marshals back to the UI thread — calling it with
+    /// .GetAwaiter().GetResult() from the UI thread deadlocks (audit H1, v2.4.58).</summary>
+    public Func<Task<string>>? PageContentProvider { get; set; }
 
     /// <summary>Default target language for <c>/traducir</c> when none supplied (UI locale).</summary>
     public string DefaultTranslateLang { get; set; } = "es";
@@ -50,7 +54,9 @@ public sealed class SlashCommandRouter
         var (cmd, args) = ParseInput(input);
         if (cmd == null) return null;
 
-        var content = PageContentProvider?.Invoke() ?? "";
+        var content = PageContentProvider is null
+            ? ""
+            : await PageContentProvider.Invoke().ConfigureAwait(false);
 
         switch (cmd)
         {

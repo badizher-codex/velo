@@ -19,9 +19,9 @@
     <ProjectReference Include="..\VELO.Agent\VELO.Agent.csproj" />
     <ProjectReference Include="..\VELO.DNS\VELO.DNS.csproj" />
     <ProjectReference Include="..\VELO.Vault\VELO.Vault.csproj" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="*" />
-    <PackageReference Include="ModernWpfUI" Version="*" />
-    <PackageReference Include="Serilog" Version="*" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
+    <PackageReference Include="ModernWpfUI" Version="0.9.6" />
+    <PackageReference Include="Serilog" Version="4.3.1" />
   </ItemGroup>
 
 </Project>
