@@ -447,6 +447,63 @@ public class WiringSmokeTests
         }
     }
 
+    // ── Test 5 — every settings key READ in SettingsWindow is also WRITTEN ──
+
+    [Fact]
+    public void Every_setting_loaded_in_SettingsWindow_is_also_persisted()
+    {
+        // Lesson #23 (v2.4.54): SettingsWindow.LoadCouncilStateAsync READ the four
+        // CouncilEnabled* toggles (since Phase 4.0 chunk H / v2.4.38) but Save_Click
+        // never WROTE them — the user ticked a toggle, saved, reopened, and it was
+        // blank. Dormant 16 releases because Council Mode was inert until it went
+        // runtime-clickable, at which point OpenCouncilModeAsync read all four as
+        // "no" and refused to open. A load without a matching save = dormant setting.
+        //
+        // This asserts the lesson #23 invariant: every SettingKeys.X the dialog
+        // READS must also be WRITTEN somewhere in the same file. The reverse is NOT
+        // required — a key written-but-not-read here is legitimate (e.g. Language is
+        // persisted on save but loaded by LocalizationService elsewhere).
+        //
+        // Matching is call-flavoured, not field-scoped, so it catches helper
+        // indirection: GetCouncilBoolAsync(SettingKeys.CouncilEnabledClaude) counts
+        // as a READ because the call name contains "Get", and
+        // _settings.SetAsync(SettingKeys.CouncilEnabledClaude, …) as a WRITE.
+
+        var srcRoot = LocateSrcRoot();
+        var path    = Path.Combine(srcRoot, "VELO.UI", "Dialogs", "SettingsWindow.xaml.cs");
+        Assert.True(File.Exists(path), $"SettingsWindow not found at {path}");
+        var cs = File.ReadAllText(path);
+
+        var readKeys  = SettingKeyMatches(cs, @"Get\w*\(\s*SettingKeys\.(\w+)");
+        var writeKeys = SettingKeyMatches(cs, @"Set\w*\(\s*SettingKeys\.(\w+)");
+
+        // Conscious exceptions: keys the dialog reads purely to DISPLAY read-only
+        // status and deliberately never persists. Empty today — adding one forces
+        // a deliberate decision (same philosophy as _knownDeferredServices above).
+        var readOnlyDisplay = new HashSet<string>(StringComparer.Ordinal);
+
+        var loadedButNotSaved = readKeys
+            .Where(k => !writeKeys.Contains(k) && !readOnlyDisplay.Contains(k))
+            .OrderBy(k => k, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            loadedButNotSaved.Count == 0,
+            "Lesson #23 — SettingKeys read in SettingsWindow but never persisted in a " +
+            "Set* call (a load without a save = dormant setting):\n  " +
+            string.Join("\n  ", loadedButNotSaved.Select(k => $"SettingKeys.{k}")) +
+            "\nAdd the matching _settings.Set* in Save_Click, or (if intentionally " +
+            "read-only) add it to readOnlyDisplay in this test.");
+    }
+
+    private static HashSet<string> SettingKeyMatches(string text, string pattern)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Match m in Regex.Matches(text, pattern))
+            set.Add(m.Groups[1].Value);
+        return set;
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private static string LocateSrcRoot()
