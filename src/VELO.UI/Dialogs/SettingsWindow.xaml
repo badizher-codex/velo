@@ -300,6 +300,17 @@
                         </StackPanel>
                     </CheckBox>
 
+                    <!-- v2.4.59 QW-3 — Certificate Transparency (crt.sh) opt-in. Default OFF (privacy). -->
+                    <CheckBox x:Name="CtLogCheck" Margin="0,12,0,4">
+                        <StackPanel>
+                            <TextBlock x:Name="CtLogTitle" Text="Verificar Transparencia de Certificados (crt.sh)" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="CtLogDesc"
+                                       Text="Consulta crt.sh para cada dominio que visitás y avisa si falta en los CT logs públicos. Apagado por defecto: al activarlo, cada dominio visitado se envía a crt.sh."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
+
                     <!-- v2.4.53 — YouTube ad-block opt-out. Default ON. Toggle off
                          to support a specific creator (or when YouTube experimentation
                          breaks our selectors and the user wants ads back temporarily). -->

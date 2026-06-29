@@ -29,6 +29,11 @@ public partial class SettingsWindow : Window
     /// domain-age check so the host can flip DomainAgeProbe.Enabled live.</summary>
     public event EventHandler<bool>? DomainAgeCheckChanged;
 
+    /// <summary>v2.4.59 QW-3 — Raised after Save when the user toggles the crt.sh
+    /// Certificate Transparency check so the host can flip TLSGuard.CtLogCheckEnabled
+    /// live.</summary>
+    public event EventHandler<bool>? CtLogCheckChanged;
+
     /// <summary>v2.4.53 — Raised after Save when the user toggles the YouTube
     /// ad-block opt-out so the host can refresh YouTubeAdBlocker.IsEnabled. New
     /// tabs pick up the new value via the cached flag; existing YouTube tabs
@@ -147,6 +152,8 @@ public partial class SettingsWindow : Window
         BookmarkAutoTagDesc.Text  = L.T("settings.ai.bookmark_autotag.desc");
         DomainAgeTitle.Text       = L.T("settings.ai.domain_age");
         DomainAgeDesc.Text        = L.T("settings.ai.domain_age.desc");
+        CtLogTitle.Text           = L.T("settings.privacy.ct_log");
+        CtLogDesc.Text            = L.T("settings.privacy.ct_log.desc");
 
         // Search panel
         SearchTitle.Text       = L.T("settings.search.title");
@@ -253,6 +260,9 @@ public partial class SettingsWindow : Window
 
         // v2.4.25 — PhishingShield domain-age (RDAP)
         DomainAgeCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.PhishingShieldDomainAgeCheck, defaultValue: false);
+
+        // v2.4.59 QW-3 — crt.sh Certificate Transparency check (opt-in, default OFF)
+        CtLogCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.TlsCtLogCheck, defaultValue: false);
 
         // v2.4.53 — YouTube ad-block opt-out. String setting ("yes"/"no") so we go
         // through GetAsync, not GetBoolAsync, to keep parity with the rest of the
@@ -377,6 +387,10 @@ public partial class SettingsWindow : Window
         // v2.4.25 — PhishingShield domain-age (RDAP). Persist + apply hot.
         await _settings.SetBoolAsync(SettingKeys.PhishingShieldDomainAgeCheck, DomainAgeCheck.IsChecked == true);
         DomainAgeCheckChanged?.Invoke(this, DomainAgeCheck.IsChecked == true);
+
+        // v2.4.59 QW-3 — crt.sh CT check. Persist + apply hot.
+        await _settings.SetBoolAsync(SettingKeys.TlsCtLogCheck, CtLogCheck.IsChecked == true);
+        CtLogCheckChanged?.Invoke(this, CtLogCheck.IsChecked == true);
 
         // v2.4.53 — YouTube ad-block opt-out. Persist as "yes"/"no" string.
         // Hot-apply: new tabs see the new value; existing YouTube tabs need a

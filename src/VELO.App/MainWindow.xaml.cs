@@ -377,21 +377,28 @@ public partial class MainWindow : Window
         // Fire-and-forget; the probe stays Enabled=false until this lands,
         // so worst case the user gets a few seconds without the signal.
         _ = ApplyDomainAgeSettingAtStartupAsync();
+        // v2.4.59 QW-3 — same opt-in pattern for the crt.sh CT check (default OFF).
+        _ = ApplyCtLogSettingAtStartupAsync();
         // v2.4.53 — same pattern for the YouTube ad-block opt-out flag.
         _ = _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>().RefreshAsync();
 
         // Initialize WebView2 environment with zero-telemetry flags
         var options = new CoreWebView2EnvironmentOptions
         {
+            // v2.4.59 F-6 — Chromium honours only the LAST --disable-features it
+            // sees, so the three separate flags meant only EdgeCollections ever
+            // took effect. Merged into one comma-separated flag.
+            // v2.4.59 F-1 — Dropped --disable-background-networking and
+            // --disable-component-update: the Widevine CDM is delivered/updated
+            // through the component updater, so disabling it left WebView2 with no
+            // decryptor and premium streaming (Prime/Netflix/Disney+/HBO) wouldn't
+            // play. Telemetry stays off via breakpad/crash-reporter/sync/metrics.
             AdditionalBrowserArguments = string.Join(" ",
-                "--disable-features=msEdgeSidebarV2",
-                "--disable-features=EdgeShoppingAssistant",
-                "--disable-features=EdgeCollections",
+                "--disable-features=msEdgeSidebarV2,EdgeShoppingAssistant,EdgeCollections",
                 "--disable-crash-reporter",
                 "--disable-breakpad",
                 "--no-first-run",
                 "--no-default-browser-check",
-                "--disable-background-networking",
                 "--disable-client-side-phishing-detection",
                 "--disable-sync",
                 "--disable-translate",
@@ -401,8 +408,7 @@ public partial class MainWindow : Window
                 "--disable-logging",
                 "--disable-hang-monitor",
                 "--disable-prompt-on-repost",
-                "--disable-domain-reliability",
-                "--disable-component-update")
+                "--disable-domain-reliability")
         };
 
         var userDataPath = DataLocation.SubPath("Profile");
@@ -411,7 +417,11 @@ public partial class MainWindow : Window
         GlancePopupControl.SetEnvironment(_webViewEnv);
 
         // Cache privacy settings used by every new tab
-        _fingerprintLevel = await _settings.GetAsync(SettingKeys.FingerprintLevel, "Aggressive");
+        // v2.4.59 F-5 — Default to Balanced. Aggressive canvas/WebGL spoofing
+        // broke reCAPTCHA and some banking sites; Balanced keeps the privacy win
+        // without locking the user out of the everyday web. ShieldsAllowlist still
+        // covers the sites that need a clean fingerprint.
+        _fingerprintLevel = await _settings.GetAsync(SettingKeys.FingerprintLevel, "Balanced");
         _webRtcMode       = await _settings.GetAsync(SettingKeys.WebRtcMode, "Relay");
 
         // Set AI status indicator — ping Ollama in background, update dot when result arrives
@@ -1289,9 +1299,11 @@ public partial class MainWindow : Window
             var settingsWin = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
             settingsWin.DomainAgeCheckChanged  += OnDomainAgeCheckChanged;
             settingsWin.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
+            settingsWin.CtLogCheckChanged      += OnCtLogCheckChanged;
             settingsWin.ShowDialog();
             settingsWin.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
             settingsWin.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
+            settingsWin.CtLogCheckChanged      -= OnCtLogCheckChanged;
             var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
             await bootstrapper.ConfigureAIAdapterAsync();
             await bootstrapper.ConfigureAgentAdaptersAsync();
@@ -2061,6 +2073,20 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── crt.sh Certificate Transparency opt-in (v2.4.59 QW-3) ────────────
+    private void OnCtLogCheckChanged(object? sender, bool enabled)
+    {
+        try
+        {
+            _tlsGuard.CtLogCheckEnabled = enabled;
+            Log.Information("TLSGuard.CtLogCheckEnabled toggled to {Enabled} via Settings", enabled);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to toggle TLSGuard.CtLogCheckEnabled");
+        }
+    }
+
     // ── YouTube ad-block (v2.4.53) ───────────────────────────────────────
 
     /// <summary>v2.4.53 — Settings dialog toggled the YouTube ad-block flag.
@@ -2094,6 +2120,22 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             Log.Warning(ex, "DomainAgeProbe: startup setting read failed");
+        }
+    }
+
+    // v2.4.59 QW-3 — Apply the crt.sh CT-check opt-in at startup. Default OFF, so
+    // until this lands no visited domain is sent to crt.sh.
+    private async Task ApplyCtLogSettingAtStartupAsync()
+    {
+        try
+        {
+            var enabled = await _settings.GetBoolAsync(SettingKeys.TlsCtLogCheck, defaultValue: false);
+            _tlsGuard.CtLogCheckEnabled = enabled;
+            if (enabled) Log.Information("TLSGuard: crt.sh CT check enabled at startup");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "TLSGuard: CT-check startup setting read failed");
         }
     }
 
@@ -2532,8 +2574,10 @@ public partial class MainWindow : Window
                     var v = _services.GetRequiredService<VaultService>();
                     var sw = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
                     sw.DomainAgeCheckChanged += OnDomainAgeCheckChanged;
+                    sw.CtLogCheckChanged     += OnCtLogCheckChanged;
                     sw.ShowDialog();
                     sw.DomainAgeCheckChanged -= OnDomainAgeCheckChanged;
+                    sw.CtLogCheckChanged     -= OnCtLogCheckChanged;
                     var bs = _services.GetRequiredService<AppBootstrapper>();
                     await bs.ConfigureAIAdapterAsync();
                     await bs.ConfigureAgentAdaptersAsync();

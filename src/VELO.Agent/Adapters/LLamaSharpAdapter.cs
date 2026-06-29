@@ -25,6 +25,11 @@ public class LLamaSharpAdapter : IAgentAdapter, IDisposable
     private LLamaContext?  _ctx;
     private bool           _loaded;
 
+    // v2.4.59 C-2 — A single LLamaContext is not safe for concurrent inference;
+    // overlapping ChatAsync calls (e.g. agent + a stateless one-shot) corrupt the
+    // KV cache. Serialize all inference through one slot.
+    private readonly SemaphoreSlim _inferLock = new(1, 1);
+
     private const int ContextSize  = 4096;
     private const int GpuLayers    = 35;    // 0 = CPU-only; 35 covers most 7B models on 6 GB VRAM
     private const int MaxNewTokens = 512;
@@ -81,6 +86,7 @@ public class LLamaSharpAdapter : IAgentAdapter, IDisposable
         if (!_loaded || _ctx == null)
             return AgentResponse.Error("Modelo local no cargado. Verifica que el archivo GGUF existe.");
 
+        await _inferLock.WaitAsync(ct);
         try
         {
             var executor = new InstructExecutor(_ctx);
@@ -116,6 +122,10 @@ public class LLamaSharpAdapter : IAgentAdapter, IDisposable
             _logger.LogError(ex, "LLamaSharp: inference error");
             return AgentResponse.Error($"Error de inferencia: {ex.Message}");
         }
+        finally
+        {
+            _inferLock.Release();
+        }
     }
 
     private static string BuildPrompt(string userPrompt, AgentContext context)
@@ -131,6 +141,7 @@ public class LLamaSharpAdapter : IAgentAdapter, IDisposable
     {
         _ctx?.Dispose();
         _weights?.Dispose();
+        _inferLock.Dispose();
         _loaded = false;
     }
 }

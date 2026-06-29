@@ -22,6 +22,15 @@ public class TLSGuard(ILogger<TLSGuard> logger)
 {
     private readonly ILogger<TLSGuard> _logger = logger;
 
+    /// <summary>
+    /// v2.4.59 QW-3 (C-1) — Opt-in gate for the crt.sh Certificate Transparency
+    /// check. Default OFF: when off, no visited domain is ever sent to crt.sh.
+    /// The host flips this from Settings → Privacy and at startup. Privacy-first:
+    /// the CT lookup leaks every visited domain to a third party, so it stays
+    /// silent unless the user explicitly opts in.
+    /// </summary>
+    public bool CtLogCheckEnabled { get; set; }
+
     // Shared HttpClient — single instance for CT log queries
     private static readonly HttpClient _http = new()
     {
@@ -75,6 +84,7 @@ public class TLSGuard(ILogger<TLSGuard> logger)
     /// </summary>
     public async Task CheckCTLogsAsync(string domain, string originalUri)
     {
+        if (!CtLogCheckEnabled) return; // v2.4.59 QW-3 — opt-in, default OFF
         if (string.IsNullOrEmpty(domain) || IsLocalDomain(domain)) return;
 
         // Deduplicate: strip leading "www."

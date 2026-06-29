@@ -50,6 +50,8 @@ public static class SettingKeys
     public const string ClipboardHistoryEnabled = "clipboard.history_enabled";
     /// <summary>v2.4.25 — When true, PhishingShield queries IANA RDAP for domain age on suspicious pages. Default false (privacy: leaks the suspect domain to its RDAP server).</summary>
     public const string PhishingShieldDomainAgeCheck = "phishing.domain_age_check";
+    /// <summary>v2.4.59 QW-3 — When true, TLSGuard queries crt.sh (Certificate Transparency) for each visited domain. Default false (privacy: leaks every visited domain to crt.sh).</summary>
+    public const string TlsCtLogCheck = "tls.ct_log_check";
 
     // ── Council Mode (Phase 4.0) ─────────────────────────────────────────
     /// <summary>Phase 4.0 — set to "yes" once the user has accepted the first-run disclaimer

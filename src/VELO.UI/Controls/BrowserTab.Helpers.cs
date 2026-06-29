@@ -130,10 +130,40 @@ public partial class BrowserTab
         var L = LocalizationService.Current;
         return BuildAboutPageTemplate()
             .Replace("VELO_VERSION_PLACEHOLDER",       version)
+            .Replace("VELO_LOGO_PLACEHOLDER",          GetLogoDataUri())
             .Replace("VELO_TITLE_PLACEHOLDER",         L.T("about.title"))
             .Replace("VELO_UNSIGNED_HEADER_PLACEHOLDER", L.T("about.unsigned.header"))
             .Replace("VELO_UNSIGNED_BODY_PLACEHOLDER",   L.T("about.unsigned.body"))
             .Replace("VELO_BUILTWITH_PLACEHOLDER",       L.T("about.builtwith"));
+    }
+
+    // v2.4.59 QW-1 (M-2) — Inline the NewTab logo as a data: URI loaded from the
+    // bundled WPF resource instead of fetching it from raw.githubusercontent.com
+    // on every NewTab render. That remote fetch was a phone-home on each new tab;
+    // the asset already ships inside VELO.UI. Cached after the first build. On any
+    // failure we fall back to an empty src so the template's onerror handler shows
+    // the 🛡 shield placeholder.
+    private static string? _logoDataUri;
+
+    private static string GetLogoDataUri()
+    {
+        if (_logoDataUri != null) return _logoDataUri;
+        try
+        {
+            var uri  = new Uri("pack://application:,,,/VELO.UI;component/Assets/velo-logo.png", UriKind.Absolute);
+            var info = Application.GetResourceStream(uri);
+            if (info?.Stream != null)
+            {
+                using var ms = new MemoryStream();
+                info.Stream.CopyTo(ms);
+                return _logoDataUri = "data:image/png;base64," + Convert.ToBase64String(ms.ToArray());
+            }
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine($"[VELO] NewTab logo resource load failed: {ex.Message}");
+        }
+        return _logoDataUri = "";
     }
 
     private static string BuildAboutPageTemplate() => """
@@ -240,7 +270,7 @@ public partial class BrowserTab
         <body>
           <div class="card">
             <img class="hero-img"
-                 src="https://raw.githubusercontent.com/Badizher-codex/velo/main/src/VELO.UI/Assets/velo-logo.png"
+                 src="VELO_LOGO_PLACEHOLDER"
                  onerror="this.style.display='none';document.getElementById('shield-fallback').style.display='flex'"/>
             <div id="shield-fallback" style="width:80px;height:80px;margin:0 auto 16px;background:linear-gradient(135deg,#00e5ff22,#7c4dff22);border:2px solid #00e5ff44;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:36px">🛡</div>
             <div class="logo">VELO</div>

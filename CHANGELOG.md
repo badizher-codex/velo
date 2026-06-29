@@ -11,6 +11,44 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.59] — 2026-06-29 — Phase 1 "usable floor" bundle: streaming + OAuth-vault + cert hard-block + inference lock + privacy quick wins
+
+First release of the post-audit Phase 1 plan (`PLAN_VELO.md` §3) — the floor that makes VELO usable and trustworthy as a daily browser, a precondition for the ambient-AI thesis. Six audit findings plus the fingerprint default. The single riskiest fix, **F-2 (OAuth popups)**, is deliberately split into v2.4.60 so a regression in the login path doesn't entangle with the rest. Council Mode stays paused. Decision #4 (local-AI path) is still pending and does not block this release.
+
+### F-1 (FUNCTIONAL) — premium streaming wouldn't play (`--disable-component-update` killed the Widevine CDM)
+
+The WebView2 environment passed `--disable-component-update` and `--disable-background-networking`. The Widevine CDM is delivered and updated through Chromium's component updater, so disabling it left WebView2 with no decryptor — `requestMediaKeySystemAccess('com.widevine.alpha')` failed and Prime / Netflix / Disney+ / HBO never played. Both flags removed. Telemetry stays off via `--disable-breakpad`, `--disable-crash-reporter`, `--disable-sync`, `--metrics-recording-only`, `--disable-domain-reliability`.
+
+### F-6 (FUNCTIONAL) — `--disable-features` was triplicated, only the last won
+
+Chromium honours only the **last** `--disable-features` flag it sees, so `msEdgeSidebarV2` and `EdgeShoppingAssistant` were never actually disabled — only `EdgeCollections` took effect. Merged into one comma-separated flag.
+
+### AS-1 (SECURITY) — autofill bridge trusted the page-supplied host → vault poisoning
+
+`OnWebMessageReceived` fires for any page (`chrome.webview.postMessage` is callable by web JS). The `autofill-detect` and `autofill-submit` cases read `host` from the **message body**, which the page controls. A page on `evil.com` could send `{"kind":"autofill-submit","host":"bank.com",…}` to save/pull vault credentials under another origin. Both cases now derive the host host-side from `GetHost(_currentPageUrl)` and ignore the message's host (the same pattern `pasteguard` already used — autofill was the inconsistency). username/password are still taken from the message, as those are legitimate form values.
+
+### AS-2 (SECURITY) — invalid TLS certs were `AlwaysAllow` + a dismissible warning
+
+`OnServerCertificateError` set `e.Action = AlwaysAllow` for any non-local cert error (self-signed / expired / mismatch / bad authority), showing only a dismissible WARN. For a security browser this inverts the core guarantee: a MitM with an invalid cert loaded its page anyway. Now hard-blocks via `CoreWebView2ServerCertificateErrorAction.Default`, which cancels the navigation and surfaces WebView2's built-in "Your connection isn't private" interstitial with an explicit per-site override (Chrome/Edge/Firefox behaviour). Local hosts (`localhost`/`127.0.0.1`/`.local`/raw IPs) still get `AlwaysAllow` for dev convenience.
+
+### C-2 (QUALITY) — concurrent inference on a single `LLamaContext` had no lock
+
+`LLamaSharpAdapter.ChatAsync` ran `InstructExecutor.InferAsync` over one shared `LLamaContext` with no serialization; overlapping calls corrupt the KV cache. Added a `SemaphoreSlim(1,1)` around the inference body (disposed in `Dispose`).
+
+### F-5 (FUNCTIONAL) — fingerprint default Aggressive → Balanced
+
+Aggressive canvas/WebGL spoofing broke reCAPTCHA and some banking sites. Default is now `Balanced` (decision #6); `ShieldsAllowlist` still covers sites that need a clean fingerprint.
+
+### QW-1 (PRIVACY) — NewTab logo phoned home on every render
+
+The about/NewTab page loaded its logo from `raw.githubusercontent.com` on each render — a phone-home per new tab, for an asset already bundled inside `VELO.UI`. Now inlined as a cached `data:` URI loaded from the WPF resource; the existing 🛡 onerror fallback is preserved.
+
+### QW-3 (PRIVACY) — crt.sh Certificate Transparency check is now opt-in, default OFF
+
+`TLSGuard.CheckCTLogsAsync` queried crt.sh for **every** visited domain, leaking the full browsing trail to a third party with no consent. Now gated behind `TLSGuard.CtLogCheckEnabled` (default OFF), wired to a new Settings → Privacy toggle (`tls.ct_log_check`) following the existing domain-age opt-in pattern (load↔save symmetric, applied at startup and live on toggle). Localised in all 8 UI languages.
+
+---
+
 ## [2.4.58] — 2026-06-06 — Audit pass 1: UI-thread deadlock (H1) + silent drag-back scroll loss (M1) + dependency pinning (A1)
 
 Council Mode paused by the maintainer after the v2.4.54→v2.4.57 runtime hotfix cycle. A systematic codebase audit (`memory/audit_2026-06.md`) found three actionable issues; this release fixes the top three. New model on the project (Opus 4.7 → 4.8); co-author trailer updated.
