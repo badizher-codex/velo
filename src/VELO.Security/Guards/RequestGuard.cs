@@ -183,6 +183,9 @@ public class RequestGuard(
 
     public static void AddToWhitelist(string host) => _userWhitelist.Add(host.ToLowerInvariant());
     public static void RemoveFromWhitelist(string host) => _userWhitelist.Remove(host.ToLowerInvariant());
+    /// <summary>v2.4.60 A4 — exposed so the TLS cert-error handler can honour a
+    /// "Whitelist always" override the user granted from the security panel.</summary>
+    public static bool IsUserWhitelisted(string host) => _userWhitelist.Contains(host.ToLowerInvariant());
 
     /// <summary>v2.4.22 — exposed so AISecurityEngine can populate PhishingShield signals.</summary>
     public static bool HasSuspiciousTld(string host)

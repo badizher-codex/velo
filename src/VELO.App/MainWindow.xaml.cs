@@ -50,6 +50,11 @@ public partial class MainWindow : Window
     private string _webRtcMode       = "Relay";
     private readonly Dictionary<string, BrowserTab> _browserTabs = [];
     private readonly HashSet<string> _navigatedTabs = [];
+    // v2.4.60 F-2 — set just before CreateTab for a popup so OnTabCreated marks
+    // the tab as navigated (Chromium navigates popups itself via e.NewWindow).
+    // Safe as a plain field: the whole create→activate chain is inline on the
+    // UI thread.
+    private bool _suppressInitialNavForNextTab;
     // Remembers the last active tab per workspace so switching workspaces
     // restores focus to where the user was (Arc-like UX), instead of always
     // jumping to the topmost tab.
@@ -421,7 +426,7 @@ public partial class MainWindow : Window
         // broke reCAPTCHA and some banking sites; Balanced keeps the privacy win
         // without locking the user out of the everyday web. ShieldsAllowlist still
         // covers the sites that need a clean fingerprint.
-        _fingerprintLevel = await _settings.GetAsync(SettingKeys.FingerprintLevel, "Balanced");
+        _fingerprintLevel = await _settings.GetAsync(SettingKeys.FingerprintLevel, SettingKeys.FingerprintLevelDefault);
         _webRtcMode       = await _settings.GetAsync(SettingKeys.WebRtcMode, "Relay");
 
         // Set AI status indicator — ping Ollama in background, update dot when result arrives
@@ -545,6 +550,19 @@ public partial class MainWindow : Window
         Dispatcher.Invoke(async () =>
         {
             var tab = _tabManager.GetTab(e.TabId)!;
+
+            // v2.4.60 F-2 — Popup tabs must reach AttachAsPopupAsync with a
+            // NEVER-navigated CoreWebView2 (Chromium drives the navigation to
+            // preserve window.opener). Marking the tab as already-navigated
+            // suppresses the lazy first-navigation in OnTabActivated. This runs
+            // before any await, and CreateTab→events are all inline on the UI
+            // thread, so the mark lands before the activation check reads it.
+            if (_suppressInitialNavForNextTab)
+            {
+                _suppressInitialNavForNextTab = false;
+                _navigatedTabs.Add(e.TabId);
+            }
+
             var autofill = _services.GetRequiredService<VELO.Vault.AutofillService>();
 
             // Callbacks captured per tab. The inline lambdas marshal to the
@@ -596,7 +614,12 @@ public partial class MainWindow : Window
                 // plumbing. The dispatch happens on the dispatcher thread the
                 // BrowserTab raised on, because the orchestrator is single-threaded
                 // and the UI subscribers (chunk F) need updates on the UI thread.
-                OnCouncilBridgeMessage:   (tabId, msg) => OnCouncilBridgeMessage(tabId, msg));
+                OnCouncilBridgeMessage:   (tabId, msg) => OnCouncilBridgeMessage(tabId, msg),
+                // v2.4.60 F-2 — OAuth-capable popups: materialize a real
+                // CoreWebView2 for the popup (preserves window.opener) and close
+                // the tab when its JS calls window.close().
+                OnPopupWindowRequested:   (tabId, payload) => OnPopupWindowRequested(tabId, payload),
+                OnCloseRequested:         tabId => Dispatcher.Invoke(() => _tabManager.CloseTab(tabId)));
 
             // Phase 4.0 chunk D — per-container fingerprint override. Council
             // containers (council-claude / -chatgpt / -grok / -ollama) drop
@@ -619,6 +642,50 @@ public partial class MainWindow : Window
 
             if (_webViewEnv != null)
                 await browserTab.EnsureWebViewInitializedAsync(_webViewEnv);
+        });
+    }
+
+    /// <summary>
+    /// v2.4.60 F-2 — Materializes a user-initiated popup as a REAL popup: a new
+    /// tab whose CoreWebView2 is handed back to Chromium via e.NewWindow, so
+    /// Chromium drives the navigation and the window.opener chain survives
+    /// (OAuth "Sign in with…" flows post the token back through it). The tab
+    /// goes through the normal CreateTab pipeline, so every guard and wire from
+    /// BuildAndWire applies to popups too. Deferral completes exactly once:
+    /// here on the failure path, or inside AttachAsPopupAsync otherwise.
+    /// </summary>
+    private void OnPopupWindowRequested(
+        string openerTabId,
+        (CoreWebView2NewWindowRequestedEventArgs Args, CoreWebView2Deferral Deferral) p)
+    {
+        Dispatcher.Invoke(async () =>
+        {
+            BrowserTab? popupTab = null;
+            try
+            {
+                _suppressInitialNavForNextTab = true;
+                var uri     = string.IsNullOrEmpty(p.Args.Uri) ? "about:blank" : p.Args.Uri;
+                var tabInfo = _tabManager.CreateTab(uri);
+                _browserTabs.TryGetValue(tabInfo.Id, out popupTab);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "F-2: popup tab creation failed for {Uri}", p.Args.Uri);
+            }
+            finally
+            {
+                _suppressInitialNavForNextTab = false;
+            }
+
+            if (popupTab is null || _webViewEnv is null)
+            {
+                // Handled=true with no NewWindow → popup dropped (same net
+                // effect as the old blockers), never a hung deferral.
+                p.Deferral.Complete();
+                return;
+            }
+
+            await popupTab.AttachAsPopupAsync(_webViewEnv, p.Args, p.Deferral);
         });
     }
 

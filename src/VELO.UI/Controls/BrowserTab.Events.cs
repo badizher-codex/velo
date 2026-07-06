@@ -292,14 +292,36 @@ public partial class BrowserTab
         var isExpired    = statusName.Contains("Expir", StringComparison.OrdinalIgnoreCase)
                         || statusName.Contains("Date",   StringComparison.OrdinalIgnoreCase);
 
+        // v2.4.60 A4 — Honour an explicit user override before hard-blocking.
+        // "Allow once" puts the host in this tab's _allowedOnce; "Whitelist
+        // always" puts it in RequestGuard's user whitelist. With an override the
+        // user's reload goes through (with a Warn so the panel still shows the
+        // degraded state); without one we hard-cancel.
+        var hostKey    = host.ToLowerInvariant();
+        var overridden = _allowedOnce.Contains(hostKey) || RequestGuard.IsUserWhitelisted(hostKey);
+
+        if (overridden)
+        {
+            e.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
+            Dispatcher.Invoke(() => SecurityVerdictReceived?.Invoke(this, new AIVerdict
+            {
+                Verdict    = VerdictType.Warn,
+                Reason     = $"Cargando '{host}' con certificado inválido por tu override — la conexión no es de confianza",
+                ThreatType = ThreatType.MitM,
+                Source     = "TLS",
+                Confidence = 95,
+                Host       = host,
+            }));
+            return;
+        }
+
         var verdict = _tlsGuard.EvaluateCertError(uri, isSelfSigned, isExpired, isLocal);
 
         // v2.4.59 AS-2 — Hard-block serious cert errors on non-local hosts instead
         // of AlwaysAllow + dismissible WARN. `Default` cancels the navigation and
-        // surfaces WebView2's built-in "Your connection isn't private" interstitial,
-        // so the user gets an explicit per-site override (Chrome/Edge/Firefox
-        // behaviour) rather than a MitM page loading silently. Local hosts already
-        // returned AlwaysAllow above for dev convenience.
+        // surfaces WebView2's built-in TLS error page, so a MitM with an invalid
+        // cert can't load silently. Local hosts already returned AlwaysAllow above
+        // for dev convenience.
         e.Action = CoreWebView2ServerCertificateErrorAction.Default;
 
         Dispatcher.Invoke(() => SecurityVerdictReceived?.Invoke(this, new AIVerdict
@@ -308,7 +330,11 @@ public partial class BrowserTab
             Reason     = verdict.Reason,
             ThreatType = verdict.ThreatType,
             Source     = "TLS",
-            Confidence = 95
+            Confidence = 95,
+            // v2.4.60 A4 — the blocked page never became the tab URL, so the
+            // panel can't derive the domain itself; without this the override
+            // buttons target the wrong (previous) host.
+            Host       = host,
         }));
     }
 
@@ -342,13 +368,21 @@ public partial class BrowserTab
 
             var kind = node["kind"]?.GetValue<string>();
 
+            // v2.4.60 A2 — Attribute the message to the document that actually
+            // sent it. _currentPageUrl is set in NavigationStarting, so between
+            // a navigation start and its commit the OLD page's JS is still alive
+            // and could post messages that we'd attribute to the NEW url (e.g.
+            // evil.com navigates to bank.com, then posts autofill-submit inside
+            // that window → vault poisoning under bank.com). e.Source is the
+            // browser-attested URI of the sender document — no race.
+            var senderHost = GetHost(e.Source ?? "");
+
             switch (kind)
             {
                 case "pasteguard" when _pasteGuard != null:
                 {
                     var signal = node["signal"]?.GetValue<string>() ?? "unknown";
-                    var domain = GetHost(_currentPageUrl);
-                    _pasteGuard.Process(_tabId, domain, signal);
+                    _pasteGuard.Process(_tabId, senderHost, signal);
                     break;
                 }
                 case "glance-show":
@@ -363,12 +397,11 @@ public partial class BrowserTab
                     break;
                 case "autofill-detect":
                 {
-                    // v2.4.59 AS-1 — Derive the host host-side from the real page
-                    // URL; never trust the host the page put in the message. A
-                    // page on evil.com could otherwise claim host="bank.com" and
-                    // pull/poison vault entries for another origin. (pasteguard
-                    // above already does this; autofill was the inconsistency.)
-                    var h = GetHost(_currentPageUrl);
+                    // v2.4.59 AS-1 / v2.4.60 A2 — Host comes from e.Source (the
+                    // sender document), never from the message body the page
+                    // controls, and not from _currentPageUrl (races during
+                    // navigation).
+                    var h = senderHost;
                     if (!string.IsNullOrEmpty(h))
                     {
                         // v2.4.24 — flip the per-page flag so PhishingShield gets
@@ -381,11 +414,10 @@ public partial class BrowserTab
                 }
                 case "autofill-submit":
                 {
-                    // v2.4.59 AS-1 — Host comes from the page URL, not the message,
-                    // so a hostile page can't save credentials under another
-                    // origin's host. username/password are the form values the
-                    // page legitimately supplies.
-                    var h  = GetHost(_currentPageUrl);
+                    // v2.4.59 AS-1 / v2.4.60 A2 — Host from e.Source (see above).
+                    // username/password are the form values the page legitimately
+                    // supplies.
+                    var h  = senderHost;
                     var u  = node["username"]?.GetValue<string>() ?? "";
                     var pw = node["password"]?.GetValue<string>() ?? "";
                     if (!string.IsNullOrEmpty(h) && !string.IsNullOrEmpty(pw))
@@ -631,9 +663,32 @@ public partial class BrowserTab
             }
         }
 
-        // ── Rule 4: clean, user-initiated, first popup → allow as new tab ─
+        // ── Rule 4: clean, user-initiated popup → materialize a REAL popup ─
+        // v2.4.60 F-2 — The old path converted every popup into a plain new tab
+        // (`__newtab:`), which has no `window.opener` relationship. OAuth flows
+        // ("Sign in with Google/Microsoft/Apple") open window.open() and depend
+        // on opener.postMessage(token) + window.close(); without opener the
+        // login completed but the original page never got the token and hung.
+        // Hand the args + deferral to the host, which attaches a fresh
+        // CoreWebView2 (same environment, never navigated) via e.NewWindow so
+        // Chromium itself drives the navigation and preserves the opener chain.
+        if (PopupWindowRequested is { } popupHandler)
+        {
+            var deferral = e.GetDeferral();
+            Dispatcher.Invoke(() => popupHandler.Invoke(this, (e, deferral)));
+            return;
+        }
+
+        // Fallback when no host wired the popup path (e.g. Council panels):
+        // legacy new-tab behaviour, opener-less.
         Dispatcher.Invoke(() => UrlChanged?.Invoke(this, $"__newtab:{targetUri}"));
     }
+
+    // v2.4.60 F-2 — window.close() from page JS. WebView2 only raises this for
+    // windows it knows are script-closable (e.g. popups we attached via
+    // e.NewWindow). Surface to the host so it can close the tab.
+    private void OnWindowCloseRequested(object? sender, object e)
+        => Dispatcher.Invoke(() => CloseRequested?.Invoke(this, EventArgs.Empty));
 
     private void OnDownloadStarting(object? sender, CoreWebView2DownloadStartingEventArgs e)
     {

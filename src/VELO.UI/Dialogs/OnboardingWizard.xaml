@@ -125,7 +125,7 @@
                 <TextBlock x:Name="ProtUa"       Text="✓ Rotación de User Agent" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
                 <TextBlock x:Name="ProtWebrtc"   Text="✓ Protección WebRTC" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
 
-                <TextBlock x:Name="LevelLine" Text="Nivel: AGRESIVO (óptimo)" FontWeight="SemiBold"
+                <TextBlock x:Name="LevelLine" Text="Nivel: BALANCEADO (privado y compatible)" FontWeight="SemiBold"
                            Foreground="{StaticResource AccentPurpleLightBrush}" Margin="0,16,0,0"/>
                 <TextBlock x:Name="ChangeableLine" Text="Puedes cambiarlo en Settings en cualquier momento."
                            FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4"/>

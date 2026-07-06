@@ -86,7 +86,19 @@ public class LLamaSharpAdapter : IAgentAdapter, IDisposable
         if (!_loaded || _ctx == null)
             return AgentResponse.Error("Modelo local no cargado. Verifica que el archivo GGUF existe.");
 
-        await _inferLock.WaitAsync(ct);
+        // v2.4.60 A5 — Acquire outside the main try (never release an unacquired
+        // lock) but keep cancellation fail-soft: a token cancelled while WAITING
+        // must return the same error response as one cancelled mid-inference,
+        // not throw at the caller.
+        try
+        {
+            await _inferLock.WaitAsync(ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return AgentResponse.Error("Inferencia cancelada.");
+        }
+
         try
         {
             var executor = new InstructExecutor(_ctx);

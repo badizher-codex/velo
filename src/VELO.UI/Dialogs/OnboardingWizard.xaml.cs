@@ -176,8 +176,11 @@ public partial class OnboardingWizard : Window
                 break;
 
             case 3:
-                // Fingerprint is already set to Aggressive by default — nothing to save
-                await _settings.SetAsync(SettingKeys.FingerprintLevel, "Aggressive");
+                // v2.4.60 A1 — Step 3 is informational (no user choice), so nothing
+                // to persist. The old code force-wrote "Aggressive" here, pinning
+                // every onboarded user to the pre-decision-#6 default and making
+                // the Balanced default inert. The default lives in
+                // SettingKeys.FingerprintLevelDefault and is read at the call sites.
                 break;
 
             case 4:

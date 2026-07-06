@@ -213,8 +213,10 @@ public partial class SettingsWindow : Window
         SecParanoid.IsChecked = secMode == "Paranoid";
         SecBunker.IsChecked   = secMode == "Bunker";
 
-        // Fingerprint
-        var fp = await _settings.GetAsync(SettingKeys.FingerprintLevel, "Aggressive");
+        // Fingerprint — default must match MainWindow's runtime read (v2.4.60 A1:
+        // a mismatched load default here showed Aggressive on fresh profiles and
+        // persisted it on Save, silently reverting the Balanced default).
+        var fp = await _settings.GetAsync(SettingKeys.FingerprintLevel, SettingKeys.FingerprintLevelDefault);
         FpAggressive.IsChecked = fp == "Aggressive";
         FpBalanced.IsChecked   = fp == "Balanced";
         FpOff.IsChecked        = fp == "Off";

@@ -14,6 +14,38 @@ namespace VELO.UI.Controls;
 // BrowserTab.Helpers.cs (statics + external-launch), BrowserTab.Events.cs (WebView2 handlers).
 public partial class BrowserTab
 {
+    // ── Popup attach (v2.4.60 F-2) ───────────────────────────────────────
+
+    /// <summary>
+    /// Attaches this (freshly created, NEVER navigated) tab as the real window
+    /// for a popup request coming from another tab's NewWindowRequested. Waits
+    /// for WebView2 init (shares the host's in-flight init via the cached
+    /// task), hands the CoreWebView2 to Chromium through <c>args.NewWindow</c>
+    /// and completes the deferral. Chromium then navigates this webview itself,
+    /// which is what preserves the <c>window.opener</c> chain OAuth needs.
+    /// On any failure the deferral still completes — with Handled=true and no
+    /// NewWindow the popup is dropped (same net effect as the old blockers).
+    /// </summary>
+    public async Task AttachAsPopupAsync(
+        CoreWebView2Environment env,
+        CoreWebView2NewWindowRequestedEventArgs args,
+        CoreWebView2Deferral deferral)
+    {
+        try
+        {
+            await EnsureWebViewInitializedAsync(env);
+            args.NewWindow = WebView.CoreWebView2;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Popup attach failed: {ex.Message}");
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
     // ── Paste cluster ────────────────────────────────────────────────────
 
     /// <summary>v2.4.16 — Reads the clipboard on the UI thread and injects the

@@ -150,23 +150,26 @@ public class TLSGuard(ILogger<TLSGuard> logger)
     /// Call from ServerCertificateErrorDetected. Returns the verdict to apply.
     /// Pass allowSelfSigned=true for localhost/private IPs (dev scenario).
     /// </summary>
+    // v2.4.60 A4 — These are Block, not Warn: since v2.4.59 (AS-2) the navigation
+    // is actually hard-cancelled, and the old Warn copy ("puede no ser segura")
+    // contradicted the action. The reason text tells the user how to override.
     public SecurityVerdict EvaluateCertError(string uri, bool isSelfSigned, bool isExpired, bool isPrivateHost)
     {
         if (isPrivateHost)
             return SecurityVerdict.Allow(); // localhost dev — allow
 
         if (isSelfSigned)
-            return SecurityVerdict.Warn(
-                "El sitio usa un certificado autofirmado — la identidad no está verificada por una CA pública",
+            return SecurityVerdict.Block(
+                "Conexión bloqueada: certificado autofirmado — la identidad del sitio no está verificada por una CA pública. Para continuar bajo tu riesgo: 'Permitir una vez' y recargá",
                 ThreatType.MitM, "TLS");
 
         if (isExpired)
-            return SecurityVerdict.Warn(
-                "El certificado TLS del sitio ha expirado — la conexión puede no ser segura",
+            return SecurityVerdict.Block(
+                "Conexión bloqueada: el certificado TLS del sitio expiró. Para continuar bajo tu riesgo: 'Permitir una vez' y recargá",
                 ThreatType.MitM, "TLS");
 
-        return SecurityVerdict.Warn(
-            "Error de certificado TLS — la identidad del servidor no puede verificarse",
+        return SecurityVerdict.Block(
+            "Conexión bloqueada: error de certificado TLS — la identidad del servidor no puede verificarse. Para continuar bajo tu riesgo: 'Permitir una vez' y recargá",
             ThreatType.MitM, "TLS");
     }
 

@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Web.WebView2.Core;
 using VELO.Core.Downloads;
 using VELO.Data.Repositories;
 using VELO.Security;
@@ -62,7 +63,9 @@ public sealed class BrowserTabHost
         Action<string, string>                                        OnAutofillFormDetected,
         Action<string, (string Host, string Username, string Password)> OnAutofillFormSubmitted,
         Action<string, byte[]>                                        OnFaviconCaptured,
-        Action<string, VELO.Core.Council.CouncilBridgeMessage>        OnCouncilBridgeMessage);
+        Action<string, VELO.Core.Council.CouncilBridgeMessage>        OnCouncilBridgeMessage,
+        Action<string, (CoreWebView2NewWindowRequestedEventArgs Args, CoreWebView2Deferral Deferral)> OnPopupWindowRequested,
+        Action<string>                                                OnCloseRequested);
 
     private readonly IServiceProvider _services;
 
@@ -115,6 +118,9 @@ public sealed class BrowserTabHost
         browserTab.AutofillFormSubmitted   += (_, payload) => handlers.OnAutofillFormSubmitted(tabId, payload);
         browserTab.FaviconCaptured         += (_, bytes)   => handlers.OnFaviconCaptured(tabId, bytes);
         browserTab.CouncilBridgeMessageReceived += (_, msg) => handlers.OnCouncilBridgeMessage(tabId, msg);
+        // v2.4.60 F-2 — OAuth-capable popups + window.close() plumbing.
+        browserTab.PopupWindowRequested    += (_, payload) => handlers.OnPopupWindowRequested(tabId, payload);
+        browserTab.CloseRequested          += (_, _)       => handlers.OnCloseRequested(tabId);
 
         // ── Setters — resolved from DI ───────────────────────────────────
         // Sprint 6: history repo so NewTab v2 can render top sites.

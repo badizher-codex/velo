@@ -26,6 +26,15 @@ public partial class BrowserTab : UserControl
     public event EventHandler<TlsStatus>? TlsStatusChanged;
     /// <summary>Raised when the user hovers a link long enough. Arg = URL to preview (empty = hide).</summary>
     public event EventHandler<string>? GlanceLinkHovered;
+    /// <summary>v2.4.60 F-2 — Raised for a clean user-initiated popup that should
+    /// materialize as a REAL CoreWebView2 window (preserves window.opener, which
+    /// OAuth "Sign in with Google/MS/Apple" flows need to post the token back).
+    /// The host MUST complete the deferral — attach via AttachAsPopupAsync.</summary>
+    public event EventHandler<(CoreWebView2NewWindowRequestedEventArgs Args, CoreWebView2Deferral Deferral)>? PopupWindowRequested;
+    /// <summary>v2.4.60 F-2 — Raised when page JS calls window.close() (WebView2
+    /// WindowCloseRequested). OAuth popups close themselves after handing the
+    /// token to the opener; the host should close this tab.</summary>
+    public event EventHandler? CloseRequested;
 
     private string _tabId = "";
     private bool _webViewInitialized;
@@ -37,7 +46,7 @@ public partial class BrowserTab : UserControl
     private TLSGuard? _tlsGuard;
     private DownloadGuard? _downloadGuard;
     private DownloadManager? _downloadManager;
-    private string _fingerprintLevel    = "Aggressive";
+    private string _fingerprintLevel    = VELO.Data.Models.SettingKeys.FingerprintLevelDefault;
     private string _webRtcMode          = "Relay";
     private string _currentPageUrl      = "";
     // v2.4.24 — Sprint 8B signal. Set true when the injected autofill.js
@@ -190,9 +199,22 @@ public partial class BrowserTab : UserControl
                 }));
     }
 
-    public async Task EnsureWebViewInitializedAsync(CoreWebView2Environment env)
+    // v2.4.60 F-2 — Cache the init as a Task so concurrent callers await the SAME
+    // initialization instead of re-entering the body. Before this, a second call
+    // while the first was still in flight re-ran the whole method (the bool guard
+    // only flips at the end) and double-subscribed every CoreWebView2 handler.
+    // The popup-attach path (AttachAsPopupAsync) awaits init that the host's
+    // OnTabCreated already started, which made this a real scenario.
+    private Task? _initTask;
+
+    public Task EnsureWebViewInitializedAsync(CoreWebView2Environment env)
     {
         _env = env;
+        return _initTask ??= InitializeWebViewAsync(env);
+    }
+
+    private async Task InitializeWebViewAsync(CoreWebView2Environment env)
+    {
         if (_webViewInitialized) return;
 
         await WebView.EnsureCoreWebView2Async(env);
@@ -370,6 +392,9 @@ public partial class BrowserTab : UserControl
         WebView.CoreWebView2.ContextMenuRequested       += OnContextMenuRequested;
         WebView.CoreWebView2.ServerCertificateErrorDetected += OnServerCertificateError;
         WebView.CoreWebView2.WebMessageReceived             += OnWebMessageReceived;
+        // v2.4.60 F-2 — page JS window.close(). Wired for every tab, but the
+        // real consumer is OAuth popups closing themselves after login.
+        WebView.CoreWebView2.WindowCloseRequested           += OnWindowCloseRequested;
         // v2.4.43 — capture site favicons into TabInfo.FaviconData. WebView2 raises
         // FaviconChanged whenever the page (re)declares an <link rel="icon"> or the
         // default /favicon.ico path resolves. Handler in BrowserTab.Events.cs hits

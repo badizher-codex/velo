@@ -128,14 +128,14 @@
                     <TextBlock x:Name="FpTitle" Text="Protección de huella digital" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <RadioButton x:Name="FpAggressive" GroupName="Fingerprint" Margin="0,0,0,6">
                         <StackPanel>
-                            <TextBlock x:Name="FpAggressiveTitle" Text="Agresivo (Recomendado)" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="FpAggressiveTitle" Text="Agresivo" FontWeight="SemiBold"/>
                             <TextBlock x:Name="FpAggressiveDesc" Text="Canvas, WebGL, AudioContext, hardware spoof."
                                        FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="FpBalanced" GroupName="Fingerprint" Margin="0,0,0,6">
                         <StackPanel>
-                            <TextBlock x:Name="FpBalancedTitle" Text="Balanceado" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="FpBalancedTitle" Text="Balanceado (Recomendado)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="FpBalancedDesc" Text="Protección básica. Menos riesgo de romper sitios."
                                        FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
                         </StackPanel>
@@ -188,6 +188,19 @@
                         <StackPanel>
                             <TextBlock x:Name="AutoUpdateTitle" Text="Buscar actualizaciones automáticamente" FontWeight="SemiBold"/>
                             <TextBlock x:Name="AutoUpdateDesc" Text="VELO consultará GitHub cada 24h. Desactivado por defecto — la única conexión saliente que hace VELO sin tu acción."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
+
+                    <!-- v2.4.59 QW-3 / v2.4.60 relocated — Certificate Transparency (crt.sh)
+                         opt-in. Default OFF (privacy). Lives here, next to the other
+                         outbound-connection opt-in, not in the AI tab. -->
+                    <CheckBox x:Name="CtLogCheck" Margin="0,12,0,4">
+                        <StackPanel>
+                            <TextBlock x:Name="CtLogTitle" Text="Verificar Transparencia de Certificados (crt.sh)" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="CtLogDesc"
+                                       Text="Consulta crt.sh para cada dominio que visitás y avisa si falta en los CT logs públicos. Apagado por defecto: al activarlo, cada dominio visitado se envía a crt.sh."
                                        FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
@@ -295,17 +308,6 @@
                             <TextBlock x:Name="DomainAgeTitle" Text="Verificar edad del dominio (RDAP)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="DomainAgeDesc"
                                        Text="Consulta IANA RDAP en páginas ya marcadas como sospechosas para detectar dominios recién registrados. Cero lookups en sites buenos."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </CheckBox>
-
-                    <!-- v2.4.59 QW-3 — Certificate Transparency (crt.sh) opt-in. Default OFF (privacy). -->
-                    <CheckBox x:Name="CtLogCheck" Margin="0,12,0,4">
-                        <StackPanel>
-                            <TextBlock x:Name="CtLogTitle" Text="Verificar Transparencia de Certificados (crt.sh)" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="CtLogDesc"
-                                       Text="Consulta crt.sh para cada dominio que visitás y avisa si falta en los CT logs públicos. Apagado por defecto: al activarlo, cada dominio visitado se envía a crt.sh."
                                        FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>

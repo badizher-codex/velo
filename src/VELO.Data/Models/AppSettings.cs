@@ -14,6 +14,11 @@ public static class SettingKeys
 {
     public const string SecurityMode            = "security.mode";
     public const string FingerprintLevel        = "privacy.fingerprint_level";
+    /// <summary>v2.4.60 A1 — Single source of truth for the fingerprint default.
+    /// v2.4.59 changed the default to Balanced (decision #6) but only in one of
+    /// three read/write sites; the others (SettingsWindow load, OnboardingWizard)
+    /// kept "Aggressive" and silently reverted it. Every site must use this.</summary>
+    public const string FingerprintLevelDefault = "Balanced";
     public const string WebRtcMode              = "privacy.webrtc_mode";
     public const string ClearOnExit             = "privacy.clear_on_exit";
     public const string HistoryEnabled          = "privacy.history_enabled";
