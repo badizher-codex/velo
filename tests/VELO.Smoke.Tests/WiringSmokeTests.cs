@@ -300,8 +300,10 @@ public class WiringSmokeTests
         // the same builder.
         ["ContextMenuBuilder"] = new HashSet<string>(StringComparer.Ordinal)
         {
+            // v2.4.61 QW-6 — RequestImageAnalysis removed with its dead menu
+            // item (0 subscribers since it shipped; DEAD-1 in the audit).
             "RequestNewWindow",      "RequestGlance",         "RequestLinkAnalysis",
-            "RequestMalwaredexCheck","RequestBookmark",       "RequestImageAnalysis",
+            "RequestMalwaredexCheck","RequestBookmark",
             "RequestSearch",         "RequestAgentPrompt",    "RequestSaveAs",
             "RequestPrint",          "RequestViewSource",     "RequestDevTools",
             "RequestSecurityInspector","RequestPrivacyReceipt","RequestAIReanalysis",

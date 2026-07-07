@@ -690,6 +690,101 @@ public partial class BrowserTab
     private void OnWindowCloseRequested(object? sender, object e)
         => Dispatcher.Invoke(() => CloseRequested?.Invoke(this, EventArgs.Empty));
 
+    // ── v2.4.61 R-1 — WebView2 crash recovery ────────────────────────────
+    // Without this handler a dead renderer (OOM, GPU driver reset, hostile
+    // page) left the tab blank forever with no feedback. Auto-reload covers
+    // the common kinds; the burst cap stops a crash-on-load page from
+    // reload-looping. Browser-process death cannot be fixed tab-side (every
+    // CoreWebView2 in the app is gone) — logged, user restarts VELO.
+    private readonly Queue<DateTime> _rendererFailures = new();
+
+    private void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
+    {
+        if (e.ProcessFailedKind is not (CoreWebView2ProcessFailedKind.RenderProcessExited
+            or CoreWebView2ProcessFailedKind.RenderProcessUnresponsive))
+        {
+            System.Diagnostics.Trace.WriteLine(
+                $"[VELO] WebView2 process failed ({e.ProcessFailedKind}) — no tab-side recovery for this kind");
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        while (_rendererFailures.Count > 0 && (now - _rendererFailures.Peek()) > TimeSpan.FromMinutes(5))
+            _rendererFailures.Dequeue();
+        _rendererFailures.Enqueue(now);
+        var canAutoReload = _rendererFailures.Count <= 3;
+
+        Dispatcher.Invoke(() =>
+        {
+            SecurityVerdictReceived?.Invoke(this, new AIVerdict
+            {
+                Verdict    = VerdictType.Warn,
+                Reason     = canAutoReload
+                    ? "La pestaña dejó de responder y fue recargada automáticamente"
+                    : "La pestaña falló varias veces seguidas — recargala manualmente cuando quieras reintentar",
+                ThreatType = ThreatType.None,
+                Source     = "Recovery",
+                Confidence = 100,
+            });
+            if (canAutoReload)
+            {
+                try { WebView.Reload(); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine($"[VELO] Recovery reload failed: {ex.Message}");
+                }
+            }
+        });
+    }
+
+    // ── v2.4.61 F-3 — site permission prompts ────────────────────────────
+    // WebView2 has no default UI for permission requests; without a handler
+    // camera/mic/geolocation/notifications silently follow whatever the
+    // platform default is (usually deny) and Meet/Zoom/Maps just don't work.
+    // We prompt per requesting origin and let WebView2 persist the decision
+    // in the profile (SavesInProfile) so it survives restarts and won't
+    // re-prompt; unchecking "remember" answers only this request.
+    private static readonly Dictionary<CoreWebView2PermissionKind, string> _promptedPermissionKinds = new()
+    {
+        [CoreWebView2PermissionKind.Camera]        = "perm.kind.camera",
+        [CoreWebView2PermissionKind.Microphone]    = "perm.kind.microphone",
+        [CoreWebView2PermissionKind.Geolocation]   = "perm.kind.geolocation",
+        [CoreWebView2PermissionKind.Notifications] = "perm.kind.notifications",
+        [CoreWebView2PermissionKind.ClipboardRead] = "perm.kind.clipboard",
+    };
+
+    private void OnPermissionRequested(object? sender, CoreWebView2PermissionRequestedEventArgs e)
+    {
+        // Kinds we don't mediate keep the platform default.
+        if (!_promptedPermissionKinds.TryGetValue(e.PermissionKind, out var kindKey))
+            return;
+
+        // Explicit Complete() in finally — never `using`/Dispose on WebView2
+        // deferrals (v2.4.56: Deferral.Dispose after Complete spams COMException).
+        var deferral = e.GetDeferral();
+        try
+        {
+            var host = GetHost(e.Uri ?? _currentPageUrl);
+            if (string.IsNullOrEmpty(host)) { e.State = CoreWebView2PermissionState.Deny; return; }
+
+            var decision = Dispatcher.Invoke(() =>
+                Dialogs.PermissionPrompt.Show(Window.GetWindow(this), host, kindKey));
+
+            e.State          = decision.Allow ? CoreWebView2PermissionState.Allow
+                                              : CoreWebView2PermissionState.Deny;
+            e.SavesInProfile = decision.Remember;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Permission prompt failed: {ex.Message}");
+            e.State = CoreWebView2PermissionState.Deny; // fail-closed
+        }
+        finally
+        {
+            deferral.Complete();
+        }
+    }
+
     private void OnDownloadStarting(object? sender, CoreWebView2DownloadStartingEventArgs e)
     {
         if (_downloadManager == null) return;

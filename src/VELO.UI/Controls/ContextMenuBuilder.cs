@@ -91,8 +91,9 @@ public class ContextMenuBuilder(
 
         AddItem(menu, "Abrir imagen en nueva pestaña", () => OpenInNewTab(imageUrl, ctx.CurrentContainerId));
         AddItem(menu, "Copiar URL de imagen",          () => Clipboard.SetText(imageUrl));
-        menu.Items.Add(new Separator());
-        AddItem(menu, "🔒 Analizar imagen (local)",    () => RequestImageAnalysis?.Invoke(imageUrl));
+        // v2.4.61 QW-6 (DEAD-1) — "Analizar imagen (local)" removed: the
+        // RequestImageAnalysis event never had a subscriber, so the item did
+        // nothing since it shipped. Vision analysis returns with Sprint 12.
     }
 
     // ── Text selection context ────────────────────────────────────────────────
@@ -190,7 +191,6 @@ public class ContextMenuBuilder(
     public event Action<string>?        RequestLinkAnalysis;
     public event Action<string>?        RequestMalwaredexCheck;
     public event Action<string, string?>? RequestBookmark;
-    public event Action<string>?        RequestImageAnalysis;
     public event Action<string>?        RequestSearch;
     public event Action<string>?        RequestAgentPrompt;
     public event Action?                RequestSaveAs;

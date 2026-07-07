@@ -395,6 +395,10 @@ public partial class BrowserTab : UserControl
         // v2.4.60 F-2 — page JS window.close(). Wired for every tab, but the
         // real consumer is OAuth popups closing themselves after login.
         WebView.CoreWebView2.WindowCloseRequested           += OnWindowCloseRequested;
+        // v2.4.61 R-1 — renderer crash auto-recovery (reload + toast).
+        WebView.CoreWebView2.ProcessFailed                  += OnProcessFailed;
+        // v2.4.61 F-3 — camera/mic/geo/notifications/clipboard prompts.
+        WebView.CoreWebView2.PermissionRequested            += OnPermissionRequested;
         // v2.4.43 — capture site favicons into TabInfo.FaviconData. WebView2 raises
         // FaviconChanged whenever the page (re)declares an <link rel="icon"> or the
         // default /favicon.ico path resolves. Handler in BrowserTab.Events.cs hits

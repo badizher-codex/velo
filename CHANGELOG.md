@@ -11,6 +11,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.61] — 2026-07-06 — Site permissions (F-3) + crash recovery (R-1) + external-scheme hardening (AS-3) + dead menu item (QW-6)
+
+Third Phase 1 release, closing the remaining 🟠 usable-floor findings from the audit that don't depend on Decision #4 or the open F-1.
+
+### F-3 (FUNCTIONAL) — camera/mic/geolocation/notifications now prompt per site
+
+VELO had no `PermissionRequested` handler, so camera/microphone/geolocation/notifications/clipboard-read silently followed the platform default — Meet/Zoom/WhatsApp Web/Maps couldn't get their devices. New per-origin prompt (`PermissionPrompt`, code-built dialog — no XAML resource risk) with Allow/Block + "remember for this site" (default on). Decisions persist via WebView2's own profile persistence (`SavesInProfile`); dismissing the prompt denies once without remembering. Localised in 8 languages. Fail-closed on any prompt error.
+
+### R-1 (RESILIENCE) — WebView2 renderer crashes now auto-recover
+
+No `ProcessFailed` handler existed: a dead renderer (OOM, GPU reset, hostile page) left the tab blank forever. Now `RenderProcessExited`/`RenderProcessUnresponsive` trigger an automatic reload plus a panel notice; a burst cap (3 failures / 5 min) stops crash-on-load pages from reload-looping and tells the user to reload manually. Browser-process death can't be recovered tab-side (logged; VELO restart, session restore covers the tabs).
+
+### AS-3 (SECURITY) — external-scheme launch hardening
+
+`ms-msdt:`, `search-ms:`, `ms-officecmd:`, `ms-appinstaller:`, `ms-cxh:`, `vbscript:` (known Windows RCE chains — Follina et al.) are now hard-denied with no prompt: prompting is exactly what those attacks socially engineer past. The per-session blanket grant for unknown schemes is gone — one hasty "Sí" no longer silences every future URI of that scheme; unknown schemes prompt every time, and the confirmation shows up to 400 chars of the URI so argument-injection payloads can't hide behind truncation. The pre-approved list (mailto, zoom, spotify, …) is unchanged.
+
+### QW-6 (CLEANUP) — dead "Analizar imagen (local)" menu item removed
+
+`RequestImageAnalysis` never had a subscriber — the context-menu item did nothing since it shipped (DEAD-1). Removed (with its event and the wiring-snapshot entry); local vision analysis returns with Sprint 12.
+
+---
+
 ## [2.4.60] — 2026-07-06 — OAuth popups (F-2) + audit fixes A1-A5 + field-diagnosis hook
 
 Second Phase 1 release. The headline is **F-2: OAuth/SSO logins work** — the single most-hit daily breakage after streaming. Also folds in the fixes from the Fable 5 session audit of v2.4.59 and the diagnostic infrastructure built while chasing F-1.

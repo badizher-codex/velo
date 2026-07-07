@@ -21,8 +21,18 @@ public partial class BrowserTab
         "view-source", "chrome", "edge", "ws", "wss", "velo"
     };
 
-    // Per-session memory of "always allow" decisions for unknown external schemes.
-    // Reset on app restart by design — privacy over convenience for unfamiliar protocols.
+    // v2.4.61 AS-3 — Schemes tied to known Windows RCE chains (Follina/ms-msdt,
+    // search-ms handler abuse, App Installer spoofing). Never launched, never
+    // prompted — a prompt is exactly what those attacks socially engineer past.
+    private static readonly HashSet<string> _dangerousExternalSchemes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ms-msdt", "search-ms", "ms-officecmd", "ms-appinstaller",
+        "ms-cxh", "ms-cxh-full", "vbscript",
+    };
+
+    // Pre-approved well-known protocols, launched without prompt. Anything not
+    // listed prompts EVERY time (v2.4.61 AS-3 removed the per-session grant: one
+    // hasty "Sí" no longer silences all future URIs of that scheme).
     private static readonly HashSet<string> _allowedExternalSchemes = new(StringComparer.OrdinalIgnoreCase)
     {
         // Pre-approved well-known protocols — silently launched without prompt
@@ -65,6 +75,13 @@ public partial class BrowserTab
         var scheme = GetScheme(uri);
         if (string.IsNullOrEmpty(scheme)) return false;
 
+        // v2.4.61 AS-3 — hard-deny RCE-adjacent schemes, no prompt.
+        if (_dangerousExternalSchemes.Contains(scheme))
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Blocked dangerous external scheme: {scheme}://");
+            return false;
+        }
+
         // Dedup: skip if we just launched this same URI a moment ago.
         if (string.Equals(_lastLaunchedUri, uri, StringComparison.Ordinal) &&
             (DateTime.UtcNow - _lastLaunchedAt) < ExternalLaunchDedupWindow)
@@ -77,17 +94,16 @@ public partial class BrowserTab
 
         if (!allowed)
         {
-            // Prompt for unknown schemes — user can grant per-session.
+            // v2.4.61 AS-3 — prompt EVERY time for unknown schemes (no session
+            // grant) and show more of the URI so argument-injection payloads
+            // can't hide past a short truncation.
             var L = LocalizationService.Current;
-            var trimmedUri = uri.Length > 200 ? uri[..200] + "…" : uri;
+            var trimmedUri = uri.Length > 400 ? uri[..400] + "…" : uri;
             var msg = string.Format(L.T("ext.protocol.prompt"), scheme, trimmedUri);
             var result = MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow,
                 msg, L.T("ext.protocol.title"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result != MessageBoxResult.Yes) return false;
-
-            _allowedExternalSchemes.Add(scheme);
-            allowed = true;
         }
 
         try
