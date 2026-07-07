@@ -1,6 +1,6 @@
 # AUDITORÍA VELO — Consolidada (4 lentes)
 
-> **Estado 2026-07-06:** los 6 hallazgos 🔴 fueron atacados en v2.4.59/v2.4.60 (F-2/AS-1/AS-2/C-1/C-2 cerrados; **F-1 sigue abierto** → `BACKLOG.md` P0). Este doc queda como referencia de los hallazgos 🟠/🟡 pendientes (F-3 permisos, AS-3 ShellExecute, AS-4 JS interpolación, R-1 ProcessFailed, A-2/A-3 estructura) y del plan de refactors §6.2. Plan vivo: `PLAN_VELO.md`.
+> **Estado 2026-07-06 (post v2.4.61):** los 6 hallazgos 🔴 fueron atacados en v2.4.59/v2.4.60 (F-2/AS-1/AS-2/C-1/C-2 cerrados; **F-1 sigue abierto** → `BACKLOG.md` P0). v2.4.61 cerró los 🟠 de piso usable: **F-3** (PermissionRequested per-site), **R-1** (ProcessFailed auto-recovery), **AS-3** (denylist RCE + sin session-grant) y **QW-6/DEAD-1**. Pendientes: AS-4 (JS interpolación, mitigado por aprobación humana), A-2/A-3 estructura (refactors §6.2), F-4/R-3/R-4 menores. Plan vivo: `PLAN_VELO.md`.
 
 **Fecha:** 2026-06-06 · **HEAD:** `1c83e96` (v2.4.58) · **Auditor:** Claude (Fable 5)
 **Tesis (vara de medir):** *"VELO es el navegador Windows donde tu IA vive localmente."*

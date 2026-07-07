@@ -23,7 +23,7 @@ VELO no compite con Grok/Claude/GPT en inteligencia. **Compite en estar-ahí.**
 
 | Fase | Estado | Doc |
 |---|---|---|
-| **1 — Piso usable** | ✅ **EJECUTADA** — v2.4.59 (streaming flags, AS-1 vault, AS-2 cert, C-2 lock, F-5, QW-1, QW-3) + v2.4.60 (F-2 OAuth, auditoría A1-A5, hook diagnóstico). **Abierto:** F-1 Widevine (ver BACKLOG P0) | §3 abajo (histórico) |
+| **1 — Piso usable** | ✅ **EJECUTADA** — v2.4.59 (streaming flags, AS-1 vault, AS-2 cert, C-2 lock, F-5, QW-1, QW-3) + v2.4.60 (F-2 OAuth, auditoría A1-A5, hook diagnóstico) + v2.4.61 (F-3 permisos, R-1 crash recovery, AS-3 hardening, QW-6). **Abierto:** F-1 Widevine (ver BACKLOG P0) | §3 abajo (histórico) |
 | **2 — Foco ambient** | 📋 Especificada, **bloqueada por Decisión #4** + verificación runtime v2.4.60 | [`PLAN_VELO_FASE2.md`](PLAN_VELO_FASE2.md) |
 | **3 — Ligero** | Cae sola tras Fase 2 (matar CUDA, fusionar adapters en VELO.AI) | FASE2 §6 |
 
