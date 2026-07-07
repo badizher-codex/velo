@@ -398,6 +398,14 @@ public partial class MainWindow : Window
             // through the component updater, so disabling it left WebView2 with no
             // decryptor and premium streaming (Prime/Netflix/Disney+/HBO) wouldn't
             // play. Telemetry stays off via breakpad/crash-reporter/sync/metrics.
+            // v2.4.60 F-1 — Dropped two more flags while chasing the Widevine CDM:
+            //   --disable-plugins: legacy PPAPI-era switch (no real effect in
+            //     modern Chromium) but historically tied to CDM loading paths in
+            //     Edge; removing it costs nothing and removes a DRM suspect.
+            //   --disable-logging: without --enable-logging Chromium writes no
+            //     log anyway, so this bought no privacy — but it overrode the
+            //     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS '--enable-logging'
+            //     diagnostic path, making DRM failures undiagnosable in the field.
             AdditionalBrowserArguments = string.Join(" ",
                 "--disable-features=msEdgeSidebarV2,EdgeShoppingAssistant,EdgeCollections",
                 "--disable-crash-reporter",
@@ -408,13 +416,22 @@ public partial class MainWindow : Window
                 "--disable-sync",
                 "--disable-translate",
                 "--disable-extensions",
-                "--disable-plugins",
                 "--metrics-recording-only",
-                "--disable-logging",
                 "--disable-hang-monitor",
                 "--disable-prompt-on-repost",
                 "--disable-domain-reliability")
         };
+
+        // v2.4.60 F-1 — Field-diagnosis hook. WebView2 IGNORES the standard
+        // WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS env var when the app passes
+        // AdditionalBrowserArguments explicitly (as we do above), which made
+        // Chromium-level failures (e.g. the Widevine CDM never materializing)
+        // undiagnosable without a custom build. VELO_EXTRA_BROWSER_ARGS lets a
+        // session opt into e.g. '--enable-logging --v=1 --log-file=…' without
+        // rebuilding. Appended last so it can also override our flags.
+        var extraArgs = Environment.GetEnvironmentVariable("VELO_EXTRA_BROWSER_ARGS");
+        if (!string.IsNullOrWhiteSpace(extraArgs))
+            options.AdditionalBrowserArguments += " " + extraArgs.Trim();
 
         var userDataPath = DataLocation.SubPath("Profile");
 

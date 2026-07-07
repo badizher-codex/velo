@@ -11,6 +11,42 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.60] — 2026-07-06 — OAuth popups (F-2) + audit fixes A1-A5 + field-diagnosis hook
+
+Second Phase 1 release. The headline is **F-2: OAuth/SSO logins work** — the single most-hit daily breakage after streaming. Also folds in the fixes from the Fable 5 session audit of v2.4.59 and the diagnostic infrastructure built while chasing F-1.
+
+> **Known issue (F-1, open):** Widevine DRM playback (Prime/Netflix) still fails on at least one machine: the CDM component directory (`Profile\EBWebView\WidevineCdm`) is created on demand but never populated, even though the runtime bundles the CDM and the component updater works for other components (8 cached). Registry policies, AV interference and network were ruled out; `--disable-plugins`/`--disable-logging` removed this release as suspects. Diagnosis continues in v2.4.61 using the new `VELO_EXTRA_BROWSER_ARGS` hook below.
+
+### F-2 (FUNCTIONAL) — OAuth/SSO popups now preserve `window.opener`
+
+Every popup used to become a plain new tab (`__newtab:` convention), severing the `window.opener` relationship that "Sign in with Google/Microsoft/Apple" flows use to post the token back — the login completed but the opener page hung forever. Now `NewWindowRequested` Rule 4 (clean, user-initiated popups) raises `BrowserTab.PopupWindowRequested` with a deferral; MainWindow creates the tab through the normal pipeline (all guards apply to popups too), suppresses the lazy first-navigation, and hands the fresh CoreWebView2 to Chromium via `e.NewWindow` (`AttachAsPopupAsync`) so Chromium drives the navigation itself — opener chain intact. `window.close()` from page JS is wired through `WindowCloseRequested` → the popup tab closes itself after login. `EnsureWebViewInitializedAsync` now caches its init `Task`, fixing a latent double-subscribe when init was awaited concurrently.
+
+### A1 (AUDIT) — the Balanced fingerprint default was inert for new users
+
+v2.4.59 changed the default in one read-site out of three: `SettingsWindow` still loaded with an `"Aggressive"` fallback (fresh profile: dialog showed Aggressive; hitting Save persisted it, silently reverting decision #6) and `OnboardingWizard` **force-wrote Aggressive** for every onboarded user. All sites now share `SettingKeys.FingerprintLevelDefault = "Balanced"`; the wizard's informational step no longer persists anything; "(Recommended)" moved from Aggressive to Balanced in all 8 languages.
+
+### A2 (AUDIT/SECURITY) — WebMessage host now comes from `e.Source`
+
+The v2.4.59 AS-1 fix derived the autofill host from `_currentPageUrl`, which is set in `NavigationStarting` — between a navigation start and its commit the old page's JS is still alive, leaving a race where a hostile page could still poison the vault under the destination host. `autofill-detect`/`autofill-submit`/`pasteguard` now use `GetHost(e.Source)`, the browser-attested URI of the sender document. No race.
+
+### A4 (AUDIT) — cert-block verdict and override buttons now truthful
+
+`EvaluateCertError` returned `Warn` copy ("may not be secure") from the old load-with-warning flow while the action was a hard block, and the panel's "Allow once / Whitelist always" buttons did nothing for TLS blocks. The verdict is now `Block` with copy that explains the override path; `OnServerCertificateError` honours "Allow once" (per-tab) and "Whitelist always" (`RequestGuard.IsUserWhitelisted`) so override → reload loads the site (with a Warn recording the degraded state); `AIVerdict.Host` is set so the buttons target the failing host.
+
+### A5 (AUDIT) — inference-lock cancellation is fail-soft
+
+Cancelling while *waiting* on the v2.4.59 inference lock threw `OperationCanceledException` at the caller instead of returning the "Inferencia cancelada." error response like every other path in `ChatAsync`.
+
+### QW-3 relocation — crt.sh toggle moved to Privacy
+
+v2.4.59 shipped the Certificate Transparency opt-in in the **AI** tab by mistake; it now lives in Settings → Privacy next to the auto-update opt-in. New `TLSGuardTests` (6) pin the contracts: CT check defaults OFF, disabled check never fires, cert errors on public hosts block.
+
+### F-1 groundwork — flags + `VELO_EXTRA_BROWSER_ARGS`
+
+Removed `--disable-plugins` (legacy PPAPI switch, a DRM suspect, no modern effect) and `--disable-logging` (wrote no privacy win — Chromium logs nothing without `--enable-logging` — but killed every field-diagnosis path). Discovered that WebView2 **ignores** `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` when the app passes `AdditionalBrowserArguments` explicitly; VELO now appends its own `VELO_EXTRA_BROWSER_ARGS` environment variable, so any user can produce Chromium logs (`--enable-logging --v=1 --log-file=…`) without a custom build.
+
+---
+
 ## [2.4.59] — 2026-06-29 — Phase 1 "usable floor" bundle: streaming + OAuth-vault + cert hard-block + inference lock + privacy quick wins
 
 First release of the post-audit Phase 1 plan (`PLAN_VELO.md` §3) — the floor that makes VELO usable and trustworthy as a daily browser, a precondition for the ambient-AI thesis. Six audit findings plus the fingerprint default. The single riskiest fix, **F-2 (OAuth popups)**, is deliberately split into v2.4.60 so a regression in the login path doesn't entangle with the rest. Council Mode stays paused. Decision #4 (local-AI path) is still pending and does not block this release.
