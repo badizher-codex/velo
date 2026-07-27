@@ -160,13 +160,21 @@ public class RequestGuard(
         if (_blocklist.IsBlocked(host))
             return SecurityVerdict.Block("Dominio en blocklist de rastreadores conocidos", ThreatType.KnownTracker, "BLOCKLIST");
 
-        // 3. DNS rebinding — public domain resolving to private IP
-        if (IsSuspiciousPrivateAddress(host))
-            return SecurityVerdict.Block("Posible ataque DNS rebinding", ThreatType.DnsRebinding);
-
-        // 4. SSRF — request to private IP from public page
-        if (IsPrivateIp(host) && !string.IsNullOrEmpty(referrer) && !IsLocalPage(referrer))
-            return SecurityVerdict.Block("Request a IP privada desde página externa (SSRF)", ThreatType.SSRF);
+        // 3+4 (v2.4.64). Local / private targets — SSRF and DNS rebinding.
+        //
+        // These used to be two rules, and the first one blocked `localhost`,
+        // `0.0.0.0` and any `*.local` host UNCONDITIONALLY as "DNS rebinding".
+        // That is not what DNS rebinding is (a *public* name resolving to a
+        // private address), and it meant VELO refused to open http://localhost
+        // at all — a dev server, a local dashboard, a NAS at nas.local.
+        //
+        // The real signal is who is asking: a public page reaching for a private
+        // address is SSRF/rebinding; the user typing localhost (no referrer), or
+        // a local page loading its own assets, is ordinary work.
+        if (IsLocalOrPrivateTarget(host) && !string.IsNullOrEmpty(referrer) && !IsLocalPage(referrer))
+            return SecurityVerdict.Block(
+                "Página externa pidiendo un recurso local o de red privada (SSRF / DNS rebinding)",
+                ThreatType.SSRF, "LOCALTARGET");
 
         // 5. Suspicious URL params — third-party only (v2.4.62 P2-A). A site's own
         //    URLs routinely carry long opaque state: primevideo.com/detail/<id>?jic=
@@ -356,15 +364,23 @@ public class RequestGuard(
                bytes[0] == 127;
     }
 
-    private static bool IsSuspiciousPrivateAddress(string host)
-        => host is "localhost" or "0.0.0.0" || host.EndsWith(".local");
+    /// <summary>v2.4.64 — Host that lives on this machine or the local network:
+    /// loopback names, mDNS <c>.local</c>, and RFC1918 / loopback literals.</summary>
+    public static bool IsLocalOrPrivateTarget(string host)
+        => host is "localhost" or "0.0.0.0" or "::1"
+        || host.EndsWith(".local", StringComparison.OrdinalIgnoreCase)
+        || host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
+        || IsPrivateIp(host);
 
+    /// <summary>True when the referring page itself is local — then a local
+    /// sub-resource is same-network traffic, not a cross-boundary request.</summary>
     private static bool IsLocalPage(string referrer)
     {
         try
         {
             var uri = new Uri(referrer);
-            return uri.Host is "localhost" or "127.0.0.1" || uri.Host.EndsWith(".local");
+            // file:// pages have an empty host and are as local as it gets.
+            return uri.IsFile || string.IsNullOrEmpty(uri.Host) || IsLocalOrPrivateTarget(uri.Host.ToLowerInvariant());
         }
         catch { return false; }
     }

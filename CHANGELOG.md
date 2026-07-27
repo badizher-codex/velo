@@ -11,6 +11,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.64] — 2026-07-27 — VELO can open local pages again
+
+Two independent bugs, same consequence: anything on this machine was unreachable. Both surfaced while trying to open a local diagnostic page inside VELO.
+
+### The omnibox mangled every scheme it didn't know
+
+`SearchEngineService.ResolveInputAsync` recognised exactly three schemes — `http://`, `https://`, `velo://` — and prefixed `https://` onto everything else. Typing a local file produced `https://file:///C:/…`, which cannot load. VELO could not open a local file at all.
+
+It now passes through `file://`, `ftp://`, `about:`, `edge://`, `chrome://` and `view-source:` as well, case-insensitively. `data:` and `javascript:` are deliberately still treated as search text: typing those into an address bar is a self-XSS / phishing vector, and Chromium blocks top-level navigation to them too.
+
+### RequestGuard blocked localhost as "DNS rebinding"
+
+`localhost`, `0.0.0.0` and any `*.local` host were blocked unconditionally, whoever asked. That is not what DNS rebinding is — the attack is a *public* name resolving to a private address — and it meant a dev server, a local dashboard or a NAS at `nas.local` simply would not open in VELO.
+
+The two rules (rebinding + SSRF) are now one, keyed on who is asking rather than on the target alone: a public page reaching for a private address is still blocked as SSRF, while a navigation you typed (no referrer) and a local page loading its own assets go through. Loopback and RFC1918 literals, `::1` and `.localhost` are recognised alongside the names, and `file://` referrers count as local.
+
+### Tests
+
+622 passing across the 6 projects (was 598). New `SearchEngineServiceTests` covers scheme passthrough, the scriptable-scheme exclusions and the unchanged search/bare-domain paths; `RequestGuardTests` gains both directions of the local-target rule.
+
+---
+
 ## [2.4.63] — 2026-07-27 — The threats panel says *why*
 
 Every blocked request in the threats panel showed the URL, the time, and three buttons — with no indication of what was wrong with it. The reason was behind the "Explain" button, which calls the local model: with no model running (the common case) the user could never get one at all.

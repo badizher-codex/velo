@@ -93,6 +93,45 @@ public class RequestGuardTests
         Assert.Equal(VerdictType.Block, third.Verdict);
     }
 
+    // ── Local / private targets (v2.4.64) ────────────────────────────────
+    // The old rule 3 blocked localhost, 0.0.0.0 and *.local unconditionally as
+    // "DNS rebinding", so VELO could not open a dev server or a NAS at all.
+
+    [Theory]
+    [InlineData("http://localhost:8765/page.html")]
+    [InlineData("http://127.0.0.1:8765/page.html")]
+    [InlineData("http://nas.local/admin")]
+    [InlineData("http://192.168.1.10/")]
+    public void Evaluate_AllowsUserNavigationToLocalTargets(string uri)
+    {
+        // A typed navigation has no referrer.
+        var verdict = Build().Evaluate(uri, "", "Document");
+
+        Assert.Equal(VerdictType.Safe, verdict.Verdict);
+    }
+
+    [Fact]
+    public void Evaluate_AllowsLocalPageLoadingLocalResources()
+    {
+        var verdict = Build().Evaluate(
+            "http://localhost:8765/app.js", "http://localhost:8765/index.html", "Script");
+
+        Assert.Equal(VerdictType.Safe, verdict.Verdict);
+    }
+
+    [Theory]
+    [InlineData("http://localhost:8765/admin")]
+    [InlineData("http://127.0.0.1/")]
+    [InlineData("http://192.168.1.1/router")]
+    [InlineData("http://printer.local/status")]
+    public void Evaluate_StillBlocksPublicPagesReachingIntoTheLocalNetwork(string uri)
+    {
+        var verdict = Build().Evaluate(uri, "https://evil.example.com/page", "XmlHttpRequest");
+
+        Assert.Equal(VerdictType.Block, verdict.Verdict);
+        Assert.Equal(ThreatType.SSRF, verdict.ThreatType);
+    }
+
     // ── SmartBlock verdicts are scoped to third-party sub-resources ───────
 
     private static SmartBlockClassifier ClassifierThatBlocks()
