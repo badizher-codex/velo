@@ -11,6 +11,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.63] — 2026-07-27 — The threats panel says *why*
+
+Every blocked request in the threats panel showed the URL, the time, and three buttons — with no indication of what was wrong with it. The reason was behind the "Explain" button, which calls the local model: with no model running (the common case) the user could never get one at all.
+
+### Inline reason on every entry
+
+Each entry now carries a one-line, plain-language reason above the buttons, resolved locally with no AI: what that category of request typically does (a tracker records which pages you visit to build a cross-site profile; fingerprinting identifies your device even after you clear cookies; a social widget reports your visit even if you never click it), plus where the verdict came from — Golden List, your local Malwaredex, RequestGuard's blocklist and heuristics, and so on. "Explain" still exists for a domain-specific answer when a model is available.
+
+### Localised
+
+The new text ships in all 8 UI languages, and so do the panel's controls: "Explain", "Allow" and "Report", plus the export and clear tooltips, were hard-coded Spanish regardless of the selected language. The static fallback used when the AI is unavailable was hard-coded Spanish too and now follows the UI language like everything else. Switching languages re-renders the open panel instead of leaving stale labels.
+
+### Tests
+
+598 passing across the 6 projects (was 582). New cover asserts every `BlockKind` and `BlockSource` resolves to real text (a missing key would otherwise surface as a raw `threatspanel.*` identifier in the UI) and that all 8 languages carry distinct translations.
+
+---
+
 ## [2.4.62] — 2026-07-27 — Tracker false positives (P2-A) + classifier back-off (P2-B) + TLS interstitial (P2-C)
 
 Backlog P2 bundle: three diagnosed-but-unfixed defects from the v2.4.59 runtime verification, all confirmed against field logs from 2026-07-07 → 2026-07-27.

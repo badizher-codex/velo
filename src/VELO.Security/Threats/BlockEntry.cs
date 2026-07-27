@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using VELO.Core.Localization;
 
 namespace VELO.Security.Threats;
 
@@ -38,6 +39,47 @@ public class BlockEntry : INotifyPropertyChanged
         }
     }
     public bool HasExplanation => !string.IsNullOrEmpty(_explanation);
+
+    /// <summary>
+    /// v2.4.63 — Generic, always-visible reason, localised to the UI language.
+    /// The panel used to show only "blocked" plus three buttons: the *why* was
+    /// behind the Explain button, which calls the local model — so with no model
+    /// running the user never got an answer at all. This needs no AI: it states
+    /// what this category of request typically does, and where the verdict came
+    /// from. Explain still exists for a domain-specific answer.
+    /// </summary>
+    public string WhyBlocked
+    {
+        get
+        {
+            var L      = LocalizationService.Current;
+            var why    = L.T(WhyKey(Kind));
+            var source = L.T(SourceKey(Source));
+            return $"{why} {string.Format(L.T("threatspanel.why.detected"), source)}";
+        }
+    }
+
+    public static string WhyKey(BlockKind kind) => kind switch
+    {
+        BlockKind.Tracker     => "threatspanel.why.tracker",
+        BlockKind.Malware     => "threatspanel.why.malware",
+        BlockKind.Ads         => "threatspanel.why.ads",
+        BlockKind.Fingerprint => "threatspanel.why.fingerprint",
+        BlockKind.Script      => "threatspanel.why.script",
+        BlockKind.Social      => "threatspanel.why.social",
+        _                     => "threatspanel.why.other",
+    };
+
+    public static string SourceKey(BlockSource source) => source switch
+    {
+        BlockSource.GoldenList    => "threatspanel.source.goldenlist",
+        BlockSource.Malwaredex    => "threatspanel.source.malwaredex",
+        BlockSource.AIEngine      => "threatspanel.source.aiengine",
+        BlockSource.UserRule      => "threatspanel.source.userrule",
+        BlockSource.StaticList    => "threatspanel.source.staticlist",
+        BlockSource.DownloadGuard => "threatspanel.source.downloadguard",
+        _                         => "threatspanel.source.requestguard",
+    };
 
     public string ShortPath
     {

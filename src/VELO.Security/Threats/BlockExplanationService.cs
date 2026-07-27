@@ -92,34 +92,17 @@ public class BlockExplanationService(ILogger<BlockExplanationService> logger)
            lists".
            """;
 
-    /// <summary>Public for tests — picks a localised static template by kind+subkind.</summary>
+    /// <summary>
+    /// Public for tests — the no-AI fallback. v2.4.63: this now reads from the
+    /// same localised table as <see cref="BlockEntry.WhyBlocked"/> instead of
+    /// hard-coded Spanish, so the fallback follows the UI language like every
+    /// other string. The host is prefixed because, unlike the inline line, this
+    /// text stands alone (toast, export, AI-unavailable path).
+    /// </summary>
     public static string LookupStaticTemplate(BlockEntry entry)
-    {
-        // Curated short-form fallbacks — no LLM needed. Keep these sync with
-        // the live ExplanationTemplates table so the UI never reads "no info".
-        var src = entry.Source switch
-        {
-            BlockSource.GoldenList    => "Golden List",
-            BlockSource.Malwaredex    => "Malwaredex local",
-            BlockSource.AIEngine      => "análisis IA",
-            BlockSource.UserRule      => "regla del usuario",
-            BlockSource.StaticList    => "lista estática integrada",
-            BlockSource.RequestGuard  => "RequestGuard",
-            BlockSource.DownloadGuard => "DownloadGuard",
-            _ => entry.Source.ToString(),
-        };
-
-        return entry.Kind switch
-        {
-            BlockKind.Tracker     => $"Bloqueo de rastreador: '{entry.Host}' aparece en {src}. Suele recopilar tu actividad entre sitios sin tu consentimiento.",
-            BlockKind.Malware     => $"Bloqueo de malware: '{entry.Host}' aparece en {src} como sitio malicioso confirmado. Visitarlo podría haber instalado software dañino.",
-            BlockKind.Ads         => $"Bloqueo de publicidad: '{entry.Host}' está clasificado como red publicitaria por {src}.",
-            BlockKind.Fingerprint => $"Bloqueo de fingerprint: '{entry.Host}' intentó identificar tu navegador con técnicas detectadas por {src}.",
-            BlockKind.Script      => $"Bloqueo de script: '{entry.Host}' sirvió un script con patrón sospechoso según {src}.",
-            BlockKind.Social      => $"Bloqueo de widget social: '{entry.Host}' carga botones de redes sociales que rastrean visitas. Detectado por {src}.",
-            _                     => $"Solicitud bloqueada por {src}. Categoría: {entry.Kind}. URL: {entry.ShortPath}.",
-        };
-    }
+        => string.IsNullOrEmpty(entry.Host)
+            ? entry.WhyBlocked
+            : $"{entry.Host} — {entry.WhyBlocked}";
 
     private static string CacheKey(BlockEntry entry) => $"{entry.Host}|{entry.Kind}|{entry.SubKind}";
 

@@ -4,6 +4,10 @@ using Xunit;
 
 namespace VELO.Security.Tests;
 
+// v2.4.63 — Shares a collection with BlockEntryWhyBlockedTests: the static
+// templates now resolve through the LocalizationService singleton, and those
+// tests switch its language. Same collection = no parallel run = no flake.
+[Collection("Localization")]
 public class BlockExplanationServiceTests
 {
     private static BlockExplanationService NewService() =>

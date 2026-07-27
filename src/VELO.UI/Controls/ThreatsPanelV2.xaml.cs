@@ -49,6 +49,12 @@ public partial class ThreatsPanelV2 : UserControl
         // Header text reused on every recompute via UpdateHeaderAndSummary,
         // but seed something visible on first paint.
         UpdateHeaderAndSummary();
+
+        // v2.4.63 — The entry template resolves its labels and the WhyBlocked
+        // line at bind time (LocalizeKeyConverter has no way to notify), so the
+        // already-rendered rows keep the old language until the containers are
+        // regenerated.
+        if (_vm != null) GroupsList.Items.Refresh();
     }
 
     private void UpdateHeaderAndSummary()
