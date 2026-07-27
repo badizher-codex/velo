@@ -1,38 +1,45 @@
-# BACKLOG VELO — deuda accionable v2.4.63+
+# BACKLOG VELO — deuda accionable v2.4.67+
 
-**Actualizado:** 2026-07-27 (HEAD `0022fba` = v2.4.62). Ordenado por retorno. Cada item es autocontenido: una sesión futura puede ejecutarlo sin re-derivar contexto.
+**Actualizado:** 2026-07-27 tarde (HEAD `fcd7b0a` = v2.4.66). Ordenado por retorno. Cada item es autocontenido: una sesión futura puede ejecutarlo sin re-derivar contexto.
 
-> **P2 cerrado en v2.4.62.** Quedan abiertos P0 (F-1 Widevine), P1 (code signing), el back/forward bug y P3.
+> **P2 cerrado en v2.4.62.** **P0 reescrito**: el CDM de Widevine YA FUNCIONA, la causa de F-1 es otra (abajo). Siguen abiertos P1 (code signing), el back/forward bug y P3.
+>
+> ⚠️ **Publicada solo hasta v2.4.63.** Las v2.4.64, .65 y .66 están en main con CI verde pero **sin release**. Cortar una sola con el tag más alto.
 
 ---
 
-## P0 — F-1: Widevine DRM no reproduce (ABIERTO, diagnóstico avanzado)
+## P0 — F-1: Prime no reproduce — **el CDM ya NO es la causa** (2026-07-27)
 
-**Síntoma:** Prime/Netflix cuelgan en play. `Profile\EBWebView\WidevineCdm\` se crea en cada arranque pero queda **vacío**.
+**Todo el diagnóstico anterior quedó obsoleto.** Se creía que el CDM de Widevine nunca se descargaba (`Profile\EBWebView\WidevineCdm\` vacío). Eso **se resolvió**: quitar `--disable-component-update` (v2.4.59) sí funcionó, solo tardó semanas en bajar.
 
-**Descartado con evidencia (sesión 2026-07-06):**
-- ✅ Flags: `--disable-component-update`, `--disable-background-networking` (quitados v2.4.59), `--disable-plugins`, `--disable-logging` (quitados v2.4.60) — no alcanzó.
-- ✅ Carpeta vacía shadowing el CDM bundled — borrarla no arregló.
-- ✅ Red: endpoints del updater responden; el updater FUNCIONA (8 componentes en `component_crx_cache`, ninguno es Widevine).
-- ✅ Políticas de registro (`HKLM\...\Policies\Microsoft\Edge*`): limpias (solo `RendererCodeIntegrityEnabled=0`, irrelevante).
-- ✅ El CDM existe bundled en el runtime: `C:\Program Files (x86)\Microsoft\EdgeWebView\Application\<ver>\WidevineCdm\...\widevinecdm.dll`.
+**Evidencia dura, 2026-07-27:**
+- `%LOCALAPPDATA%\VELO\Profile\EBWebView\WidevineCdm\4.10.3050.1\_platform_specific\win_x64\widevinecdm.dll` = **22.695.928 bytes**, con `widevinecdm.dll.sig` (1389 B) y manifest con `cenc`+`cbcs` y códecs `vp8,vp09,avc1,av01`.
+- Runtime WebView2 actual: **150.0.4078.99**.
+- Command line viva del proceso: limpia, sin `--disable-component-update`, `--disable-plugins` ni `--disable-logging`.
+- **Test EME dentro de VELO** (`C:\Users\badiz\Downloads\velo-drm-check.html`, servible con `python -m http.server 8765` desde Downloads):
 
-**Protocolo de diagnóstico (ya shippeado en v2.4.60):**
-```powershell
-# El hook VELO_EXTRA_BROWSER_ARGS anexa flags al WebView2 (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
-# se IGNORA cuando la app pasa AdditionalBrowserArguments explícito — aprendido a los golpes)
-Stop-Process -Name VELO -Force; Start-Sleep 3
-$env:VELO_EXTRA_BROWSER_ARGS='--enable-logging --v=1 --log-file=C:\wv2.log'
-& 'C:\Program Files\VELO\VELO.exe'
-# reproducir Prime → grep del log: widevine|cdm|component|KeySystem|crx
-```
-⚠️ En la sesión 2026-07-06 ni `--log-file` ni `chrome_debug.log` ni stderr redirect produjeron log (motivo no cerrado — probar `--enable-logging=stderr` + `--log-file` juntos, o `edge://components` visual).
+  | Key system | Resultado |
+  |---|---|
+  | Widevine sin robustness | acceso + `createMediaKeys` **OK** |
+  | Widevine `SW_SECURE_CRYPTO` | **OK** |
+  | Widevine `SW_SECURE_DECODE` | **OK** |
+  | Widevine `HW_SECURE_ALL` | `NotSupportedError` — **normal**, es DRM por hardware (L1); Prime no lo requiere |
+  | PlayReady (recommendation) | **OK** |
+  | ClearKey | **OK** |
+  | MSE `avc1.640028` | **OK** |
 
-**Próximos pasos en orden:**
-1. `edge://components` dentro de VELO → versión de "Widevine Content Decryption Module" + botón "Comprobar actualización" (quedó pendiente del maintainer — puede ser el fix directo).
-2. Probar en OTRA máquina Windows limpia con v2.4.60 → ¿reproduce? Aísla máquina-vs-producto.
-3. Revisar cuarentena/Web-Protection de Malwarebytes por bloqueos a `widevinecdm.dll` o dominios `*.microsoft.com` del updater.
-4. Último recurso: issue en WebView2Feedback con el log (cuando se consiga).
+- UA que ve la página: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0` — UA de Edge legítima, no debería molestar a Prime.
+- Log de VELO durante la navegación en Prime (con el logging de reglas de v2.4.62): **lo único bloqueado es telemetría** `fls-na.amazon.com` (uedata/CSM). Ni licencias, ni manifiestos, ni segmentos.
+
+**→ Widevine funciona. El problema está en el reproductor de Prime, no en DRM.**
+
+**Sospechoso #1: el script anti-fingerprinting de VELO.** El mismo test reporta `Canvas toDataURL parcheado: SÍ`. `fingerprint-noise.js` parchea `HTMLCanvasElement.toDataURL/toBlob`, `WebGLRenderingContext.getParameter` (devuelve un renderer ANGLE falso) y `AudioContext.createAnalyser`. El perfil del maintainer tiene guardado **Aggressive**. El script ya tiene una excepción para PerimeterX/Imperva (ver comentario en su línea 9) porque esos anti-bot rechazan el canvas falseado — Prime hace verificación de dispositivo del mismo tipo antes de pedir la licencia.
+
+**Siguiente paso (30 segundos, pendiente del maintainer):**
+> Settings → Privacy → Fingerprint protection → **Off** → reiniciar VELO → play en Prime.
+
+- **Si reproduce** → el fix es excluir dominios de streaming del parcheo, igual que la excepción anti-bot existente. Hosts a excluir: `primevideo.com`, `amazon.*`, `netflix.com`, `disneyplus.com`, `hbomax.com`, `max.com`, `spotify.com`. Mejor aún: apagar el parcheo en cualquier página que haya llamado a `requestMediaKeySystemAccess`.
+- **Si NO reproduce** → siguientes candidatos en orden: (a) probar Netflix y el demo de Shaka Player para ver si es Prime-específico; (b) `edge://components` dentro de VELO (ahora abrible gracias a v2.4.64) para ver la versión del CDM que el propio browser reporta; (c) capturar la consola del renderer durante el play — Prime loguea el error del player.
 
 ---
 
@@ -68,8 +75,18 @@ $env:VELO_EXTRA_BROWSER_ARGS='--enable-logging --v=1 --log-file=C:\wv2.log'
 - CHANGELOG catch-up v2.0.0→v2.4.30
 - Council Mode chunk H + verificación synthesis (PAUSADO — no retomar sin decisión explícita del maintainer)
 
+## Bugs encontrados y arreglados el 2026-07-27 (en main, SIN release)
+
+| Bug | Release | Detalle |
+|---|---|---|
+| Omnibox destrozaba todo esquema desconocido | v2.4.64 | `file:///C:/x.html` → `https://file:///C:/x.html`. VELO no podía abrir archivos locales. Ahora pasa `file/ftp/about/edge/chrome/view-source`; `data:` y `javascript:` siguen tratándose como búsqueda a propósito. **Efecto colateral útil: `edge://components` ya es abrible.** |
+| `localhost` bloqueado como "DNS rebinding" | v2.4.64 | RequestGuard bloqueaba `localhost`, `0.0.0.0` y `*.local` sin importar quién pidiera → no se podía abrir un dev server ni un NAS. Fusionado con la regla SSRF: ahora se mira **quién pide** (referrer público = bloqueo; navegación tipeada = pasa). |
+| Panel de amenazas tiraba 29 de cada 30 bloqueos | v2.4.65 | `BlockedRequestEvent` se publicaba **debajo** del gate de severidad ("un popup por navegación"), regla correcta para un toast y fatal para una lista acumulativa. En Prime (~30 balizas por carga) se registraba una sola. |
+| Los bloqueos nombraban la página, no el dominio bloqueado | v2.4.66 | `AIVerdict.Host` sin setear en 5 emisores (RequestGuard sub-recursos, NavGuard, 3× PopupGuard). El panel decía "THREAT BLOCKED — www.youtube.com"; **"Allow once"/"Whitelist always" no hacían nada** (apuntaban al host de la página, y el bloqueo se evalúa contra el host del request); y el panel de amenazas no podía agrupar. |
+
 ## Verificación runtime pendiente del maintainer
-- **v2.4.62:** navegar Prime Video sin prompts de tracker · `https://self-signed.badssl.com` debe mostrar el interstitial (y "Continuar de todos modos" debe cargar el sitio) · el log ya no debería llenarse de `SmartBlock classifier failed`
+- **v2.4.62 ✅ parcialmente confirmada (2026-07-27):** Prime navega sin prompts de tracker (P2-A) y el spam de SmartBlock desapareció (P2-B). **Falta P2-C**: `https://self-signed.badssl.com` debe mostrar el interstitial y "Continuar de todos modos" debe cargar el sitio.
+- **v2.4.66:** reinstalar y confirmar que el panel nombra el tracker real (no la página) y que "Allow once" ahora surte efecto.
 - **v2.4.60:** login con Google (F-2) — el fix estrella, sin confirmar
 - **v2.4.59:** AS-2 confirmado parcial; F-5/QW-3 corregidos en v2.4.60
 - v2.4.58: H1 (`/resumen` sin freeze) + M1 (drag-back scroll)
