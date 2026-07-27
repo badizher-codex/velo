@@ -11,6 +11,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.66] — 2026-07-27 — Blocks now name the domain that was actually blocked
+
+Browsing YouTube, the security panel announced **"THREAT BLOCKED — www.youtube.com — a known tracker was detected"**. YouTube was not the tracker; it was the page being viewed.
+
+`AIVerdict.Host` carries the domain a verdict is about, and the host-side falls back to the tab's own URL when it is empty. v2.4.60 (A4) set it for TLS errors and DownloadGuard already set it, but the other five emitters never did: RequestGuard sub-resource blocks (by far the most frequent), NavGuard, and all three PopupGuard rules. Every one of those announced the page instead of the offending domain.
+
+Three consequences, all now fixed:
+
+- **The panel named the wrong domain.** A blocked tracker was reported as the site you were reading.
+- **"Allow once" and "Whitelist always" did nothing on tracker blocks.** They whitelisted the page host, while the block is keyed on the request host — so the entry stayed blocked no matter how many times you allowed it, with no way to override.
+- **The threats panel could not group.** Every block on a page collapsed into one group named after the page, which is precisely the grouping the panel exists to provide.
+
+`BlockedRequestEvent.FullUrl` follows the same rule now: it describes the blocked request, and falls back to the page URL only for verdicts that carry no host at all.
+
+---
+
 ## [2.4.65] — 2026-07-27 — The threats panel was throwing away 29 of every 30 blocks
 
 The panel that lists what VELO blocked was nearly always empty, even on pages generating dozens of blocks per load.

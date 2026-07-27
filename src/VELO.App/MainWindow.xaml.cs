@@ -1283,14 +1283,21 @@ public partial class MainWindow : Window
     {
         try
         {
+            // v2.4.66 — FullUrl has to describe the same thing as Host. It used to be
+            // overwritten with the tab URL unconditionally, which was harmless only
+            // because Host was the tab host too; now that verdicts carry the blocked
+            // host, the page URL is only a fallback for verdicts with no host at all.
             var fullUrl = string.IsNullOrEmpty(domain) ? "" : $"https://{domain}";
-            try
+            if (string.IsNullOrEmpty(domain))
             {
-                var tabUrl = _tabManager.GetTab(tabId)?.Url ?? "";
-                if (!string.IsNullOrEmpty(tabUrl) && tabUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                    fullUrl = tabUrl;
+                try
+                {
+                    var tabUrl = _tabManager.GetTab(tabId)?.Url ?? "";
+                    if (!string.IsNullOrEmpty(tabUrl) && tabUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        fullUrl = tabUrl;
+                }
+                catch { }
             }
-            catch { }
 
             var kind = verdict.ThreatType switch
             {

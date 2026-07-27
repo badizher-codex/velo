@@ -69,7 +69,14 @@ public partial class BrowserTab
                         Reason     = verdict.Reason,
                         ThreatType = verdict.ThreatType,
                         Source     = verdict.Source,
-                        Confidence = verdict.Confidence
+                        Confidence = verdict.Confidence,
+                        // v2.4.66 — The host that was blocked, not the page you were
+                        // on. Without it the host-side falls back to the tab URL, so
+                        // the panel announced "www.youtube.com" as the tracker and
+                        // Allow-once/Whitelist targeted youtube.com — an address the
+                        // block never involved, which is why those buttons appeared
+                        // to do nothing. Same defect v2.4.60 A4 fixed for TLS.
+                        Host       = GetHost(uri),
                     }));
                 return Task.CompletedTask;
             }
@@ -219,7 +226,10 @@ public partial class BrowserTab
                             Reason     = $"Navegación bloqueada: '{navHost}' está en la lista de dominios maliciosos o sospechosos",
                             ThreatType = guardVerdict.ThreatType,
                             Source     = "NavGuard",
-                            Confidence = 97
+                            Confidence = 97,
+                            // v2.4.66 — The cancelled navigation never became the tab
+                            // URL, so without this the override targets the previous page.
+                            Host       = navHost,
                         });
                         LoadingBar.Visibility = Visibility.Collapsed;
                         LoadingChanged?.Invoke(this, false);
@@ -665,7 +675,8 @@ public partial class BrowserTab
                 Reason     = $"Popup bloqueado: '{ShortenUrl(targetUri)}' fue abierto automáticamente por un script (sin acción del usuario)",
                 ThreatType = ThreatType.Malware,
                 Source     = "PopupGuard",
-                Confidence = 98
+                Confidence = 98,
+                Host       = GetHost(targetUri),   // v2.4.66 — the popup target, not the opener
             }));
             return;
         }
@@ -701,7 +712,8 @@ public partial class BrowserTab
                 Reason     = $"Popup bloqueado: {_popupTimes.Count} pestañas abiertas en pocos segundos (técnica de sitios de piratería/malware). '{ShortenUrl(targetUri)}' fue bloqueado.",
                 ThreatType = ThreatType.Malware,
                 Source     = "PopupGuard",
-                Confidence = 90
+                Confidence = 90,
+                Host       = GetHost(targetUri),   // v2.4.66
             }));
             return;
         }
@@ -718,7 +730,8 @@ public partial class BrowserTab
                     Reason     = $"Enlace bloqueado: '{ShortenUrl(targetUri)}' está en la lista de dominios maliciosos",
                     ThreatType = ThreatType.KnownTracker,
                     Source     = "PopupGuard",
-                    Confidence = 97
+                    Confidence = 97,
+                    Host       = GetHost(targetUri),   // v2.4.66
                 }));
                 return;
             }
