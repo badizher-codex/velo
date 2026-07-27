@@ -11,6 +11,44 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.62] — 2026-07-27 — Tracker false positives (P2-A) + classifier back-off (P2-B) + TLS interstitial (P2-C)
+
+Backlog P2 bundle: three diagnosed-but-unfixed defects from the v2.4.59 runtime verification, all confirmed against field logs from 2026-07-07 → 2026-07-27.
+
+### P2-A (CORRECTNESS) — a site is no longer treated as its own tracker
+
+RequestGuard applied its heuristic tracker rules to first-party requests, so a site's own routes could be flagged while browsing that site — the reported case was primevideo.com's `/detail/`, `/movie` and `/collection` pages. Requests that share a registrable root with the page that issued them now skip the exfiltration-params and tracking-beacon heuristics; the blocklist, DNS-rebinding, SSRF and mixed-content rules are unchanged and still apply everywhere.
+
+The SmartBlock (local-LLM) verdict is now scoped to third-party **sub-resources**, which is what the classifier is specified for and all the call site ever queues. Previously one XHR classified as a tracker could cancel every top-level navigation to that host — a small local model returning BLOCK for a first-party host could make the site unreachable.
+
+Root-domain comparison honours second-level public suffixes (`co.uk`, `com.au`, …), so `tracker.co.uk` isn't first-party to `bbc.co.uk`.
+
+Every non-Allow verdict now logs the rule that produced it. Seven of the nine rules were silent, which is why attributing this false positive took a whole session (lesson #7).
+
+### P2-B (NOISE / PERFORMANCE) — SmartBlock backs off when the model is down
+
+Field log, 2026-07-27: ~30 `SmartBlock classifier failed` warnings **with full stack traces** for a single host inside 200 ms. With no local model listening, every request queued behind DirectChatAdapter's in-flight lock until its own 10 s timeout fired, nothing deduplicated concurrent requests for the same host, and failures were never remembered, so the next page load repeated all of it.
+
+- **In-flight deduplication** — concurrent requests for a host join the one call already running.
+- **Concurrency cap** (2) — excess requests return Allow immediately instead of queueing to their own timeout.
+- **Negative cache** (5 min) — a host that just failed isn't retried on every page load.
+- **Circuit breaker** — 3 consecutive failures stop classification for 5 minutes.
+- **Log levels** — one Warning when the circuit trips, Debug for the rest; timeouts no longer carry a stack trace.
+
+`DirectChatAdapter` gets the same treatment: "the local model isn't running" is a steady state, not an incident, so its failure is logged once per endpoint per 5 minutes, message only.
+
+### P2-C (UX / SECURITY) — real interstitial for blocked certificates
+
+Since v2.4.59 (AS-2) an invalid certificate hard-cancels the navigation. Because VELO disables WebView2's built-in error pages, the result was a **blank page** plus a toast that auto-dismissed after 5 seconds: no explanation, no way to proceed. There is now a local interstitial naming the host, explaining the risk, showing the technical detail, and offering "Back to safety" and "Continue anyway" — the latter wired to the existing per-tab allow-once override, so it actually reloads the site. Localised in 8 languages.
+
+The two buttons are authenticated with a single-use nonce minted per certificate error, not by message origin: `NavigateToString` content has no meaningful origin, so without it any page could post `cert-proceed` and grant itself a certificate exception.
+
+### Tests
+
+582 passing across the 6 projects (was 559): new `RequestGuardTests` (13) covering first-party detection and rule scoping, plus 9 SmartBlock tests for dedup, cap, negative cache and circuit breaker.
+
+---
+
 ## [2.4.61] — 2026-07-06 — Site permissions (F-3) + crash recovery (R-1) + external-scheme hardening (AS-3) + dead menu item (QW-6)
 
 Third Phase 1 release, closing the remaining 🟠 usable-floor findings from the audit that don't depend on Decision #4 or the open F-1.

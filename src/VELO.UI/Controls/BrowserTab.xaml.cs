@@ -41,6 +41,12 @@ public partial class BrowserTab : UserControl
     private CoreWebView2Environment? _env;
     private readonly List<string> _allowedOnce = [];
 
+    // v2.4.62 P2-C — State for the TLS interstitial. The nonce authenticates the
+    // cert-proceed / cert-back messages as coming from the interstitial we just
+    // rendered (a page can post any JSON it likes); it is cleared once consumed.
+    private string _certInterstitialNonce = "";
+    private string _certInterstitialUri   = "";
+
     private AISecurityEngine? _aiEngine;
     private RequestGuard? _requestGuard;
     private TLSGuard? _tlsGuard;

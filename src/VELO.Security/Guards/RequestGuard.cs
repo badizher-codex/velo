@@ -101,13 +101,41 @@ public class RequestGuard(
         return _downloadExtensions.Contains(ext);
     }
 
+    /// <summary>
+    /// Evaluates a request. Every non-Allow verdict is logged with the rule that
+    /// produced it — v2.4.62: the primevideo.com false positive took a full
+    /// session to attribute because only two of the nine rules logged anything
+    /// (lesson #7: a guard that can't say why it blocked can't be debugged).
+    /// </summary>
     public SecurityVerdict Evaluate(string uri, string? referrer, string resourceType)
+    {
+        var verdict = EvaluateCore(uri, referrer, resourceType);
+
+        if (verdict.Verdict != VerdictType.Safe)
+        {
+            _logger.LogInformation(
+                "RequestGuard {Verdict} [{Source}] {Uri} (type {Type}, referrer {Referrer}): {Reason}",
+                verdict.Verdict, verdict.Source, uri, resourceType, referrer ?? "", verdict.Reason);
+        }
+
+        return verdict;
+    }
+
+    private SecurityVerdict EvaluateCore(string uri, string? referrer, string resourceType)
     {
         Uri? url;
         try { url = new Uri(uri); }
         catch { return SecurityVerdict.Allow(); }
 
         var host = url.Host.ToLowerInvariant();
+
+        // v2.4.62 P2-A. Main-frame vs sub-resource, and first-party vs third-party.
+        // Both gate the heuristic tracker rules below. WebView2 reports main-frame
+        // and iframe navigation alike as "Document"; the NavGuard call-site passes
+        // "Document" too.
+        var isMainFrame = resourceType.Equals("Document", StringComparison.OrdinalIgnoreCase)
+                       || resourceType.Equals("Other",    StringComparison.OrdinalIgnoreCase);
+        var isFirstParty = IsFirstParty(host, referrer);
 
         // 1. User whitelist
         if (_userWhitelist.Contains(host))
@@ -126,12 +154,11 @@ public class RequestGuard(
         if (TrustedHosts.Contains(host) || TrustedHosts.Contains(GetRootDomain(host)))
             return SecurityVerdict.Allow();
 
-        // 2. Blocklist (O(1))
+        // 2. Blocklist (O(1)). Applies to first-party too — the list is exact-match,
+        //    so there's no false-positive surface, and a site that IS a tracker
+        //    shouldn't get a pass for loading its own resources.
         if (_blocklist.IsBlocked(host))
-        {
-            _logger.LogDebug("BLOCKED by blocklist: {Host}", host);
             return SecurityVerdict.Block("Dominio en blocklist de rastreadores conocidos", ThreatType.KnownTracker, "BLOCKLIST");
-        }
 
         // 3. DNS rebinding — public domain resolving to private IP
         if (IsSuspiciousPrivateAddress(host))
@@ -141,13 +168,17 @@ public class RequestGuard(
         if (IsPrivateIp(host) && !string.IsNullOrEmpty(referrer) && !IsLocalPage(referrer))
             return SecurityVerdict.Block("Request a IP privada desde página externa (SSRF)", ThreatType.SSRF);
 
-        // 5. Suspicious URL params
-        if (HasSuspiciousUrlParams(url))
-            return SecurityVerdict.Warn("URL contiene parámetros sospechosos de exfiltración", ThreatType.DataExfiltration);
+        // 5. Suspicious URL params — third-party only (v2.4.62 P2-A). A site's own
+        //    URLs routinely carry long opaque state: primevideo.com/detail/<id>?jic=
+        //    <base64 blob>&ref_=... is a catalogue page, not exfiltration. Sending
+        //    data to *yourself* is not exfiltration by definition.
+        if (!isFirstParty && HasSuspiciousUrlParams(url))
+            return SecurityVerdict.Warn("URL contiene parámetros sospechosos de exfiltración", ThreatType.DataExfiltration, "PARAMS");
 
-        // 6. Tracking beacons
-        if (_trackingBeaconPattern.IsMatch(uri))
-            return SecurityVerdict.Block("Tracking beacon detectado", ThreatType.Tracker);
+        // 6. Tracking beacons — third-party only (v2.4.62 P2-A). The pattern
+        //    (/log?, /track?, /pixel?) matches plenty of first-party app endpoints.
+        if (!isFirstParty && _trackingBeaconPattern.IsMatch(uri))
+            return SecurityVerdict.Block("Tracking beacon detectado", ThreatType.Tracker, "BEACON");
 
         // 7. Mixed content (HTTP request from HTTPS page)
         if (uri.StartsWith("http://") && referrer?.StartsWith("https://") == true)
@@ -157,28 +188,52 @@ public class RequestGuard(
         //    - suspicious TLD, brand impersonation, or random-generated hostname
         //    - only for main-frame navigation (WebView2 calls this "Document")
         //    - not for sub-resources (Image, Script, Stylesheet, Font, etc.)
-        var isMainFrame = resourceType.Equals("Document", StringComparison.OrdinalIgnoreCase)
-                       || resourceType.Equals("Other",    StringComparison.OrdinalIgnoreCase);
-
         if (isMainFrame && (HasSuspiciousTld(host) || LooksLikeBrandImpersonation(host) || LooksRandomGenerated(host)))
             return SecurityVerdict.NeedsAI();
 
         // 9 (v2.4.22). SmartBlock second-pass — async classifier verdict from a
         //              previous request to this host. Caller (BrowserTab) fires
-        //              the async classification when the cache miss; on the
+        //              the async classification when the cache misses; on the
         //              next request we read its verdict here.
-        var smartVerdict = _smartBlock?.TryGetCachedVerdict(host);
-        if (smartVerdict?.Verdict == SmartBlockClassifier.Verdict.Block)
+        //
+        // v2.4.62 P2-A — sub-resources only, third-party only. The classifier is
+        // specified for sub-resources (see its class doc) and the call-site only
+        // ever queues those, so applying its verdict to a top-level navigation
+        // was asymmetric: one XHR to www.primevideo.com getting classified as a
+        // tracker would then cancel every /detail/ page-load on that host.
+        // A small local model returning BLOCK for a first-party host must never
+        // be able to make the site unreachable.
+        if (!isMainFrame && !isFirstParty)
         {
-            _logger.LogInformation("SmartBlock blocked {Host}: {Reason} (conf {Conf:F2})",
-                host, smartVerdict.Reason, smartVerdict.Confidence);
-            return SecurityVerdict.Block(
-                $"SmartBlock: {smartVerdict.Reason}",
-                ThreatType.Tracker,
-                "SmartBlock");
+            var smartVerdict = _smartBlock?.TryGetCachedVerdict(host);
+            if (smartVerdict?.Verdict == SmartBlockClassifier.Verdict.Block)
+            {
+                return SecurityVerdict.Block(
+                    $"SmartBlock: {smartVerdict.Reason}",
+                    ThreatType.Tracker,
+                    "SmartBlock");
+            }
         }
 
         return SecurityVerdict.Allow();
+    }
+
+    /// <summary>
+    /// v2.4.62 P2-A — true when the request host and the page that issued it share
+    /// a registrable root (www.primevideo.com ↔ primevideo.com). A site is never
+    /// its own third-party tracker, so the heuristic tracker rules (suspicious
+    /// params, beacon pattern, SmartBlock) don't apply to its own requests. An
+    /// absent referrer is treated as third-party — same behaviour as before.
+    /// </summary>
+    public static bool IsFirstParty(string host, string? referrer)
+    {
+        if (string.IsNullOrEmpty(host) || string.IsNullOrWhiteSpace(referrer)) return false;
+        if (!Uri.TryCreate(referrer, UriKind.Absolute, out var refUri)) return false;
+
+        var refHost = refUri.Host.ToLowerInvariant();
+        if (refHost.Length == 0) return false;
+
+        return GetRootDomain(host).Equals(GetRootDomain(refHost), StringComparison.OrdinalIgnoreCase);
     }
 
     public static void AddToWhitelist(string host) => _userWhitelist.Add(host.ToLowerInvariant());
@@ -253,11 +308,36 @@ public class RequestGuard(
         return false;
     }
 
+    // v2.4.62 — Second-level public suffixes. Without these, GetRootDomain("bbc.co.uk")
+    // returns "co.uk", which would make every *.co.uk site first-party to every other
+    // one — and first-party now grants a heuristics bypass (IsFirstParty). Not the full
+    // PSL (that's a 200 KB dependency); just the registries actually seen in the wild.
+    private static readonly HashSet<string> _secondLevelSuffixes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk", "net.uk",
+        "com.au", "net.au", "org.au", "edu.au", "gov.au",
+        "co.jp", "or.jp", "ne.jp", "ac.jp", "go.jp",
+        "com.br", "net.br", "org.br", "gov.br",
+        "com.mx", "org.mx", "gob.mx",
+        "com.ar", "net.ar", "org.ar", "gob.ar",
+        "co.nz", "net.nz", "org.nz", "govt.nz",
+        "co.in", "net.in", "org.in", "gov.in",
+        "com.tr", "com.cn", "com.hk", "com.sg", "com.tw",
+        "co.kr", "co.za", "co.il", "com.co", "com.pe", "com.ve",
+        "co.id", "com.my", "com.ph", "com.vn", "com.es", "com.pl", "com.ua",
+    };
+
     /// <summary>Returns the registrable root domain (e.g. "githubusercontent.com" from "objects.githubusercontent.com").</summary>
     private static string GetRootDomain(string host)
     {
         var parts = host.Split('.');
-        return parts.Length >= 2 ? $"{parts[^2]}.{parts[^1]}" : host;
+        if (parts.Length < 2) return host;
+
+        var lastTwo = $"{parts[^2]}.{parts[^1]}";
+        if (parts.Length >= 3 && _secondLevelSuffixes.Contains(lastTwo))
+            return $"{parts[^3]}.{lastTwo}";
+
+        return lastTwo;
     }
 
     private static bool IsBase64(string s)

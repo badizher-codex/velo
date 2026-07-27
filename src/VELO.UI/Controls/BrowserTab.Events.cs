@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
@@ -123,11 +124,15 @@ public partial class BrowserTab
             //              + cache; we just kick the work off and let the next
             //              request to the same host read the verdict via
             //              RequestGuard.TryGetCachedVerdict().
+            //              v2.4.62 P2-B — also skipped for first-party hosts: a
+            //              site is not its own tracker, and classifying every
+            //              same-origin XHR was most of the classifier traffic.
             if (_smartBlock != null && verdict?.Verdict == VerdictType.Safe)
             {
                 var host = GetHost(uri);
                 if (!string.IsNullOrEmpty(host)
                     && !VELO.Security.Guards.RequestGuard.TrustedHosts.Contains(host)
+                    && !VELO.Security.Guards.RequestGuard.IsFirstParty(host, referrer)
                     && !resourceType.Equals("Document", StringComparison.OrdinalIgnoreCase)
                     && _smartBlock.TryGetCachedVerdict(host) is null)
                 {
@@ -324,6 +329,25 @@ public partial class BrowserTab
         // for dev convenience.
         e.Action = CoreWebView2ServerCertificateErrorAction.Default;
 
+        // v2.4.62 P2-C — Show a real interstitial. Cancelling the navigation used to
+        // leave a blank page (VELO disables WebView2's built-in error pages), so the
+        // only trace was a toast that auto-dismissed after 5 s — the user was left on
+        // an empty window with no explanation and no way to proceed.
+        _certInterstitialNonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        _certInterstitialUri   = uri;
+        var certPage = BuildCertErrorPage(host, $"{statusName} — {uri}", _certInterstitialNonce);
+
+        // Posted, not invoked inline: WebView2 is mid-cancellation inside this handler.
+        _ = Dispatcher.InvokeAsync(() =>
+        {
+            try
+            {
+                ShowWebView();
+                WebView.CoreWebView2.NavigateToString(certPage);
+            }
+            catch { /* tab torn down mid-error — nothing to show */ }
+        }, System.Windows.Threading.DispatcherPriority.Background);
+
         Dispatcher.Invoke(() => SecurityVerdictReceived?.Invoke(this, new AIVerdict
         {
             Verdict    = verdict.Verdict,
@@ -410,6 +434,43 @@ public partial class BrowserTab
                         _hasLoginFormOnCurrentPage = true;
                         Dispatcher.Invoke(() => AutofillFormDetected?.Invoke(this, h));
                     }
+                    break;
+                }
+                // v2.4.62 P2-C — Buttons on the TLS interstitial. Authenticated by
+                // the per-error nonce, not by e.Source: NavigateToString content has
+                // no meaningful origin, so any page could otherwise forge these and
+                // grant itself a cert exception. The nonce is single-use.
+                case "cert-proceed":
+                case "cert-back":
+                {
+                    var nonce = node["nonce"]?.GetValue<string>() ?? "";
+                    if (string.IsNullOrEmpty(_certInterstitialNonce) ||
+                        !string.Equals(nonce, _certInterstitialNonce, StringComparison.Ordinal))
+                        break;
+
+                    var target  = _certInterstitialUri;
+                    var proceed = kind == "cert-proceed";
+                    _certInterstitialNonce = "";
+                    _certInterstitialUri   = "";
+
+                    Dispatcher.Invoke(() =>
+                    {
+                        if (proceed && !string.IsNullOrEmpty(target))
+                        {
+                            // Allow-once for this tab, then retry: OnServerCertificateError
+                            // sees the override and returns AlwaysAllow.
+                            AllowOnce(GetHost(target));
+                            WebView.CoreWebView2.Navigate(target);
+                        }
+                        else if (WebView.CoreWebView2.CanGoBack)
+                        {
+                            WebView.CoreWebView2.GoBack();
+                        }
+                        else
+                        {
+                            _ = NavigateAsync("velo://newtab");
+                        }
+                    });
                     break;
                 }
                 case "autofill-submit":

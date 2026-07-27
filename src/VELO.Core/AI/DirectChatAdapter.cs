@@ -169,13 +169,47 @@ public sealed class DirectChatAdapter
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "DirectChat: call to {Endpoint} failed", endpoint);
+            LogCallFailure(endpoint, ex);
             return "";
         }
         finally
         {
             _concurrency.Release();
         }
+    }
+
+    /// <summary>
+    /// v2.4.62 P2-B — "the local model isn't running" is a steady state, not an
+    /// incident: with no LM Studio listening, every internal service that fires on
+    /// a page load produced its own Warning-with-stack-trace. Field logs from
+    /// 2026-07-27 were ~90% this. One Warning per endpoint per
+    /// <see cref="FailureLogInterval"/>, message only; the rest at Debug.
+    /// </summary>
+    private static readonly TimeSpan FailureLogInterval = TimeSpan.FromMinutes(5);
+    private readonly Dictionary<string, DateTime> _lastFailureLog = new(StringComparer.OrdinalIgnoreCase);
+
+    private void LogCallFailure(string endpoint, Exception ex)
+    {
+        bool shouldWarn;
+        lock (_lastFailureLog)
+        {
+            var now = DateTime.UtcNow;
+            shouldWarn = !_lastFailureLog.TryGetValue(endpoint, out var last)
+                      || (now - last) > FailureLogInterval;
+            if (shouldWarn) _lastFailureLog[endpoint] = now;
+        }
+
+        if (shouldWarn)
+            _logger.LogWarning("DirectChat: call to {Endpoint} failed — {Error}", endpoint, RootMessage(ex));
+        else
+            _logger.LogDebug("DirectChat: call to {Endpoint} failed — {Error}", endpoint, RootMessage(ex));
+    }
+
+    private static string RootMessage(Exception ex)
+    {
+        var inner = ex;
+        while (inner.InnerException is not null) inner = inner.InnerException;
+        return inner.Message;
     }
 
     /// <summary>Pulls the first choice's <c>message.content</c> string from an OpenAI-compat

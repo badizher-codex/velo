@@ -128,6 +128,99 @@ public partial class BrowserTab
         }
     }
 
+    /// <summary>
+    /// v2.4.62 P2-C — Local interstitial for a hard-blocked TLS certificate error.
+    /// Before this, AS-2 cancelled the navigation and the user saw a blank page plus
+    /// a toast that vanished in 5 s: WebView2's own TLS error page never appears
+    /// because VELO sets <c>IsBuiltInErrorPageEnabled = false</c>.
+    ///
+    /// The two buttons post back to the host with <paramref name="nonce"/>, a value
+    /// minted per cert error and cleared on use. Without it any page in any tab could
+    /// post <c>cert-proceed</c> and whitelist a MitM'd host for itself.
+    /// </summary>
+    private static string BuildCertErrorPage(string host, string detail, string nonce)
+    {
+        var L = LocalizationService.Current;
+        return BuildCertErrorPageTemplate()
+            .Replace("VELO_CERT_TITLE",       HtmlEscape(L.T("cert.page.title")))
+            .Replace("VELO_CERT_HEADING",     HtmlEscape(string.Format(L.T("cert.page.heading"), host)))
+            .Replace("VELO_CERT_BODY",        HtmlEscape(L.T("cert.page.body")))
+            .Replace("VELO_CERT_DETAILLABEL", HtmlEscape(L.T("cert.page.details")))
+            .Replace("VELO_CERT_DETAIL",      HtmlEscape(detail))
+            .Replace("VELO_CERT_BACK",        HtmlEscape(L.T("cert.page.back")))
+            .Replace("VELO_CERT_PROCEED",     HtmlEscape(L.T("cert.page.proceed")))
+            .Replace("VELO_CERT_PROCEEDHINT", HtmlEscape(L.T("cert.page.proceedhint")))
+            .Replace("VELO_CERT_NONCE",       nonce);
+    }
+
+    private static string HtmlEscape(string s) => s
+        .Replace("&", "&amp;")
+        .Replace("<", "&lt;")
+        .Replace(">", "&gt;")
+        .Replace("\"", "&quot;")
+        .Replace("'", "&#39;");
+
+    private static string BuildCertErrorPageTemplate() => """
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <meta charset="utf-8"/>
+        <title>VELO_CERT_TITLE</title>
+        <style>
+          * { margin:0; padding:0; box-sizing:border-box; }
+          body {
+            background:#0e0e0e; color:#e8e8e8;
+            font-family:'Segoe UI', system-ui, sans-serif;
+            min-height:100vh; display:flex; align-items:center; justify-content:center;
+            padding:32px;
+          }
+          .card {
+            background:#181818; border:1px solid #3a2020; border-radius:16px;
+            padding:40px 48px; max-width:600px; width:100%;
+            box-shadow:0 8px 40px rgba(0,0,0,0.6);
+          }
+          .icon { font-size:44px; line-height:1; margin-bottom:18px; }
+          h1 { font-size:24px; font-weight:600; margin-bottom:14px; letter-spacing:-0.4px; }
+          p  { font-size:14px; line-height:1.6; color:#b4b4b4; }
+          .actions { display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; }
+          button { font-family:inherit; font-size:14px; border-radius:8px; padding:11px 20px; cursor:pointer; border:1px solid transparent; }
+          .primary { background:#00b8d4; color:#04161a; font-weight:600; }
+          .primary:hover { background:#00cfee; }
+          .ghost { background:transparent; color:#8a8a8a; border-color:#333; }
+          .ghost:hover { color:#c8c8c8; border-color:#555; }
+          .hint { font-size:12px; color:#6e6e6e; margin-top:14px; line-height:1.5; }
+          details { margin-top:26px; border-top:1px solid #2a2a2a; padding-top:18px; }
+          summary { font-size:12px; color:#8a8a8a; cursor:pointer; }
+          code { display:block; margin-top:10px; font-size:12px; color:#c9a227; word-break:break-all; }
+        </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">🔓</div>
+            <h1>VELO_CERT_HEADING</h1>
+            <p>VELO_CERT_BODY</p>
+            <div class="actions">
+              <button class="primary" id="back">VELO_CERT_BACK</button>
+              <button class="ghost" id="proceed">VELO_CERT_PROCEED</button>
+            </div>
+            <p class="hint">VELO_CERT_PROCEEDHINT</p>
+            <details>
+              <summary>VELO_CERT_DETAILLABEL</summary>
+              <code>VELO_CERT_DETAIL</code>
+            </details>
+          </div>
+        <script>
+          var n = "VELO_CERT_NONCE";
+          function post(kind) {
+            try { window.chrome.webview.postMessage(JSON.stringify({ kind: kind, nonce: n })); } catch (e) {}
+          }
+          document.getElementById('back').addEventListener('click', function(){ post('cert-back'); });
+          document.getElementById('proceed').addEventListener('click', function(){ post('cert-proceed'); });
+        </script>
+        </body>
+        </html>
+        """;
+
     private static string BuildAboutPage()
     {
         // v2.0.5.8 — Show 4-component version when the revision is non-zero

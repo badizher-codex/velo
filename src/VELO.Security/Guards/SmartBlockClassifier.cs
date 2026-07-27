@@ -31,6 +31,16 @@ namespace VELO.Security.Guards;
 ///
 /// 4. <b>Pure (no I/O beyond the chat delegate).</b> Tests live in
 ///    <c>SmartBlockClassifierTests</c>.
+///
+/// 5. <b>Degrades quietly when the model is down (v2.4.62 P2-B).</b> Field
+///    logs showed ~30 warnings-with-stack-traces for a <i>single</i> host in
+///    200 ms: LM Studio wasn't listening, every call queued behind
+///    DirectChatAdapter's in-flight lock until its own 10 s timeout fired,
+///    and nothing deduplicated the concurrent requests for the same host.
+///    Three mechanisms keep that from happening: <see cref="MaxConcurrentCalls"/>
+///    (bail, don't queue), in-flight deduplication (one call per host at a
+///    time) and a circuit breaker (<see cref="FailureThreshold"/> consecutive
+///    failures → stop calling for <see cref="CircuitOpenDuration"/>).
 /// </summary>
 public sealed class SmartBlockClassifier
 {
@@ -54,10 +64,28 @@ public sealed class SmartBlockClassifier
     /// <summary>Per-minute classification budget. 0 disables (unlimited).</summary>
     public int MaxCallsPerMinute { get; set; } = 30;
 
-    private readonly Dictionary<string, (Result R, DateTime At)> _cache = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>v2.4.62 — Classifications allowed to be in flight at once. Excess
+    /// requests return Allow immediately instead of queueing behind the adapter's
+    /// in-flight lock until their own timeout fires. 0 disables the cap.</summary>
+    public int MaxConcurrentCalls { get; set; } = 2;
+
+    /// <summary>v2.4.62 — Consecutive failures that open the circuit. 0 disables.</summary>
+    public int FailureThreshold { get; set; } = 3;
+
+    /// <summary>v2.4.62 — How long the circuit stays open before we try again.</summary>
+    public TimeSpan CircuitOpenDuration { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>v2.4.62 — How long a failed classification is remembered, so a
+    /// host that just timed out isn't re-attempted on every page load.</summary>
+    public TimeSpan FailureCacheTtl { get; set; } = TimeSpan.FromMinutes(5);
+
+    private readonly Dictionary<string, (Result R, DateTime At, bool Failed)> _cache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Task<Result>> _inFlight = new(StringComparer.OrdinalIgnoreCase);
     private readonly Queue<DateTime> _recentCalls = new();
     private readonly ILogger<SmartBlockClassifier> _logger;
     private readonly object _lock = new();
+    private int _consecutiveFailures;
+    private DateTime _circuitOpenUntil = DateTime.MinValue;
 
     public SmartBlockClassifier(ILogger<SmartBlockClassifier>? logger = null)
     {
@@ -72,59 +100,139 @@ public sealed class SmartBlockClassifier
     /// returns Allow with an explanatory reason and does not cache the
     /// verdict.
     /// </summary>
-    public async Task<Result> ClassifyAsync(
+    public Task<Result> ClassifyAsync(
         string host,
         string resourceType,
         string referrerHost,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(host))
-            return new Result(Verdict.Allow, 0, "empty host", FromCache: false);
-
-        // Cache lookup is the hot path — most page loads should hit it.
-        lock (_lock)
-        {
-            if (_cache.TryGetValue(host, out var entry) &&
-                (DateTime.UtcNow - entry.At) < CacheTtl)
-            {
-                return entry.R with { FromCache = true };
-            }
-        }
+            return Task.FromResult(new Result(Verdict.Allow, 0, "empty host", FromCache: false));
 
         if (ChatDelegate is null)
         {
-            return new Result(Verdict.Allow, 0,
+            return Task.FromResult(new Result(Verdict.Allow, 0,
                 "smartblock disabled (no chat adapter wired)",
-                FromCache: false);
+                FromCache: false));
         }
 
-        // Budget check — never call the model more than N times per minute.
-        if (!ConsumeBudget())
+        lock (_lock)
         {
-            _logger.LogDebug("SmartBlock budget exhausted; allowing {Host} without classification", host);
-            return new Result(Verdict.Allow, 0,
-                "classifier budget exhausted",
-                FromCache: false);
-        }
+            // Cache lookup is the hot path — most page loads should hit it.
+            if (TryGetCachedLocked(host, out var cached))
+                return Task.FromResult(cached! with { FromCache = true });
 
-        Result result;
+            // v2.4.62 — Circuit open: the model isn't answering, so don't pay the
+            // timeout again on every request until it has had a chance to recover.
+            if (DateTime.UtcNow < _circuitOpenUntil)
+                return Task.FromResult(new Result(Verdict.Allow, 0, "classifier circuit open", FromCache: false));
+
+            // v2.4.62 — Same host already being classified: join that call instead
+            // of issuing a second one. A single page loading 30 assets from one CDN
+            // used to fire 30 identical classifications.
+            if (_inFlight.TryGetValue(host, out var pending))
+                return pending;
+
+            if (MaxConcurrentCalls > 0 && _inFlight.Count >= MaxConcurrentCalls)
+                return Task.FromResult(new Result(Verdict.Allow, 0, "classifier busy", FromCache: false));
+
+            // Budget check — never call the model more than N times per minute.
+            if (!ConsumeBudgetLocked())
+            {
+                _logger.LogDebug("SmartBlock budget exhausted; allowing {Host} without classification", host);
+                return Task.FromResult(new Result(Verdict.Allow, 0,
+                    "classifier budget exhausted",
+                    FromCache: false));
+            }
+
+            var task = RunClassificationAsync(host, resourceType, referrerHost, ct);
+            // Only track it while it's actually running; a synchronously-completed
+            // task (test doubles, immediate failure) is already done here.
+            if (!task.IsCompleted) _inFlight[host] = task;
+            return task;
+        }
+    }
+
+    /// <summary>
+    /// Runs one classification. Never throws: a failing model must degrade to
+    /// Allow, and callers (including the ones joined via in-flight dedup) get a
+    /// Result instead of an exception.
+    /// </summary>
+    private async Task<Result> RunClassificationAsync(
+        string host, string resourceType, string referrerHost, CancellationToken ct)
+    {
         try
         {
             var (system, user) = BuildPrompt(host, resourceType, referrerHost);
-            var reply = await ChatDelegate(system, user, ct).ConfigureAwait(false);
-            result = ParseReply(reply);
+            var reply  = await ChatDelegate!(system, user, ct).ConfigureAwait(false);
+            var result = ParseReply(reply);
+
             _logger.LogDebug("SmartBlock classified {Host} → {Verdict} (conf {Conf:F2}): {Reason}",
                 host, result.Verdict, result.Confidence, result.Reason);
+
+            lock (_lock)
+            {
+                _cache[host] = (result, DateTime.UtcNow, Failed: false);
+                _consecutiveFailures = 0;
+            }
+            return result;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "SmartBlock classifier failed for {Host}; allowing", host);
-            return new Result(Verdict.Allow, 0, $"classifier error: {ex.Message}", FromCache: false);
+            var result = new Result(Verdict.Allow, 0, $"classifier error: {ex.Message}", FromCache: false);
+            bool circuitJustOpened;
+
+            lock (_lock)
+            {
+                // Negative cache: don't re-attempt this host until the TTL expires.
+                _cache[host] = (result, DateTime.UtcNow, Failed: true);
+                _consecutiveFailures++;
+                circuitJustOpened = FailureThreshold > 0
+                                 && _consecutiveFailures == FailureThreshold;
+                if (circuitJustOpened)
+                    _circuitOpenUntil = DateTime.UtcNow + CircuitOpenDuration;
+            }
+
+            // v2.4.62 — One Warning when the circuit trips, Debug for the rest.
+            // Cancellations never carry a stack trace: a timeout under load is
+            // expected, and the old code logged a full trace for every one.
+            if (circuitJustOpened)
+            {
+                _logger.LogWarning(
+                    "SmartBlock disabled for {Minutes:F0} min after {Count} consecutive failures (last: {Host} — {Error})",
+                    CircuitOpenDuration.TotalMinutes, _consecutiveFailures, host, ex.Message);
+            }
+            else if (ex is OperationCanceledException)
+            {
+                _logger.LogDebug("SmartBlock timed out for {Host}; allowing", host);
+            }
+            else
+            {
+                _logger.LogDebug(ex, "SmartBlock classifier failed for {Host}; allowing", host);
+            }
+
+            return result;
+        }
+        finally
+        {
+            lock (_lock) { _inFlight.Remove(host); }
+        }
+    }
+
+    private bool TryGetCachedLocked(string host, out Result? result)
+    {
+        result = null;
+        if (!_cache.TryGetValue(host, out var entry)) return false;
+
+        var ttl = entry.Failed ? FailureCacheTtl : CacheTtl;
+        if ((DateTime.UtcNow - entry.At) >= ttl)
+        {
+            _cache.Remove(host);
+            return false;
         }
 
-        // Cache only verdicts the model actually produced.
-        lock (_lock) { _cache[host] = (result, DateTime.UtcNow); }
-        return result;
+        result = entry.R;
+        return true;
     }
 
     /// <summary>
@@ -138,19 +246,28 @@ public sealed class SmartBlockClassifier
         if (string.IsNullOrEmpty(host)) return null;
         lock (_lock)
         {
-            if (_cache.TryGetValue(host, out var entry) &&
-                (DateTime.UtcNow - entry.At) < CacheTtl)
-            {
-                return entry.R with { FromCache = true };
-            }
+            return TryGetCachedLocked(host, out var entry)
+                ? entry! with { FromCache = true }
+                : null;
         }
-        return null;
     }
 
-    /// <summary>Test helper — clears the cache.</summary>
+    /// <summary>Test helper — clears the cache and resets the circuit breaker.</summary>
     public void ClearCache()
     {
-        lock (_lock) { _cache.Clear(); _recentCalls.Clear(); }
+        lock (_lock)
+        {
+            _cache.Clear();
+            _recentCalls.Clear();
+            _consecutiveFailures = 0;
+            _circuitOpenUntil = DateTime.MinValue;
+        }
+    }
+
+    /// <summary>v2.4.62 — True while the classifier is backing off after repeated failures.</summary>
+    public bool IsCircuitOpen
+    {
+        get { lock (_lock) return DateTime.UtcNow < _circuitOpenUntil; }
     }
 
     /// <summary>Test helper — returns the current cache size.</summary>
@@ -229,20 +346,19 @@ public sealed class SmartBlockClassifier
         return new Result(verdict, conf, reason, FromCache: false);
     }
 
-    private bool ConsumeBudget()
+    /// <summary>Caller must hold <c>_lock</c>.</summary>
+    private bool ConsumeBudgetLocked()
     {
         if (MaxCallsPerMinute <= 0) return true;
 
         var now = DateTime.UtcNow;
-        lock (_lock)
-        {
-            // Drop entries older than 1 minute.
-            while (_recentCalls.Count > 0 && (now - _recentCalls.Peek()) > TimeSpan.FromMinutes(1))
-                _recentCalls.Dequeue();
 
-            if (_recentCalls.Count >= MaxCallsPerMinute) return false;
-            _recentCalls.Enqueue(now);
-            return true;
-        }
+        // Drop entries older than 1 minute.
+        while (_recentCalls.Count > 0 && (now - _recentCalls.Peek()) > TimeSpan.FromMinutes(1))
+            _recentCalls.Dequeue();
+
+        if (_recentCalls.Count >= MaxCallsPerMinute) return false;
+        _recentCalls.Enqueue(now);
+        return true;
     }
 }
