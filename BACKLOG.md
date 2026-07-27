@@ -1,6 +1,8 @@
-# BACKLOG VELO — deuda accionable v2.4.61+
+# BACKLOG VELO — deuda accionable v2.4.63+
 
-**Actualizado:** 2026-07-06 (HEAD `e14ff15` = v2.4.60). Ordenado por retorno. Cada item es autocontenido: una sesión futura puede ejecutarlo sin re-derivar contexto.
+**Actualizado:** 2026-07-27 (HEAD `0022fba` = v2.4.62). Ordenado por retorno. Cada item es autocontenido: una sesión futura puede ejecutarlo sin re-derivar contexto.
+
+> **P2 cerrado en v2.4.62.** Quedan abiertos P0 (F-1 Widevine), P1 (code signing), el back/forward bug y P3.
 
 ---
 
@@ -53,11 +55,11 @@ $env:VELO_EXTRA_BROWSER_ARGS='--enable-logging --v=1 --log-file=C:\wv2.log'
 
 ## P2 — Bugs conocidos con diagnóstico hecho
 
-| Bug | Evidencia | Fix sugerido |
+| Bug | Evidencia | Fix |
 |---|---|---|
-| **RequestGuard FP en primevideo.com** | Bloquea rutas first-party (`/detail/...`, `/movie`, `/-/es/collection/...`) como "trackers" — visto en runtime 2026-06-29 | En `RequestGuard.Evaluate`: si el host del recurso == eTLD+1 de la página (first-party), no aplicar reglas de tracker. Ya existe `GetRegistrableRoot` (RequestGuard.cs:253) |
-| **SmartBlock classifier spam** | 1 request HTTP por recurso, TODAS timeout (`TaskCanceledException`), fail-soft "allowing" — llena el log | Cap de concurrencia + circuit breaker (si N timeouts seguidos → apagar por sesión) + cache negativo |
-| **AS-2 UX del bloqueo de cert** | Página en blanco + toast (v2.4.60 arregló verdict/botones, pero sigue sin interstitial propio) | Página de error propia (HTML local estilo NewTab) con "Volver" + "Continuar bajo riesgo" cableado al override |
+| ~~**RequestGuard FP en primevideo.com**~~ | Bloqueaba rutas first-party (`/detail/`, `/movie`, `/collection`) como "trackers" | ✅ **v2.4.62 (P2-A)** — first-party salta las reglas heurísticas; verdict de SmartBlock acotado a sub-recursos third-party; `GetRootDomain` respeta sufijos de 2º nivel; **toda regla que no sea Allow ahora loguea cuál fue** (7 de 9 eran mudas) |
+| ~~**SmartBlock classifier spam**~~ | Log 2026-07-27: ~30 WRN con stack trace para **un solo host** en 200 ms (LM Studio caído) | ✅ **v2.4.62 (P2-B)** — dedup in-flight + cap de concurrencia + cache negativo 5 min + circuit breaker (3 fallos) + niveles de log. `DirectChatAdapter` loguea endpoint caído 1×/5 min |
+| ~~**AS-2 UX del bloqueo de cert**~~ | Página en blanco + toast de 5 s. Causa: `IsBuiltInErrorPageEnabled=false` (BrowserTab.xaml.cs:223) | ✅ **v2.4.62 (P2-C)** — interstitial local con "Volver" + "Continuar de todos modos" cableado al allow-once, autenticado por nonce de un solo uso, 8 idiomas |
 | **Back/forward bug** | Pendiente desde v2.4.5, sin diagnosticar | Lección #7: instrumentar primero (~30 líneas de logging en NavigationStateChanged) |
 
 ## P3 — Deuda de producto (docs en memoria del proyecto)
@@ -67,6 +69,7 @@ $env:VELO_EXTRA_BROWSER_ARGS='--enable-logging --v=1 --log-file=C:\wv2.log'
 - Council Mode chunk H + verificación synthesis (PAUSADO — no retomar sin decisión explícita del maintainer)
 
 ## Verificación runtime pendiente del maintainer
+- **v2.4.62:** navegar Prime Video sin prompts de tracker · `https://self-signed.badssl.com` debe mostrar el interstitial (y "Continuar de todos modos" debe cargar el sitio) · el log ya no debería llenarse de `SmartBlock classifier failed`
 - **v2.4.60:** login con Google (F-2) — el fix estrella, sin confirmar
 - **v2.4.59:** AS-2 confirmado parcial; F-5/QW-3 corregidos en v2.4.60
 - v2.4.58: H1 (`/resumen` sin freeze) + M1 (drag-back scroll)
