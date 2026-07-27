@@ -66,6 +66,7 @@ public partial class MainWindow : Window
     // Highest verdict severity already shown per tab — prevents re-showing for same navigation
     // 0=none, 1=Warn, 2=Block
     private readonly Dictionary<string, int> _tabVerdictLevel = [];
+    private readonly Microsoft.Extensions.Logging.ILogger<MainWindow>? _logger;
     // Threat types already in the Malwaredex (loaded at startup to avoid repeated DB checks)
     private HashSet<string> _capturedThreatTypes = [];
     private DownloadsWindow? _downloadsWindow;
@@ -124,6 +125,7 @@ public partial class MainWindow : Window
         if (initialUrl != null) _initialUrl = initialUrl;
         _pendingTearOffSnapshot = tearOffSnapshot;
         _services = services;
+        _logger           = services.GetService<Microsoft.Extensions.Logging.ILogger<MainWindow>>();
         _tabManager       = services.GetRequiredService<TabManager>();
         _navController    = services.GetRequiredService<NavigationController>();
         _aiEngine         = services.GetRequiredService<AISecurityEngine>();
@@ -1239,13 +1241,6 @@ public partial class MainWindow : Window
         if (!IsUiDrivingTab(tabId)) return;
             if (verdict.Verdict == VerdictType.Safe) return;
 
-            // Only show the panel if this verdict is more severe than what was already shown
-            // this navigation (prevents NavGuard + AI double-popup for the same page)
-            var newLevel = verdict.Verdict == VerdictType.Block ? 2 : 1;
-            var shownLevel = _tabVerdictLevel.GetValueOrDefault(tabId, 0);
-            if (newLevel <= shownLevel) return;
-            _tabVerdictLevel[tabId] = newLevel;
-
             // v2.0.5.12 — Prefer the host the verdict was raised against
             // (e.g. download URL host for DownloadGuard) so AllowOnce/Whitelist
             // whitelist the right thing. Fall back to the tab URL only when
@@ -1253,12 +1248,34 @@ public partial class MainWindow : Window
             var domain = !string.IsNullOrEmpty(verdict.Host) ? verdict.Host : "";
             if (string.IsNullOrEmpty(domain))
                 try { domain = new Uri(_tabManager.GetTab(tabId)?.Url ?? "").Host; } catch { }
-            SecurityPanelControl.Show(domain, verdict);
 
-            // Phase 3 / Sprint 1 — Also publish the rich BlockedRequestEvent
-            // so ThreatsPanelV2 can render the per-tab grouped session list.
+            // Phase 3 / Sprint 1 — Publish the rich BlockedRequestEvent so
+            // ThreatsPanelV2 can render the per-tab grouped session list.
+            //
+            // v2.4.65 — This used to sit BELOW the severity gate, so it inherited
+            // a rule written for the toast: "one popup per navigation". The panel
+            // is a session LIST, not a popup — it is supposed to accumulate. On a
+            // page like primevideo.com, which fires ~30 blocked telemetry beacons
+            // per page load, exactly one of them was ever recorded and the other
+            // 29 vanished. Every block gets published; only the toast is throttled.
             if (verdict.Verdict == VerdictType.Block)
                 PublishBlockedRequest(tabId, domain, verdict);
+
+            // Only show the panel if this verdict is more severe than what was already shown
+            // this navigation (prevents NavGuard + AI double-popup for the same page)
+            var newLevel = verdict.Verdict == VerdictType.Block ? 2 : 1;
+            var shownLevel = _tabVerdictLevel.GetValueOrDefault(tabId, 0);
+            if (newLevel <= shownLevel)
+            {
+                if (_logger is not null)
+                    Microsoft.Extensions.Logging.LoggerExtensions.LogDebug(_logger,
+                        "SecurityPanel suppressed for {Domain} (level {New} <= {Shown} already shown this navigation)",
+                        domain, newLevel, shownLevel);
+                return;
+            }
+            _tabVerdictLevel[tabId] = newLevel;
+
+            SecurityPanelControl.Show(domain, verdict);
         });
     }
 

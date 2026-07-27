@@ -11,6 +11,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.65] — 2026-07-27 — The threats panel was throwing away 29 of every 30 blocks
+
+The panel that lists what VELO blocked was nearly always empty, even on pages generating dozens of blocks per load.
+
+`BlockedRequestEvent` — the event that feeds the panel's session list — was published *below* the severity gate in `OnSecurityVerdict`, so it inherited a rule written for something else entirely: "only one popup per navigation, so NavGuard and the AI verdict don't double-toast". That is the right rule for a transient toast and the wrong rule for a list that is supposed to accumulate. On primevideo.com, which fires around thirty blocked telemetry beacons per page load, exactly one was ever recorded; the other twenty-nine were dropped before reaching the panel.
+
+Publishing now happens before the gate: every block is recorded, and only the toast stays throttled. When the toast *is* suppressed, that now gets logged with the reason — the same lesson as v2.4.62's rule logging, since a silent gate is a gate nobody can debug.
+
+---
+
 ## [2.4.64] — 2026-07-27 — VELO can open local pages again
 
 Two independent bugs, same consequence: anything on this machine was unreachable. Both surfaced while trying to open a local diagnostic page inside VELO.
