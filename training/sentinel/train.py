@@ -14,7 +14,7 @@ from transformers import (
 )
 
 BASE = "distilbert-base-uncased"
-MAX_LEN = 64  # S-A: URL-length sequences stay under 10 ms single-thread
+MAX_LEN = 32  # hosts are short; S-A: shorter seq = faster inference
 
 tok = AutoTokenizer.from_pretrained(BASE)
 
@@ -60,4 +60,4 @@ trainer = Trainer(
 trainer.train()
 trainer.save_model("out/model")
 tok.save_pretrained("out/model")
-print("saved → out/model")
+print("saved -> out/model")

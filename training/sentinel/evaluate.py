@@ -15,14 +15,24 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 from transformers import AutoTokenizer
 
-MAX_LEN = 64
+MAX_LEN = 32  # hosts are short; S-A: shorter seq = faster inference
 LABELS = ["benign", "phishing", "tracker", "ad"]
 
 tok = AutoTokenizer.from_pretrained("out/model")
 sess = ort.InferenceSession("out/velo-sentinel.onnx")
 
 
+def host_of(url: str) -> str:
+    """Model input is the HOST (model-v5 contract). Accepts full URLs (the
+    regression lists) or bare hosts (the dataset) and normalises to host."""
+    u = url.strip().lower()
+    if "//" in u:
+        u = u.split("//", 1)[1]
+    return u.split("/", 1)[0].split(":", 1)[0]
+
+
 def predict(urls: list[str]) -> np.ndarray:
+    urls = [host_of(u) for u in urls]
     probs = []
     for i in range(0, len(urls), 256):
         enc = tok(urls[i:i + 256], truncation=True, max_length=MAX_LEN,
@@ -36,10 +46,21 @@ def predict(urls: list[str]) -> np.ndarray:
     return np.vstack(probs)
 
 
+# Product decision rule (fail-soft, PLAN §4: "FPR al threshold elegido"):
+# a non-benign verdict must clear CONF_THRESHOLD or it collapses to benign.
+# SentinelClassifier ships the same rule — keep the two in sync.
+CONF_THRESHOLD = 0.85
+
+
+def decide(probs: np.ndarray) -> np.ndarray:
+    argmax = probs.argmax(axis=1)
+    return np.where(probs.max(axis=1) >= CONF_THRESHOLD, argmax, 0)
+
+
 failures = []
 test = pd.read_csv("data/test.csv")
 probs = predict(test["url"].tolist())
-preds = probs.argmax(axis=1)
+preds = decide(probs)
 
 auc = roc_auc_score(test["label"], probs, multi_class="ovr", average="macro")
 if auc < 0.98:
@@ -50,17 +71,27 @@ fpr = float((preds[benign] != 0).mean())
 if fpr >= 0.01:
     failures.append(f"benign FPR {fpr:.4%} >= 1%")
 
-for path, want, name in (("regression_never_block.txt", 0, "never-block"),
-                         ("regression_must_catch.txt", 1, "must-catch")):
+# Two-level verdict semantics (threshold sweep, model-v7): BLOCK requires
+# CONF_THRESHOLD; FLAG is argmax==phishing at any confidence and only feeds
+# PhishingShield as a signal, never blocks alone. Gates accordingly:
+# never-block = a top site must never reach a BLOCK verdict;
+# must-catch  = a lookalike must at least be FLAGGED as phishing.
+for path, name in (("regression_never_block.txt", "never-block"),
+                   ("regression_must_catch.txt", "must-catch")):
     urls = [u.strip() for u in open(path, encoding="utf-8")
             if u.strip() and not u.startswith("#")]
     if not urls:
         continue
-    bad = [u for u, p in zip(urls, predict(urls).argmax(axis=1)) if p != want]
+    p = predict(urls)
+    if name == "never-block":
+        bad = [u for u, v in zip(urls, decide(p)) if v != 0]
+    else:
+        bad = [u for u, v in zip(urls, p.argmax(axis=1)) if v != 1]
     if bad:
         failures.append(f"{name}: {len(bad)} misclassified, e.g. {bad[:3]}")
 
 metrics = {"auc_macro_ovr": round(float(auc), 4), "benign_fpr": round(fpr, 5),
+           "conf_threshold": CONF_THRESHOLD,
            "test_size": len(test), "gates_passed": not failures}
 json.dump(metrics, open("out/metrics.json", "w"), indent=2)
 print(json.dumps(metrics, indent=2))

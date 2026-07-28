@@ -31,3 +31,6 @@ appsettings.Local.json
 TestResults/
 coverage/
 __pycache__/
+.venv/
+training/sentinel/data/
+training/sentinel/out/

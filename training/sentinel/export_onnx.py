@@ -5,7 +5,7 @@ import torch
 from onnxruntime.quantization import QuantType, quantize_dynamic
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-MAX_LEN = 64
+MAX_LEN = 32  # hosts are short; S-A: shorter seq = faster inference
 
 model = AutoModelForSequenceClassification.from_pretrained("out/model").eval()
 tok = AutoTokenizer.from_pretrained("out/model")
@@ -25,6 +25,7 @@ torch.onnx.export(
         "logits": {0: "batch"},
     },
     opset_version=17,
+    dynamo=False,  # legacy exporter — torch 2.11's dynamo graph trips ORT's quantize_dynamic shape inference
 )
 
 quantize_dynamic("out/velo-sentinel-fp32.onnx", "out/velo-sentinel.onnx",

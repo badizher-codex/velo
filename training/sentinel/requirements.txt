@@ -6,3 +6,4 @@ onnxruntime>=1.18
 scikit-learn>=1.4
 pandas>=2.0
 requests>=2.31
+onnxscript>=0.1
