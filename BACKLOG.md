@@ -35,11 +35,13 @@
 
 **Sospechoso #1: el script anti-fingerprinting de VELO.** El mismo test reporta `Canvas toDataURL parcheado: SÍ`. `fingerprint-noise.js` parchea `HTMLCanvasElement.toDataURL/toBlob`, `WebGLRenderingContext.getParameter` (devuelve un renderer ANGLE falso) y `AudioContext.createAnalyser`. El perfil del maintainer tiene guardado **Aggressive**. El script ya tiene una excepción para PerimeterX/Imperva (ver comentario en su línea 9) porque esos anti-bot rechazan el canvas falseado — Prime hace verificación de dispositivo del mismo tipo antes de pedir la licencia.
 
-**Siguiente paso (30 segundos, pendiente del maintainer):**
-> Settings → Privacy → Fingerprint protection → **Off** → reiniciar VELO → play en Prime.
+**❌ TEST EJECUTADO 2026-07-28 — fingerprint DESCARTADO.** El maintainer puso Fingerprint protection = Off (verificado en DB: `privacy.fingerprint_level='Off'`), reinició VELO (arranques 13:54:44 y 13:54:58 en el log) y Prime siguió igual: botón "Reanudar" con spinner infinito, sin llegar siquiera al player. El log de esa sesión (v2.4.67, con logging de reglas) confirma que RequestGuard solo bloqueó telemetría `fls-na.amazon.com` [BLOCKLIST] — cero bloqueos de licencias/manifiestos/API del player.
 
-- **Si reproduce** → el fix es excluir dominios de streaming del parcheo, igual que la excepción anti-bot existente. Hosts a excluir: `primevideo.com`, `amazon.*`, `netflix.com`, `disneyplus.com`, `hbomax.com`, `max.com`, `spotify.com`. Mejor aún: apagar el parcheo en cualquier página que haya llamado a `requestMediaKeySystemAccess`.
-- **Si NO reproduce** → siguientes candidatos en orden: (a) probar Netflix y el demo de Shaka Player para ver si es Prime-específico; (b) `edge://components` dentro de VELO (ahora abrible gracias a v2.4.64) para ver la versión del CDM que el propio browser reporta; (c) capturar la consola del renderer durante el play — Prime loguea el error del player.
+**Rama B (activa) — candidatos en orden:**
+- (a) **Consola del renderer durante el play** (el de mayor señal): Ctrl+Shift+I → Security Inspector → "🔧 Open native DevTools" → pestaña Console → click en Reanudar → copiar errores. El player de Prime loguea su código de error; el spinner en el botón sugiere que una llamada pre-playback (GetPlaybackResources/entitlement) se queda colgada — la consola y la pestaña Network dicen cuál.
+- (b) **Aislar si es Prime-específico**: demo de Shaka Player (`https://shaka-player-demo.appspot.com`, asset "Angel One (Widevine)") — si reproduce, el pipeline DRM completo funciona y el problema es del lado Prime (device check / cookies / algo del app JS).
+- (c) `edge://components` dentro de VELO (abrible desde v2.4.64) para la versión del CDM que el browser reporta.
+- (d) Revisar si otro script inyectado de VELO (cookie-bypass, paste-guard, webrtc-spoof con `Relay only`) interfiere con el flujo del player — probar con un perfil/container limpio.
 
 ---
 
