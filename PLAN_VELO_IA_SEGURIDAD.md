@@ -58,7 +58,7 @@ DirectChatAdapter HTTP (LM Studio/Ollama/Claude/GPT/Grok)   ← se queda, deja d
 
 | Chunk | Contenido | Estimación | Gate |
 |---|---|---|---|
-| **S-A** | Spike runtime: NuGet `Microsoft.ML.OnnxRuntime` en VELO.Security, cargar un modelo stock tiny, medir latencia/RAM en la máquina real | 1 día | número de ms medido, no estimado |
+| **S-A** | ✅ **EJECUTADO 2026-07-28 — GO.** ONNX Runtime **1.28.0** + DistilBERT SST-2 int8 (67.5 MB, proxy de la clase Sentinel) en la máquina del maintainer: **p50 3.6 ms** (seq 32, multi-thread) · **9.8 ms single-thread** · seq 128 single-thread 34.9 ms p95 39 — todo bajo el gate de 50 ms · carga 90-113 ms · working set ~110 MB sobre baseline. Conclusión: MobileBERT/DistilBERT-class viable con margen; single-thread (browser-friendly) alcanza y sobra para URLs (seq ≤64). Benchmark en scratchpad `sentinel-spike/` (no commiteado) | 1 día | ✅ medido |
 | **S-B** | `training/sentinel/`: scripts de datos + fine-tune + export + eval. Primer `model-v1` publicado | 1-2 semanas | gates de calidad §4 |
 | **S-C** | `SentinelClassifier` + wiring en el pipeline de verdicts (detrás de blocklists, delante del HTTP opcional) + Settings → AI (estado del modelo, botón download) + 8 idiomas | 1 semana | 6 proyectos verdes + smoke de wiring (lección #21: producer Y consumer) |
 | **S-D** | Canal de descarga/actualización del modelo (manifest + SHA256 + schema check) | 3-4 días | descarga real end-to-end |
