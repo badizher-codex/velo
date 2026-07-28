@@ -30,3 +30,4 @@ appsettings.Local.json
 # Test results
 TestResults/
 coverage/
+__pycache__/
