@@ -8,7 +8,19 @@
 
 ---
 
-## P0 — F-1: Prime no reproduce — **el CDM ya NO es la causa** (2026-07-27)
+## ✅ P0 — F-1: **RESUELTO en v2.4.68** (2026-07-28, verificado en campo)
+
+**Causa raíz final: Prime Video detecta la mera existencia de `window.chrome.webview` y confunde a VELO con la app de escritorio de Prime para Windows (que es WebView2).** Toma el code path de app, llama al bridge nativo de esa app (que VELO no tiene) y muere con `0x80070490` en su `RemoteMessenger` antes de arrancar el player — botón de play con spinner infinito.
+
+**Fix:** `resources/scripts/webview-cloak.js` (inyectado primero) — guarda el bridge real como `window.__veloBridge` (non-enumerable) y borra `chrome.webview` de toda página. Los 6 callsites page→host de VELO resuelven `__veloBridge || chrome.webview`. Verificado: Prime reproduce con DRM activo (los frames protegidos salen negros en screenshots — prueba de Widevine funcionando).
+
+**Descartes del camino (por si un sitio repite el patrón):** CDM ✓ instalado y licenciando · fingerprint-noise ✗ no era · RequestGuard ✗ solo telemetría · `Sec-CH-UA` limpio solo ✗ no cura · esconder solo `hostObjects` ✗ no cura → **el probe era la existencia del objeto**. Método que funcionó: cambiar UNA variable por test.
+
+El historial del diagnóstico de junio-julio queda abajo como referencia.
+
+---
+
+### (histórico) P0 — F-1: Prime no reproduce — el CDM ya NO es la causa (2026-07-27)
 
 **Todo el diagnóstico anterior quedó obsoleto.** Se creía que el CDM de Widevine nunca se descargaba (`Profile\EBWebView\WidevineCdm\` vacío). Eso **se resolvió**: quitar `--disable-component-update` (v2.4.59) sí funcionó, solo tardó semanas en bajar.
 
