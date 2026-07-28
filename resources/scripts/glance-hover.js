@@ -19,7 +19,9 @@
 
     function send(kind, url) {
         try {
-            window.chrome.webview.postMessage(JSON.stringify({ kind, url }));
+            // __veloBridge: stashed by webview-cloak.js before chrome.webview
+            // is hidden from pages.
+            (window.__veloBridge || window.chrome.webview).postMessage(JSON.stringify({ kind, url }));
         } catch (_) {}
     }
 

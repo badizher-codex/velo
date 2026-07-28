@@ -23,7 +23,9 @@
   }
 
   function send(msg) {
-    try { window.chrome?.webview?.postMessage(JSON.stringify(msg)); } catch { /* ignore */ }
+    // __veloBridge: stashed by webview-cloak.js before chrome.webview is
+    // hidden from pages; fall back to the raw bridge if the cloak no-op'd.
+    try { (window.__veloBridge || window.chrome?.webview)?.postMessage(JSON.stringify(msg)); } catch { /* ignore */ }
   }
 
   // ── Field discovery ────────────────────────────────────────────────────

@@ -45,9 +45,11 @@
 
     const post = (payload) => {
         try {
-            if (window.chrome && window.chrome.webview &&
-                typeof window.chrome.webview.postMessage === 'function') {
-                window.chrome.webview.postMessage(payload);
+            // __veloBridge: stashed by webview-cloak.js before chrome.webview
+            // is hidden from pages; raw bridge is the no-cloak fallback.
+            const bridge = window.__veloBridge || (window.chrome && window.chrome.webview);
+            if (bridge && typeof bridge.postMessage === 'function') {
+                bridge.postMessage(payload);
             }
         } catch (_) { /* fail-soft */ }
     };

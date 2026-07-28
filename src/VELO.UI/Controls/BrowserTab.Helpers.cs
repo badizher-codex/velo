@@ -212,7 +212,7 @@ public partial class BrowserTab
         <script>
           var n = "VELO_CERT_NONCE";
           function post(kind) {
-            try { window.chrome.webview.postMessage(JSON.stringify({ kind: kind, nonce: n })); } catch (e) {}
+            try { (window.__veloBridge || window.chrome.webview).postMessage(JSON.stringify({ kind: kind, nonce: n })); } catch (e) {}
           }
           document.getElementById('back').addEventListener('click', function(){ post('cert-back'); });
           document.getElementById('proceed').addEventListener('click', function(){ post('cert-proceed'); });

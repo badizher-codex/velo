@@ -11,6 +11,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.68] — 2026-07-28 — Prime Video plays: VELO no longer announces itself as an app host
+
+**F-1 closed after two months.** Prime Video's play button spun forever while every layer underneath checked out fine — the Widevine CDM was installed and licensed (EME test: `SW_SECURE_CRYPTO`/`SW_SECURE_DECODE` + PlayReady + ClearKey all OK), RequestGuard only blocked telemetry, and turning fingerprint protection off changed nothing.
+
+The real cause, field-diagnosed step by step with DevTools: **Prime Video's web app detects WebView2 and mistakes VELO for Prime's own Windows desktop app** (which is WebView2-based). It then takes its app code path and calls the app's native bridge — which VELO doesn't have — failing with `0x80070490` (Element not found) inside its `RemoteMessenger`, before the player ever starts. Three probes were ruled out one variable at a time: a clean `Sec-CH-UA` (no `Microsoft Edge WebView2` brand) didn't cure it, hiding `chrome.webview.hostObjects` didn't cure it, and both together didn't cure it. What cured it was removing `window.chrome.webview` entirely: the probe was the object's mere existence.
+
+The fix is `webview-cloak.js`, injected before everything else: it stashes the real bridge as a non-enumerable `window.__veloBridge` and deletes `chrome.webview` from every page. All six page→host `postMessage` callsites (autofill, council-bridge, dom-extractor, glance-hover, PasteGuard bridge, cert interstitial) now resolve the stashed bridge first, so every VELO feature keeps working with the cloak active. Fail-soft: if anything throws, the page keeps the real bridge.
+
+This is also a privacy win in its own right: no site can tell VELO apart from a regular browser by probing for the WebView2 embedding anymore.
+
+New smoke test pins the contract: the cloak stashes and deletes, BrowserTab injects it, and every consumer prefers `__veloBridge`.
+
+---
+
 ## [2.4.67] — 2026-07-28 — YouTube ad-block actually blocks, tear-off no longer fakes a crash
 
 Three field reports from the maintainer, all reproduced and fixed:

@@ -43,8 +43,9 @@
 
     const content = extractContent();
     if (content) {
-        // Send extracted content to C# host
-        window.chrome.webview.postMessage(JSON.stringify({
+        // Send extracted content to C# host. __veloBridge: stashed by
+        // webview-cloak.js before chrome.webview is hidden from pages.
+        (window.__veloBridge || window.chrome.webview).postMessage(JSON.stringify({
             type: 'DOM_EXTRACTED',
             html: content
         }));

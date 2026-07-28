@@ -237,6 +237,25 @@ public partial class BrowserTab : UserControl
         WebView.CoreWebView2.Settings.IsPasswordAutosaveEnabled = false;
         WebView.CoreWebView2.Settings.IsGeneralAutofillEnabled = false;
 
+        // v2.4.68 (F-1) — WebView2 cloak. Stashes the bridge as
+        // window.__veloBridge and removes chrome.webview from the page, so
+        // sites that probe for the WebView2 embedding (Prime Video's web
+        // app does — it then takes its Windows-app code path and hangs on
+        // the missing native bridge) see a normal browser. VELO's injected
+        // scripts all resolve `__veloBridge || chrome.webview`, so they
+        // work with or without the cloak. Must be injected FIRST so the
+        // stash exists before any other script (and any page code) runs.
+        try
+        {
+            var cloakScript = await LoadScriptResourceAsync("webview-cloak.js");
+            if (cloakScript != null)
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(cloakScript);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] WebView cloak inject failed: {ex.Message}");
+        }
+
         // Cookie consent auto-dismiss (embedded — no external files)
         await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(ConsentScript);
 

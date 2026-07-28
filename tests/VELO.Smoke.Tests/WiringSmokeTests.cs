@@ -424,6 +424,43 @@ public class WiringSmokeTests
     }
 
     [Fact]
+    public void WebViewCloak_script_keepsPostMessage_dropsHostObjects_andIsInjected()
+    {
+        // v2.4.68 (F-1) — the cloak stashes the bridge as __veloBridge and
+        // deletes chrome.webview so sites probing for the WebView2
+        // embedding (Prime Video's app detection) see a normal browser.
+        // Pin the load-bearing facts: the stash key + the delete, plus the
+        // wiring facts — BrowserTab injects the file, and every VELO
+        // script that posts to the host resolves the stashed bridge first
+        // (lesson #21 — producer and consumer both asserted).
+        var repoRoot = LocateRepoRoot();
+        var script   = Path.Combine(repoRoot, "resources", "scripts", "webview-cloak.js");
+        Assert.True(File.Exists(script), $"WebView cloak script missing at {script}");
+
+        var contents = File.ReadAllText(script);
+        Assert.Contains("__veloBridge",        contents);
+        Assert.Contains("delete chrome.webview", contents);
+
+        var browserTab = Path.Combine(repoRoot, "src", "VELO.UI", "Controls", "BrowserTab.xaml.cs");
+        Assert.Contains("webview-cloak.js", File.ReadAllText(browserTab));
+
+        // Every page→host postMessage callsite must prefer the stash so it
+        // keeps working once chrome.webview is gone.
+        foreach (var consumer in new[]
+        {
+            Path.Combine(repoRoot, "resources", "scripts", "autofill.js"),
+            Path.Combine(repoRoot, "resources", "scripts", "council-bridge.js"),
+            Path.Combine(repoRoot, "resources", "scripts", "dom-extractor.js"),
+            Path.Combine(repoRoot, "resources", "scripts", "glance-hover.js"),
+            Path.Combine(repoRoot, "src", "VELO.Security", "Guards", "PasteGuard.cs"),
+            Path.Combine(repoRoot, "src", "VELO.UI", "Controls", "BrowserTab.Helpers.cs"),
+        })
+        {
+            Assert.Contains("__veloBridge", File.ReadAllText(consumer));
+        }
+    }
+
+    [Fact]
     public void CouncilAdapters_bundledJsonFiles_existWithRequiredFields()
     {
         // The four adapter JSON files are what makes the bridge generic

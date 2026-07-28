@@ -54,7 +54,7 @@ public class PasteGuard(EventBus eventBus, ILogger<PasteGuard> logger)
     /// </summary>
     public static string BuildBridgeScript(string callbackJson) => """
         window.__velo_pasteguard__ = function(type) {
-            window.chrome.webview.postMessage(JSON.stringify({
+            (window.__veloBridge || window.chrome.webview).postMessage(JSON.stringify({
                 kind: 'pasteguard',
                 signal: type,
                 ts: Date.now()
