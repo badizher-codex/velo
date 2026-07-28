@@ -77,6 +77,14 @@ public partial class MainWindow : Window
     // NavigationCompleted in the new window restores from it, then clears.
     private VELO.Core.Navigation.TabSnapshot? _pendingTearOffSnapshot;
 
+    // v2.4.67 — true for tear-off windows. Session persistence is owned by
+    // the first window exclusively: a secondary window must not run the
+    // restore prompt (the heartbeat snapshot it finds always says
+    // WasCleanShutdown=false, so it misreads a live session as a crash),
+    // must not ClearAsync the primary's snapshot, and must not start a
+    // competing heartbeat over the same snapshot file.
+    private readonly bool _isSecondaryWindow;
+
     // ── Split view state ─────────────────────────────────────────────────
     private bool _isSplitMode;
     private string? _primaryTabId;   // left pane
@@ -120,10 +128,12 @@ public partial class MainWindow : Window
     private SecurityInspectorWindow? _inspectorWindow;
 
     public MainWindow(IServiceProvider services, string? initialUrl = null,
-        VELO.Core.Navigation.TabSnapshot? tearOffSnapshot = null)
+        VELO.Core.Navigation.TabSnapshot? tearOffSnapshot = null,
+        bool isSecondaryWindow = false)
     {
         if (initialUrl != null) _initialUrl = initialUrl;
         _pendingTearOffSnapshot = tearOffSnapshot;
+        _isSecondaryWindow = isSecondaryWindow;
         _services = services;
         _logger           = services.GetService<Microsoft.Extensions.Logging.ILogger<MainWindow>>();
         _tabManager       = services.GetRequiredService<TabManager>();
@@ -469,8 +479,10 @@ public partial class MainWindow : Window
 
         // Phase 3 / Sprint 3 — Session restore. Runs before the first
         // CreateTab so a restored session replaces (not stacks on top of)
-        // the auto-created newtab.
-        await InitSessionRestoreAsync();
+        // the auto-created newtab. Tear-off windows are session-only: they
+        // never restore, never heartbeat, never touch the snapshot file.
+        if (!_isSecondaryWindow)
+            await InitSessionRestoreAsync();
 
         // Create initial tab (uses URL injected for tear-off windows, otherwise newtab).
         // Skip when session restore already populated tabs.
@@ -1593,7 +1605,7 @@ public partial class MainWindow : Window
         }
 
         var cursorPos = CursorScreenPosition();
-        var newWindow = new MainWindow(newServices, url, snapshot)
+        var newWindow = new MainWindow(newServices, url, snapshot, isSecondaryWindow: true)
         {
             Left   = cursorPos.X - 100,
             Top    = cursorPos.Y - 30,

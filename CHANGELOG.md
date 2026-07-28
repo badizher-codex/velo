@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.67] — 2026-07-28 — YouTube ad-block actually blocks, tear-off no longer fakes a crash
+
+Three field reports from the maintainer, all reproduced and fixed:
+
+**YouTube ads played to completion despite the ad-blocker being ON.** The v2.4.53 script had a fatal init bug: it runs at document-start, where `document.head` and `documentElement` are both null, and its unguarded `appendChild` threw a TypeError that aborted the entire script — no CSS, no skip logic, no anti-adblock defence ever armed. v0.2 fixes the crash and stops depending on cosmetic DOM markers for the ads themselves: it now strips `adPlacements`/`adSlots`/`playerAds` from every player response (inline `ytInitialPlayerResponse` via a property trap, SPA payloads via a `JSON.parse` hook, innertube calls via a `fetch` hook on `/youtubei/v1/player`) so ads are never scheduled at all. The skip-button click is un-gated from the stale `.ad-showing` selector, and the CSS blocklist gains the watch-page companion units. All hooks fail soft: a pruning bug degrades to "ads show", never to "video breaks".
+
+**Tearing off a tab popped "VELO closed unexpectedly — restore your tabs?"** The torn-off window ran the full session-restore path on startup. The heartbeat snapshot it found was written by the still-running main window with `WasCleanShutdown=false`, so a live session was misread as a crash — and worse, the new window then cleared the main window's snapshot and started a competing heartbeat over the same file. Tear-off windows are session-only by design; they now skip session persistence entirely.
+
+**The website hero badge said "Version 2.4.17 — Released May 2026".** The `hero_badge` i18n string (6 occurrences across languages) was missed by every release since May because it was not in the release checklist. Updated, and the checklist now covers it.
+
+---
+
 ## [2.4.66] — 2026-07-27 — Blocks now name the domain that was actually blocked
 
 Browsing YouTube, the security panel announced **"THREAT BLOCKED — www.youtube.com — a known tracker was detected"**. YouTube was not the tracker; it was the page being viewed.
