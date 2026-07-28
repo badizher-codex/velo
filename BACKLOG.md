@@ -1,10 +1,10 @@
 # BACKLOG VELO — deuda accionable v2.4.67+
 
-**Actualizado:** 2026-07-27 tarde (HEAD `fcd7b0a` = v2.4.66). Ordenado por retorno. Cada item es autocontenido: una sesión futura puede ejecutarlo sin re-derivar contexto.
+**Actualizado:** 2026-07-28 (HEAD = v2.4.67, **publicada con assets**; v2.4.66 también). Ordenado por retorno. Cada item es autocontenido: una sesión futura puede ejecutarlo sin re-derivar contexto.
 
-> **P2 cerrado en v2.4.62.** **P0 reescrito**: el CDM de Widevine YA FUNCIONA, la causa de F-1 es otra (abajo). Siguen abiertos P1 (code signing), el back/forward bug y P3.
+> **P2 cerrado en v2.4.62.** **P0 reescrito**: el CDM de Widevine YA FUNCIONA, la causa de F-1 es otra (abajo). Siguen abiertos P1 (code signing — el maintainer confirmó 2026-07-28 que hace el gasto cuando VELO esté "listo full", ver PLAN_VELO §6 R-6), el back/forward bug y P3.
 >
-> ⚠️ **Publicada solo hasta v2.4.63.** Las v2.4.64, .65 y .66 están en main con CI verde pero **sin release**. Cortar una sola con el tag más alto.
+> 🗺️ **La ruta de features nueva (aprobada 2026-07-28) vive en `PLAN_VELO.md` §6**: R-1 spike extensiones/uBO Lite · R-2 DoH · R-3 HTTPS-only · R-4 VELO Sentinel (`PLAN_VELO_IA_SEGURIDAD.md`, resuelve Decisión #4) · R-5 polish (favicons + palette) · R-6 code signing al final. Este BACKLOG mantiene bugs y deuda; la ruta manda en prioridad de features.
 
 ---
 
