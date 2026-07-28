@@ -1,0 +1,19 @@
+# URLs that must ALWAYS classify as benign — a model that flags any of
+# these may not ship. Banks, governments, the streaming services from F-1,
+# and the sites the maintainer uses daily.
+https://www.google.com/
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+https://www.primevideo.com/detail/0L1UEO4TI5BJKTWWR9F6K9S6J0
+https://www.netflix.com/browse
+https://github.com/badizher-codex/velo
+https://www.wikipedia.org/
+https://www.amazon.com/
+https://outlook.live.com/mail/
+https://www.gob.mx/
+https://www.banxico.org.mx/
+https://www.bbva.mx/
+https://www.santander.com.mx/
+https://accounts.google.com/signin
+https://login.microsoftonline.com/
+https://www.paypal.com/signin
+https://huggingface.co/models

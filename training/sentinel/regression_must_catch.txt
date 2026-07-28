@@ -1,0 +1,7 @@
+# Filled at evaluation time with a fresh sample from the phishing feeds
+# (feeds rotate fast — a static list here would age into meaninglessness).
+# Keep a handful of structural lookalike patterns as a permanent floor:
+https://accounts-google.com-signin-verify.info/login
+https://paypal-secure-verification.net/webapps/signin
+https://bbva-clientes-mx.com/acceso
+https://appleid-verify-account.support/manage
