@@ -3,16 +3,25 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using VELO.Security.AI.Models;
 using VELO.Security.Rules;
+using VELO.Security.Sentinel;
 
 namespace VELO.Security.Guards;
 
 public class RequestGuard(
     BlocklistManager blocklist,
     ILogger<RequestGuard> logger,
-    SmartBlockClassifier? smartBlock = null)
+    SmartBlockClassifier? smartBlock = null,
+    SentinelClassifier? sentinel = null)
 {
     private readonly BlocklistManager _blocklist = blocklist;
     private readonly ILogger<RequestGuard> _logger = logger;
+    // S-C — VELO Sentinel sits behind the exact blocklists (they're faster and
+    // have no false-positive surface) and in front of the optional HTTP path.
+    // Evaluate is sync and inference costs ~9 ms, so this reads the classifier's
+    // cache and queues a prefetch on a miss — the next request to the same host
+    // gets the verdict. Same shape as SmartBlockClassifier above, for the same
+    // reason: nothing may sit on the request path waiting for a model.
+    private readonly SentinelClassifier? _sentinel = sentinel;
     // v2.4.22 — Sprint 8A wire. SmartBlockClassifier is async by design,
     // so we don't await here — sync Evaluate consults the classifier's
     // existing cache for previously-seen hosts. The async classification
@@ -45,6 +54,13 @@ public class RequestGuard(
         // Generic trusted CDNs
         "cloudflare.com", "cdn.cloudflare.com",
         "fastly.net", "akamai.net", "akamaized.net",
+        // S-C — public script/asset CDNs. Same class as the entries above and
+        // they belong here regardless of Sentinel, but the S-C runtime check is
+        // what surfaced the gap: model-v1 calls cdn.jsdelivr.net an ad at
+        // p=0.92 (a CDN's traffic pattern looks like an ad network's from the
+        // host alone), and half the web loads its scripts from these.
+        "jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com",
+        "bootstrapcdn.com", "jquery.com", "gstatic.com",
     };
 
     // AWS S3 / CDN signing parameter names — long by design, never a sign of exfiltration
@@ -160,6 +176,32 @@ public class RequestGuard(
         if (_blocklist.IsBlocked(host))
             return SecurityVerdict.Block("Dominio en blocklist de rastreadores conocidos", ThreatType.KnownTracker, "BLOCKLIST");
 
+        // 2b (S-C). VELO Sentinel — the embedded classifier, for the tail the
+        //           exact lists never saw (fresh lookalikes, zero-day phishing).
+        //           Deliberately AFTER the blocklist: an exact match is cheaper
+        //           and cannot be wrong, so it wins. Deliberately BEFORE the
+        //           heuristics and SmartBlock: this is the offline always-on
+        //           path, the HTTP one stays opt-in.
+        //
+        //           Only Block-level verdicts (p ≥ the manifest threshold) reach
+        //           here, and only in Enforce mode. In Shadow — the default until
+        //           S-E has compared a release worth of verdicts against the real
+        //           field logs — the classifier records what it would have done
+        //           and this returns nothing.
+        if (_sentinel is not null)
+        {
+            var sentinelVerdict = _sentinel.TryGetCachedVerdict(host);
+            if (sentinelVerdict is null)
+            {
+                _sentinel.Prefetch(host);
+            }
+            else if (sentinelVerdict.Action == SentinelAction.Block &&
+                     _sentinel.Mode == SentinelMode.Enforce)
+            {
+                return SecurityVerdict.Block(sentinelVerdict.Reason, ToThreatType(sentinelVerdict.Label), "SENTINEL");
+            }
+        }
+
         // 3+4 (v2.4.64). Local / private targets — SSRF and DNS rebinding.
         //
         // These used to be two rules, and the first one blocked `localhost`,
@@ -225,6 +267,17 @@ public class RequestGuard(
 
         return SecurityVerdict.Allow();
     }
+
+    /// <summary>S-C — maps a Sentinel label onto the ThreatType vocabulary the
+    /// threats panel and Malwaredex already speak. Ads and trackers land on the
+    /// same bucket on purpose: to the user, an ad network IS a tracker.</summary>
+    internal static ThreatType ToThreatType(SentinelLabel label) => label switch
+    {
+        SentinelLabel.Phishing => ThreatType.Phishing,
+        SentinelLabel.Tracker  => ThreatType.Tracker,
+        SentinelLabel.Ad       => ThreatType.Tracker,
+        _                      => ThreatType.Other,
+    };
 
     /// <summary>
     /// v2.4.62 P2-A — true when the request host and the page that issued it share

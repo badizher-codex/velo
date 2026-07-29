@@ -234,4 +234,44 @@ public class PhishingShieldTests
         Assert.Equal(PhishingShield.Verdict.Safe, r.Verdict);
         Assert.Equal(0, calls);
     }
+
+    // ── S-C — the Sentinel FLAG signal ───────────────────────────────────
+
+    [Fact]
+    public async Task EvaluateAsync_SentinelFlagAlone_OpensTheQuickGate()
+    {
+        // A host with no heuristic flag and no login form normally short-
+        // circuits to Safe without ever calling the model. A Sentinel phishing
+        // flag is a real signal and must be enough to make the shield look —
+        // that is the whole point of routing FLAG here instead of blocking.
+        var calls = 0;
+        var shield = Build(chat: (_, _, _) =>
+        {
+            calls++;
+            return Task.FromResult("SUSPICIOUS|0.70|fresh domain imitating a brand");
+        });
+
+        var signals = SignalsCleanGoogle() with { SentinelFlaggedPhishing = true };
+        var result  = await shield.EvaluateAsync(signals);
+
+        Assert.Equal(1, calls);
+        Assert.Equal(PhishingShield.Verdict.Suspicious, result.Verdict);
+    }
+
+    [Fact]
+    public void BuildPrompt_ForwardsTheSentinelFlag()
+    {
+        // If the flag doesn't reach the prompt it isn't a signal, it's a field.
+        var (_, user) = PhishingShield.BuildPrompt(
+            SignalsCleanGoogle() with { SentinelFlaggedPhishing = true }, maxTitleChars: 120);
+
+        Assert.Contains("classifier flagged host as phishing", user);
+    }
+
+    [Fact]
+    public void BuildPrompt_OmitsTheSentinelFlagWhenUnset()
+    {
+        var (_, user) = PhishingShield.BuildPrompt(SignalsCleanGoogle(), maxTitleChars: 120);
+        Assert.DoesNotContain("classifier flagged", user);
+    }
 }

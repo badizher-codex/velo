@@ -149,6 +149,16 @@ public static class DependencyConfig
         });
         services.AddSingleton<VELO.Security.Guards.PhishingShield>();
         services.AddSingleton<VELO.Security.Threats.BlockNarrationService>();
+
+        // S-C — VELO Sentinel: the embedded offline classifier
+        // (PLAN_VELO_IA_SEGURIDAD.md). Registered before RequestGuard and
+        // AISecurityEngine resolve it as an optional constructor dependency.
+        // Loading is lazy and fail-soft: with no model under
+        // %LOCALAPPDATA%\VELO\models\sentinel\ (the download channel is S-D)
+        // it logs once and allows everything. Mode is flipped to Enforce by
+        // MainWindow when the user opts in — Shadow until S-E has diffed a
+        // release worth of verdicts against real field logs (lesson #30).
+        services.AddSingleton<VELO.Security.Sentinel.SentinelClassifier>();
         // v2.4.42 — DirectChatAdapter: stateless one-shot OpenAI-compat for internal
         // AI services. Replaces the WireAgentChat path that piled every classifier
         // call onto AgentLauncher's shared "__ai__" history bucket.

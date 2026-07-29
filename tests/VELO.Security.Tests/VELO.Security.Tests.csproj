@@ -10,6 +10,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- S-C — the real tokenizer.json shipped as an asset of the model-v1
+         release. SentinelTokenizerTests replays golden encodings produced by
+         the Python tokenizer against it: a C# tokenizer that silently
+         disagrees with training would feed the model garbage and get
+         confident nonsense back. Update the file only together with the
+         golden vectors when a new model-vN changes the vocab. -->
+    <None Include="Fixtures\tokenizer.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\VELO.Security\VELO.Security.csproj" />
     <ProjectReference Include="..\..\src\VELO.Core\VELO.Core.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk"   Version="17.9.0" />

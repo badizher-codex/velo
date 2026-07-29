@@ -17,3 +17,13 @@ https://accounts.google.com/signin
 https://login.microsoftonline.com/
 https://www.paypal.com/signin
 https://huggingface.co/models
+# S-C found these the hard way: model-v1 calls cdn.jsdelivr.net an "ad" at
+# p=0.92, because from the host alone a public asset CDN and an ad network
+# look the same. Half the web loads its scripts from these, so a block breaks
+# pages the user has no way to connect to a "security" decision. Mitigated in
+# product by RequestGuard.TrustedHosts; model-v2 must pass them on its own.
+https://cdn.jsdelivr.net/npm/chart.js
+https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js
+https://unpkg.com/react@18/umd/react.production.min.js
+https://fonts.gstatic.com/s/roboto/v30/font.woff2
+https://code.jquery.com/jquery-3.7.1.min.js

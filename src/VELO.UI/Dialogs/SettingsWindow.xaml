@@ -324,6 +324,34 @@
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
+
+                    <!-- S-C — VELO Sentinel: the embedded offline classifier.
+                         Status is read-only (the download channel is S-D); the
+                         checkbox is the shadow→enforce opt-in and stays off by
+                         default until S-E has compared a release worth of
+                         verdicts against real field logs. -->
+                    <Border Background="{StaticResource BorderBrush}" Height="1" Margin="0,20,0,16"/>
+                    <TextBlock x:Name="SentinelTitle" Text="VELO Sentinel (clasificador local)"
+                               FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="SentinelDesc"
+                               Text="Modelo de seguridad incrustado: clasifica dominios sin conexión, sin servidor y sin enviar nada. Complementa las listas de bloqueo — no las reemplaza."
+                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <TextBlock x:Name="SentinelStatus" Text="Estado: —"
+                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="SentinelPath" Text=""
+                               FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap" Margin="0,0,0,10"/>
+                    <CheckBox x:Name="SentinelEnforceCheck" Margin="0,0,0,4">
+                        <StackPanel>
+                            <TextBlock x:Name="SentinelEnforceTitle" Text="Aplicar los veredictos de Sentinel" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="SentinelEnforceDesc"
+                                       Text="Desactivado, Sentinel solo registra lo que habría bloqueado (modo sombra). Activalo cuando confíes en el modelo: recién entonces puede cancelar pedidos."
+                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
                 </StackPanel>
 
                 <!-- ── BÚSQUEDA ── -->

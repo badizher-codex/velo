@@ -23,6 +23,7 @@ using VELO.Security.AI.Models;
 using VELO.Security.GoldenList;
 using VELO.Security.Guards;
 using VELO.Security.Models;
+using VELO.Security.Sentinel;
 using VELO.UI.Controls;
 using VELO.UI.Dialogs;
 using InputDialog = VELO.UI.Dialogs.InputDialog;
@@ -398,6 +399,10 @@ public partial class MainWindow : Window
         _ = ApplyCtLogSettingAtStartupAsync();
         // v2.4.53 — same pattern for the YouTube ad-block opt-out flag.
         _ = _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>().RefreshAsync();
+        // S-C — Sentinel: load the model (fail-soft) and apply the enforce
+        // opt-in. Fire-and-forget so a 130 ms ONNX session build never sits in
+        // front of WebView2 boot; until it lands the classifier answers Allow.
+        _ = ApplySentinelSettingAtStartupAsync();
 
         // Initialize WebView2 environment with zero-telemetry flags
         var options = new CoreWebView2EnvironmentOptions
@@ -1420,10 +1425,12 @@ public partial class MainWindow : Window
             settingsWin.DomainAgeCheckChanged  += OnDomainAgeCheckChanged;
             settingsWin.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
             settingsWin.CtLogCheckChanged      += OnCtLogCheckChanged;
+            settingsWin.SentinelEnforceChanged += OnSentinelEnforceChanged;
             settingsWin.ShowDialog();
             settingsWin.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
             settingsWin.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
             settingsWin.CtLogCheckChanged      -= OnCtLogCheckChanged;
+            settingsWin.SentinelEnforceChanged -= OnSentinelEnforceChanged;
             var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
             await bootstrapper.ConfigureAIAdapterAsync();
             await bootstrapper.ConfigureAgentAdaptersAsync();
@@ -2228,6 +2235,47 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── VELO Sentinel (S-C) ──────────────────────────────────────────────
+
+    /// <summary>S-C — Settings toggled "apply Sentinel verdicts". Flips the live
+    /// singleton so the change takes effect on the next request without a
+    /// restart, the same shape as the DomainAgeProbe / crt.sh toggles.</summary>
+    private void OnSentinelEnforceChanged(object? sender, bool enforce)
+    {
+        try
+        {
+            var sentinel = _services.GetRequiredService<VELO.Security.Sentinel.SentinelClassifier>();
+            sentinel.Mode = enforce ? SentinelMode.Enforce : SentinelMode.Shadow;
+            Log.Information("Sentinel.Mode set to {Mode} via Settings", sentinel.Mode);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to set Sentinel.Mode");
+        }
+    }
+
+    /// <summary>S-C — Loads the model and applies the enforce opt-in at startup.
+    /// Every failure path here ends in "Sentinel allows everything", which is
+    /// the whole point: the browser must not depend on the model being there
+    /// (the download channel is S-D).</summary>
+    private async Task ApplySentinelSettingAtStartupAsync()
+    {
+        try
+        {
+            var enforce  = await _settings.GetBoolAsync(SettingKeys.SentinelEnforce, defaultValue: false);
+            var sentinel = _services.GetRequiredService<VELO.Security.Sentinel.SentinelClassifier>();
+            sentinel.Mode = enforce ? SentinelMode.Enforce : SentinelMode.Shadow;
+
+            await Task.Run(() => sentinel.EnsureLoaded());
+            Log.Information("Sentinel: {Status} (mode {Mode}, root {Root})",
+                sentinel.Status, sentinel.Mode, sentinel.ModelRoot);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Sentinel: startup initialisation failed; classifier stays inert");
+        }
+    }
+
     private async Task ApplyDomainAgeSettingAtStartupAsync()
     {
         try
@@ -2693,11 +2741,15 @@ public partial class MainWindow : Window
                     var s = _services.GetRequiredService<SettingsRepository>();
                     var v = _services.GetRequiredService<VaultService>();
                     var sw = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
-                    sw.DomainAgeCheckChanged += OnDomainAgeCheckChanged;
-                    sw.CtLogCheckChanged     += OnCtLogCheckChanged;
+                    sw.DomainAgeCheckChanged  += OnDomainAgeCheckChanged;
+                    sw.CtLogCheckChanged      += OnCtLogCheckChanged;
+                    sw.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
+                    sw.SentinelEnforceChanged += OnSentinelEnforceChanged;
                     sw.ShowDialog();
-                    sw.DomainAgeCheckChanged -= OnDomainAgeCheckChanged;
-                    sw.CtLogCheckChanged     -= OnCtLogCheckChanged;
+                    sw.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
+                    sw.CtLogCheckChanged      -= OnCtLogCheckChanged;
+                    sw.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
+                    sw.SentinelEnforceChanged -= OnSentinelEnforceChanged;
                     var bs = _services.GetRequiredService<AppBootstrapper>();
                     await bs.ConfigureAIAdapterAsync();
                     await bs.ConfigureAgentAdaptersAsync();

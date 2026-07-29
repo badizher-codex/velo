@@ -93,4 +93,14 @@ public static class SettingKeys
     /// anti-adblock modal. Default "yes" (privacy-first; the user can toggle
     /// off in Settings → Privacy if they want to support a specific creator).</summary>
     public const string YouTubeAdsBlocked         = "youtube.ads_blocked";
+
+    // ── VELO Sentinel (S-C) ──────────────────────────────────────────────
+    /// <summary>S-C — When "yes", Sentinel's Block-level verdicts actually cancel
+    /// requests. Default "no" = shadow mode: the classifier runs and records what
+    /// it would have blocked, but nothing is applied. S-E ships one release in
+    /// shadow so the verdicts can be diffed against the maintainer's real field
+    /// logs before a model is trusted to break a page (lesson #30). The FLAG
+    /// level (a phishing belief below the block threshold) feeds PhishingShield
+    /// in both modes — it is a signal, never a block on its own.</summary>
+    public const string SentinelEnforce           = "sentinel.enforce";
 }

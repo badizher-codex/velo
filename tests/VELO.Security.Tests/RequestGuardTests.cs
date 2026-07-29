@@ -3,6 +3,7 @@ using VELO.Core.Events;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
 using VELO.Security.Rules;
+using VELO.Security.Sentinel;
 using Xunit;
 
 namespace VELO.Security.Tests;
@@ -12,10 +13,12 @@ namespace VELO.Security.Tests;
 // "trackers" while the user browsed primevideo.com.
 public class RequestGuardTests
 {
-    private static RequestGuard Build(SmartBlockClassifier? smartBlock = null)
+    private static RequestGuard Build(
+        SmartBlockClassifier? smartBlock = null,
+        SentinelClassifier? sentinel = null)
     {
         var blocklist = new BlocklistManager(new EventBus(), NullLogger<BlocklistManager>.Instance);
-        return new RequestGuard(blocklist, NullLogger<RequestGuard>.Instance, smartBlock);
+        return new RequestGuard(blocklist, NullLogger<RequestGuard>.Instance, smartBlock, sentinel);
     }
 
     // ── IsFirstParty ─────────────────────────────────────────────────────
@@ -180,5 +183,119 @@ public class RequestGuardTests
 
         Assert.Equal(VerdictType.Block, sub.Verdict);
         Assert.Equal("SmartBlock", sub.Source);
+    }
+
+    // ── S-C — VELO Sentinel inside the verdict pipeline ───────────────────
+
+    /// <summary>A classifier with a seeded verdict and no model on disk — the
+    /// guard's handling of each action is what's under test, not inference.</summary>
+    private static SentinelClassifier SentinelWith(
+        SentinelResult verdict, string host, SentinelMode mode)
+    {
+        var sentinel = new SentinelClassifier(
+            modelRoot: Path.Combine(Path.GetTempPath(), "velo-sentinel-tests", Guid.NewGuid().ToString("N")))
+        {
+            Mode = mode,
+        };
+        sentinel.SeedVerdict(host, verdict);
+        return sentinel;
+    }
+
+    private static SentinelResult Blocked(SentinelLabel label = SentinelLabel.Phishing) =>
+        new(label, 0.97, SentinelAction.Block, $"sentinel classified host as {label}");
+
+    [Fact]
+    public void Evaluate_AppliesSentinelBlockInEnforceMode()
+    {
+        using var sentinel = SentinelWith(Blocked(), "fresh-lookalike.top", SentinelMode.Enforce);
+        var guard = Build(sentinel: sentinel);
+
+        var verdict = guard.Evaluate("https://fresh-lookalike.top/login", "https://mail.google.com/", "Document");
+
+        Assert.Equal(VerdictType.Block, verdict.Verdict);
+        Assert.Equal("SENTINEL",        verdict.Source);
+        Assert.Equal(ThreatType.Phishing, verdict.ThreatType);
+        Assert.Contains("sentinel", verdict.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Evaluate_DoesNotApplySentinelBlockInShadowMode()
+    {
+        // The S-E contract: one release where the classifier only records. If
+        // this ever passes a block through, shadow mode isn't shadow.
+        using var sentinel = SentinelWith(Blocked(), "fresh-lookalike.top", SentinelMode.Shadow);
+        var guard = Build(sentinel: sentinel);
+
+        var verdict = guard.Evaluate("https://fresh-lookalike.top/login", "https://mail.google.com/", "Document");
+
+        Assert.Equal(VerdictType.Safe, verdict.Verdict);
+    }
+
+    [Fact]
+    public void Evaluate_DoesNotBlockOnASentinelFlag()
+    {
+        // FLAG feeds PhishingShield and nothing else — it must never reach a
+        // request verdict, in either mode.
+        var flag = new SentinelResult(SentinelLabel.Phishing, 0.62, SentinelAction.Flag, "below threshold");
+        using var sentinel = SentinelWith(flag, "maybe-phish.example", SentinelMode.Enforce);
+        var guard = Build(sentinel: sentinel);
+
+        var verdict = guard.Evaluate("https://maybe-phish.example/", "https://www.google.com/", "Document");
+
+        Assert.Equal(VerdictType.Safe, verdict.Verdict);
+    }
+
+    [Fact]
+    public async Task Evaluate_LetsTheBlocklistWinOverSentinel()
+    {
+        // Position in the pipeline: the exact list is checked first, so its
+        // attribution is what the user sees even when both would block.
+        var listDir = Path.Combine(Path.GetTempPath(), "velo-blocklist-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(listDir, "blocklists"));
+        await File.WriteAllTextAsync(
+            Path.Combine(listDir, "blocklists", "test.hosts"), "0.0.0.0 doubleclick.net\n");
+
+        try
+        {
+            var blocklist = new BlocklistManager(new EventBus(), NullLogger<BlocklistManager>.Instance);
+            await blocklist.LoadBundledAsync(listDir);
+            Assert.True(blocklist.IsBlocked("doubleclick.net"), "fixture blocklist failed to load");
+
+            using var sentinel = SentinelWith(Blocked(SentinelLabel.Tracker), "doubleclick.net", SentinelMode.Enforce);
+            var guard = new RequestGuard(blocklist, NullLogger<RequestGuard>.Instance, null, sentinel);
+
+            var verdict = guard.Evaluate("https://doubleclick.net/pixel", "https://news.example/", "Script");
+
+            Assert.Equal(VerdictType.Block, verdict.Verdict);
+            Assert.Equal("BLOCKLIST", verdict.Source);
+        }
+        finally
+        {
+            try { Directory.Delete(listDir, recursive: true); } catch { /* best effort */ }
+        }
+    }
+
+    [Fact]
+    public void Evaluate_TrustedHostsAreNeverReachedBySentinel()
+    {
+        // Rule 1b returns before the classifier. This is what keeps model-v1's
+        // cdn.jsdelivr.net → "ad" p=0.92 from breaking half the web's scripts.
+        using var sentinel = SentinelWith(Blocked(SentinelLabel.Ad), "cdn.jsdelivr.net", SentinelMode.Enforce);
+        var guard = Build(sentinel: sentinel);
+
+        var verdict = guard.Evaluate("https://cdn.jsdelivr.net/npm/x.js", "https://news.example/", "Script");
+
+        Assert.Equal(VerdictType.Safe, verdict.Verdict);
+    }
+
+    [Fact]
+    public void Evaluate_WithoutASentinelBehavesExactlyAsBefore()
+    {
+        // The dependency is optional everywhere; a build with no classifier
+        // wired must produce the pre-S-C verdicts unchanged.
+        var guard = Build();
+
+        Assert.Equal(VerdictType.Safe,
+            guard.Evaluate("https://example.com/app.js", "https://example.com/", "Script").Verdict);
     }
 }

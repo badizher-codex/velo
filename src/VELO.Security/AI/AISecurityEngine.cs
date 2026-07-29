@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using VELO.Security.AI.Adapters;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
+using VELO.Security.Sentinel;
 
 namespace VELO.Security.AI;
 
@@ -11,7 +12,8 @@ public class AISecurityEngine(
     IAIAdapter aiAdapter,
     ILogger<AISecurityEngine> logger,
     PhishingShield? phishingShield = null,
-    DomainAgeProbe? domainAgeProbe = null)
+    DomainAgeProbe? domainAgeProbe = null,
+    SentinelClassifier? sentinel = null)
 {
     private readonly SecurityCache _cache = cache;
     private readonly LocalRuleEngine _localRules = localRules;
@@ -27,6 +29,10 @@ public class AISecurityEngine(
     // opted in via SettingKeys.PhishingShieldDomainAgeCheck (the
     // probe owns its own Enabled flag, flipped by the host).
     private readonly DomainAgeProbe? _domainAgeProbe = domainAgeProbe;
+    // S-C — VELO Sentinel on the main-frame path. This method already runs off
+    // the request path (BrowserTab fires it in a Task.Run), so unlike
+    // RequestGuard we can await the ~9 ms inference instead of reading a cache.
+    private readonly SentinelClassifier? _sentinel = sentinel;
 
     public void SetAdapter(IAIAdapter adapter)
     {
@@ -53,13 +59,38 @@ public class AISecurityEngine(
             return localVerdict;
         }
 
+        // 2b (S-C). VELO Sentinel — offline, in-process, always available.
+        //           Behind the deterministic local rules above (they're exact),
+        //           in front of PhishingShield and the AI adapter, which both
+        //           depend on an HTTP server that field logs show is down most
+        //           of the time. A Block-level verdict short-circuits; a
+        //           phishing belief that doesn't reach that bar becomes a signal
+        //           for PhishingShield to weigh.
+        SentinelResult? sentinelResult = null;
+        if (_sentinel is not null)
+        {
+            sentinelResult = await _sentinel.ClassifyAsync(context.Domain, ct).ConfigureAwait(false);
+
+            if (sentinelResult.Action == SentinelAction.Block && _sentinel.Mode == SentinelMode.Enforce)
+            {
+                _logger.LogWarning("Sentinel blocked {Domain}: {Reason}", context.Domain, sentinelResult.Reason);
+                var sentinelVerdict = AIVerdict.Block(sentinelResult.Reason, source: "SENTINEL");
+                sentinelVerdict.ThreatType = RequestGuard.ToThreatType(sentinelResult.Label);
+                sentinelVerdict.Confidence = (int)Math.Round(sentinelResult.Confidence * 100);
+                sentinelVerdict.Host       = context.Domain ?? "";
+                await _cache.SetAsync(context, sentinelVerdict);
+                return sentinelVerdict;
+            }
+        }
+
         // 3 (v2.4.22). PhishingShield — local LLM phishing/impersonation check.
         //               Only runs when there are real heuristic flags (suspicious
-        //               TLD, brand impersonation, random hostname, broken TLS) —
-        //               otherwise it returns Safe immediately and we proceed.
+        //               TLD, brand impersonation, random hostname, broken TLS,
+        //               or — S-C — a Sentinel phishing flag) — otherwise it
+        //               returns Safe immediately and we proceed.
         if (_phishingShield != null)
         {
-            var signals = await BuildPhishingSignalsAsync(context, ct).ConfigureAwait(false);
+            var signals = await BuildPhishingSignalsAsync(context, sentinelResult, ct).ConfigureAwait(false);
             var phish = await _phishingShield.EvaluateAsync(signals, ct);
             if (phish.Verdict == PhishingShield.Verdict.Phishing)
             {
@@ -106,7 +137,7 @@ public class AISecurityEngine(
     /// <see cref="DomainAgeProbe"/>, off unless the user opted in.
     /// </summary>
     private async Task<PhishingShield.Signals> BuildPhishingSignalsAsync(
-        ThreatContext context, CancellationToken ct)
+        ThreatContext context, SentinelResult? sentinel, CancellationToken ct)
     {
         var host = context.Domain ?? "";
         var tls  = context.TLSInfo;
@@ -129,6 +160,11 @@ public class AISecurityEngine(
             LooksLikeBrandImpersonation: RequestGuard.LooksLikeBrandImpersonation(host),
             LooksRandomGenerated:        RequestGuard.LooksRandomGenerated(host),
             HasSuspiciousTld:            RequestGuard.HasSuspiciousTld(host),
-            DomainAgeDays:              ageDays);
+            DomainAgeDays:              ageDays,
+            // S-C — FLAG (below threshold), or a Block-level phishing verdict
+            // Shadow mode suppressed. Either way the model believes it, and this
+            // is the one place that belief is allowed to weigh on a decision.
+            SentinelFlaggedPhishing:    sentinel is { Label: SentinelLabel.Phishing }
+                                     && sentinel.Action != SentinelAction.Allow);
     }
 }

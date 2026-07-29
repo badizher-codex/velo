@@ -486,6 +486,132 @@ public class WiringSmokeTests
         }
     }
 
+    // ── S-C — VELO Sentinel: producer AND consumer both wired ────────────
+
+    [Fact]
+    public void Sentinel_is_registered_produced_and_consumed()
+    {
+        // Lesson #21 — a classifier can be registered in DI, resolved, and
+        // still never affect anything because nobody feeds it hosts (SmartBlock
+        // spent a release in exactly that state). Assert the whole loop:
+        //
+        //   registration → RequestGuard/AISecurityEngine take the dependency
+        //   → RequestGuard PRODUCES classifications (Prefetch on cache miss)
+        //   → RequestGuard CONSUMES them (TryGetCachedVerdict) and can Block
+        //   → the FLAG level reaches PhishingShield as a signal
+        //   → the host applies the shadow/enforce setting.
+
+        var srcRoot = LocateSrcRoot();
+
+        var depConfig = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "Startup", "DependencyConfig.cs"));
+        Assert.Contains("AddSingleton<VELO.Security.Sentinel.SentinelClassifier>", depConfig);
+
+        var requestGuard = File.ReadAllText(Path.Combine(srcRoot, "VELO.Security", "Guards", "RequestGuard.cs"));
+        Assert.Contains("SentinelClassifier? sentinel", requestGuard);   // takes the dependency
+        Assert.Contains("_sentinel.Prefetch(",          requestGuard);   // producer
+        Assert.Contains("_sentinel.TryGetCachedVerdict(", requestGuard); // consumer
+        Assert.Contains("\"SENTINEL\"",                 requestGuard);   // attributable verdict (lesson #29)
+
+        var aiEngine = File.ReadAllText(Path.Combine(srcRoot, "VELO.Security", "AI", "AISecurityEngine.cs"));
+        Assert.Contains("SentinelClassifier? sentinel", aiEngine);
+        Assert.Contains("_sentinel.ClassifyAsync(",     aiEngine);
+        Assert.Contains("SentinelFlaggedPhishing",      aiEngine);       // FLAG → PhishingShield
+
+        // PhishingShield must actually read the flag, not just carry it.
+        var shield = File.ReadAllText(Path.Combine(srcRoot, "VELO.Security", "Guards", "PhishingShield.cs"));
+        Assert.Contains("SentinelFlaggedPhishing", shield);
+        Assert.Contains("signals.SentinelFlaggedPhishing", shield);
+
+        // And the host has to apply the setting, or the toggle is decoration.
+        var mainWindow = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs"));
+        Assert.Contains("SentinelEnforce",        mainWindow);
+        Assert.Contains("sentinel.Mode",          mainWindow);
+        Assert.Contains("sentinel.EnsureLoaded()", mainWindow);
+    }
+
+    [Fact]
+    public void Sentinel_runs_behind_the_blocklist_and_ahead_of_SmartBlock()
+    {
+        // The position in the pipeline is a product decision, not an accident:
+        // exact blocklists win (fast, no false-positive surface), then the
+        // offline classifier, then the optional HTTP path. A refactor that
+        // reorders these changes what VELO blocks — catch it here.
+        var guard = File.ReadAllText(
+            Path.Combine(LocateSrcRoot(), "VELO.Security", "Guards", "RequestGuard.cs"));
+
+        var blocklistIdx  = guard.IndexOf("_blocklist.IsBlocked(host)", StringComparison.Ordinal);
+        var sentinelIdx   = guard.IndexOf("_sentinel.TryGetCachedVerdict(host)", StringComparison.Ordinal);
+        var smartBlockIdx = guard.IndexOf("_smartBlock?.TryGetCachedVerdict(host)", StringComparison.Ordinal);
+
+        Assert.True(blocklistIdx  > 0, "blocklist check not found in RequestGuard");
+        Assert.True(sentinelIdx   > 0, "Sentinel check not found in RequestGuard");
+        Assert.True(smartBlockIdx > 0, "SmartBlock check not found in RequestGuard");
+
+        Assert.True(blocklistIdx < sentinelIdx,
+            "Sentinel must run BEHIND the exact blocklist — the list is faster and cannot be wrong.");
+        Assert.True(sentinelIdx < smartBlockIdx,
+            "Sentinel must run AHEAD of SmartBlock — the offline classifier is the always-on path, " +
+            "the HTTP one is opt-in.");
+    }
+
+    // ── Test 6 — every SettingsWindow event is subscribed at every open site ──
+
+    [Fact]
+    public void Every_SettingsWindow_event_is_subscribed_at_every_construction_site()
+    {
+        // Found in S-C: SettingsWindow raises YouTubeAdBlockChanged so the host
+        // can hot-apply the toggle, and the tray/menu open site subscribed it —
+        // but the command-palette "Configuración" site did not. Same dialog,
+        // same Save, and the ad-blocker silently kept the old value until the
+        // next restart depending on HOW you opened settings. Same family as
+        // lesson #8/#11: the wiring exists, just not at every call-site.
+        //
+        // Every `new SettingsWindow(...)` must subscribe every event the dialog
+        // exposes, before ShowDialog.
+
+        var srcRoot   = LocateSrcRoot();
+        var dialogSrc = File.ReadAllText(Path.Combine(srcRoot, "VELO.UI", "Dialogs", "SettingsWindow.xaml.cs"));
+
+        var events = Regex.Matches(dialogSrc, @"public\s+event\s+[^\s]+(?:<[^>]+>)?\??\s+(\w+)\s*;")
+            .Select(m => m.Groups[1].Value)
+            .Distinct()
+            .ToList();
+        Assert.NotEmpty(events);
+
+        var hostFiles = new[] { Path.Combine(srcRoot, "VELO.App") }
+            .Where(Directory.Exists)
+            .SelectMany(d => Directory.GetFiles(d, "*.cs", SearchOption.AllDirectories))
+            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+            .ToArray();
+
+        var missing = new List<string>();
+
+        foreach (var file in hostFiles)
+        {
+            var content = File.ReadAllText(file);
+            foreach (Match ctor in Regex.Matches(content, @"new\s+(?:VELO\.UI\.Dialogs\.)?SettingsWindow\s*\("))
+            {
+                // The wiring block runs between construction and ShowDialog.
+                var showIdx = content.IndexOf("ShowDialog", ctor.Index, StringComparison.Ordinal);
+                if (showIdx < 0) continue;
+                var block = content[ctor.Index..showIdx];
+
+                foreach (var evt in events)
+                {
+                    // `\s*` because the call-sites align the += column.
+                    if (!Regex.IsMatch(block, $@"\.{Regex.Escape(evt)}\s*\+="))
+                        missing.Add($"{Path.GetFileName(file)}: SettingsWindow opened without subscribing {evt}");
+                }
+            }
+        }
+
+        Assert.True(missing.Count == 0,
+            $"{missing.Count} SettingsWindow event(s) unsubscribed at a construction site — " +
+            "the same Save produces different behaviour depending on how the dialog was opened:\n  " +
+            string.Join("\n  ", missing));
+    }
+
     // ── Test 5 — every settings key READ in SettingsWindow is also WRITTEN ──
 
     [Fact]

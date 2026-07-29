@@ -42,6 +42,15 @@ public sealed class PhishingShield
 {
     public enum Verdict { Safe, Suspicious, Phishing }
 
+    /// <param name="SentinelFlaggedPhishing">
+    /// S-C — VELO Sentinel called this host phishing. Per the two-level
+    /// semantics fixed in S-B, that is a SIGNAL and never a block on its own:
+    /// it arrives here to be weighed alongside TLS, domain age, the login form
+    /// and the host heuristics. Set for a below-threshold FLAG, and also for a
+    /// Block-level verdict that Shadow mode suppressed — in both cases the
+    /// model believes it, and PhishingShield is where that belief is allowed
+    /// to matter.
+    /// </param>
     public sealed record Signals(
         string Host,
         string PageTitle,
@@ -51,7 +60,8 @@ public sealed class PhishingShield
         bool   LooksLikeBrandImpersonation,
         bool   LooksRandomGenerated,
         bool   HasSuspiciousTld,
-        int    DomainAgeDays);
+        int    DomainAgeDays,
+        bool   SentinelFlaggedPhishing = false);
 
     public sealed record Result(
         Verdict Verdict,
@@ -103,6 +113,7 @@ public sealed class PhishingShield
             signals.HasSuspiciousTld ||
             !signals.TlsValid ||
             signals.IsSelfSigned ||
+            signals.SentinelFlaggedPhishing ||
             (signals.DomainAgeDays > 0 && signals.DomainAgeDays < 30);
 
         if (!anySuspiciousHeuristic && !signals.HasLoginForm)
@@ -188,6 +199,7 @@ public sealed class PhishingShield
         if (s.LooksLikeBrandImpersonation) flags.Add("brand-like host");
         if (s.LooksRandomGenerated)       flags.Add("random-looking host");
         if (s.HasSuspiciousTld)           flags.Add("suspicious TLD");
+        if (s.SentinelFlaggedPhishing)    flags.Add("offline classifier flagged host as phishing");
         if (s.DomainAgeDays > 0 && s.DomainAgeDays < 30)
             flags.Add($"domain {s.DomainAgeDays}d old");
 

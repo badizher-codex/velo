@@ -40,6 +40,11 @@ public partial class SettingsWindow : Window
     /// need a refresh (script-on-document-created fires once per webview).</summary>
     public event EventHandler<bool>? YouTubeAdBlockChanged;
 
+    /// <summary>S-C — Raised after Save when the user toggles "apply Sentinel
+    /// verdicts" so the host can flip SentinelClassifier.Mode live (shadow ↔
+    /// enforce) without a restart.</summary>
+    public event EventHandler<bool>? SentinelEnforceChanged;
+
     public SettingsWindow(SettingsRepository settings, VaultService vault)
     {
         _settings = settings;
@@ -154,6 +159,14 @@ public partial class SettingsWindow : Window
         DomainAgeDesc.Text        = L.T("settings.ai.domain_age.desc");
         CtLogTitle.Text           = L.T("settings.privacy.ct_log");
         CtLogDesc.Text            = L.T("settings.privacy.ct_log.desc");
+        // S-C — VELO Sentinel. The status/path lines are rebuilt by
+        // RefreshSentinelStatus (they interpolate the model manifest), so
+        // re-run it here to pick up the new language too.
+        SentinelTitle.Text        = L.T("settings.sentinel.title");
+        SentinelDesc.Text         = L.T("settings.sentinel.desc");
+        SentinelEnforceTitle.Text = L.T("settings.sentinel.enforce");
+        SentinelEnforceDesc.Text  = L.T("settings.sentinel.enforce.desc");
+        RefreshSentinelStatus();
 
         // Search panel
         SearchTitle.Text       = L.T("settings.search.title");
@@ -271,6 +284,10 @@ public partial class SettingsWindow : Window
         // Council/Council* "yes"/"no" string convention.
         var ytRaw = await _settings.GetAsync(SettingKeys.YouTubeAdsBlocked, "yes");
         YouTubeAdBlockCheck.IsChecked = string.Equals(ytRaw, "yes", StringComparison.OrdinalIgnoreCase);
+
+        // S-C — VELO Sentinel status + enforce opt-in.
+        SentinelEnforceCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.SentinelEnforce, defaultValue: false);
+        RefreshSentinelStatus();
 
         // Search
         var search = await _settings.GetAsync(SettingKeys.SearchEngine, "DuckDuckGo");
@@ -401,6 +418,10 @@ public partial class SettingsWindow : Window
         await _settings.SetAsync(SettingKeys.YouTubeAdsBlocked,
             YouTubeAdBlockCheck.IsChecked == true ? "yes" : "no");
         YouTubeAdBlockChanged?.Invoke(this, YouTubeAdBlockCheck.IsChecked == true);
+
+        // S-C — Sentinel shadow ↔ enforce. Persist + apply hot.
+        await _settings.SetBoolAsync(SettingKeys.SentinelEnforce, SentinelEnforceCheck.IsChecked == true);
+        SentinelEnforceChanged?.Invoke(this, SentinelEnforceCheck.IsChecked == true);
 
         // Search
         var eng = SearchBrave.IsChecked  == true ? "BraveSearch"
@@ -626,6 +647,29 @@ public partial class SettingsWindow : Window
         // the load just reflects whatever the disclaimer wrote so the user
         // can see what's currently opted in.
         if (tag == "Council") _ = LoadCouncilStateAsync();
+    }
+
+    // ── VELO Sentinel status (S-C) ───────────────────────────────────────
+
+    /// <summary>
+    /// Reads the installed model's manifest off disk — deliberately NOT through
+    /// the live <c>SentinelClassifier</c> singleton, because showing a status
+    /// line must not build a 67 MB ONNX session. Until S-D lands the download
+    /// channel, the path line is also the install instructions.
+    /// </summary>
+    private void RefreshSentinelStatus()
+    {
+        var L = LocalizationService.Current;
+        var (status, dir) = VELO.Security.Sentinel.SentinelClassifier.DescribeInstalledModel();
+        var installed = dir is not null;
+
+        SentinelStatus.Text = $"{L.T("settings.sentinel.status")}: {status}";
+        SentinelPath.Text   = installed
+            ? dir!
+            : $"{L.T("settings.sentinel.install")} {VELO.Security.Sentinel.SentinelClassifier.DefaultModelRoot()}";
+
+        // Nothing to enforce without a model — leave the toggle readable but inert.
+        SentinelEnforceCheck.IsEnabled = installed;
     }
 
     // ── Council Mode panel (Phase 4.0 chunk H) ───────────────────────────

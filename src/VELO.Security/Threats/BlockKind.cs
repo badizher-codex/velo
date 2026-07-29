@@ -33,4 +33,8 @@ public enum BlockSource
     RequestGuard,
     /// <summary>DownloadGuard heuristic (drive-by, cross-origin exec, …).</summary>
     DownloadGuard,
+    /// <summary>S-C — VELO Sentinel, the embedded offline host classifier.
+    /// Distinct from <see cref="AIEngine"/>: no network, no LLM, a fixed
+    /// operating point published with the model.</summary>
+    Sentinel,
 }
