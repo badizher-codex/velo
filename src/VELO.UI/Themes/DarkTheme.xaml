@@ -227,9 +227,19 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                    <!-- Grid, not a horizontal StackPanel: a horizontal
+                         StackPanel measures children with INFINITE width, so
+                         a TextBlock with TextWrapping="Wrap" inside the
+                         content never gets a constraint — it runs off the
+                         edge and is clipped instead of wrapping. The `*`
+                         column gives the content a real width. -->
+                    <Grid VerticalAlignment="Top">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
                         <!-- Circle indicator -->
-                        <Grid Width="18" Height="18" Margin="0,2,8,0" VerticalAlignment="Top">
+                        <Grid Grid.Column="0" Width="18" Height="18" Margin="0,2,8,0" VerticalAlignment="Top">
                             <Ellipse x:Name="Outer"
                                      Stroke="{StaticResource BorderBrush}"
                                      StrokeThickness="2"
@@ -239,8 +249,8 @@
                                      Fill="{StaticResource AccentBlueBrush}"
                                      Visibility="Collapsed"/>
                         </Grid>
-                        <ContentPresenter VerticalAlignment="Top"/>
-                    </StackPanel>
+                        <ContentPresenter Grid.Column="1" VerticalAlignment="Top"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Inner" Property="Visibility" Value="Visible"/>
@@ -262,8 +272,17 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                    <!-- Grid, not a horizontal StackPanel — see the RadioButton
+                         template above. This is what was clipping every long
+                         checkbox description in Settings (RDAP, YouTube ad-block,
+                         Sentinel) instead of wrapping them. -->
+                    <Grid VerticalAlignment="Top">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
                         <Border x:Name="Box"
+                                Grid.Column="0"
                                 Width="16" Height="16"
                                 Margin="0,2,8,0"
                                 VerticalAlignment="Top"
@@ -278,8 +297,8 @@
                                        VerticalAlignment="Center"
                                        Visibility="Collapsed"/>
                         </Border>
-                        <ContentPresenter VerticalAlignment="Top"/>
-                    </StackPanel>
+                        <ContentPresenter Grid.Column="1" VerticalAlignment="Top"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Box"   Property="Background"    Value="{StaticResource AccentBlueBrush}"/>

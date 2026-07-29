@@ -159,6 +159,8 @@ public partial class SettingsWindow : Window
         DomainAgeDesc.Text        = L.T("settings.ai.domain_age.desc");
         CtLogTitle.Text           = L.T("settings.privacy.ct_log");
         CtLogDesc.Text            = L.T("settings.privacy.ct_log.desc");
+        YouTubeAdBlockTitle.Text  = L.T("settings.ai.youtube_adblock");
+        YouTubeAdBlockDesc.Text   = L.T("settings.ai.youtube_adblock.desc");
         // S-C — VELO Sentinel. The status/path lines are rebuilt by
         // RefreshSentinelStatus (they interpolate the model manifest), so
         // re-run it here to pick up the new language too.

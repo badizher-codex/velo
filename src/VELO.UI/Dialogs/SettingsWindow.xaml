@@ -318,8 +318,8 @@
                          breaks our selectors and the user wants ads back temporarily). -->
                     <CheckBox x:Name="YouTubeAdBlockCheck" Margin="0,12,0,4">
                         <StackPanel>
-                            <TextBlock Text="Bloquear anuncios en YouTube" FontWeight="SemiBold"/>
-                            <TextBlock Text="Salta pre-roll + mid-roll + overlay + cards patrocinadas en home/sidebar/search. Neutraliza el modal 'los bloqueadores no están permitidos'. El cambio aplica a pestañas nuevas — refrescá tabs YouTube ya abiertos para que tome efecto."
+                            <TextBlock x:Name="YouTubeAdBlockTitle" Text="Bloquear anuncios en YouTube" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="YouTubeAdBlockDesc" Text="Salta pre-roll + mid-roll + overlay + cards patrocinadas en home/sidebar/search. Neutraliza el modal 'los bloqueadores no están permitidos'. El cambio aplica a pestañas nuevas — refrescá tabs YouTube ya abiertos para que tome efecto."
                                        FontSize="11" Foreground="{StaticResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
