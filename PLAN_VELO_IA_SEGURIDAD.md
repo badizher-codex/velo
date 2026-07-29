@@ -66,7 +66,32 @@ DirectChatAdapter HTTP (LM Studio/Ollama/Claude/GPT/Grok)   ← se queda, deja d
 
 **Piso 2 (generativo 0.5–1.7B destilado para explicaciones) — DEFERIDO explícitamente.** No arrancar hasta que S-E esté verificado en campo. Las explicaciones estáticas de v2.4.63 (`WhyBlocked`) cubren la necesidad mientras tanto.
 
-### 5.0 ⛔ model-v1 NO se puede habilitar en enforce — hace falta model-v2
+### 5.0-bis ✅ model-v2 (2026-07-29) — arreglado, gates verdes
+
+| | model-v1 | model-v2 |
+|---|---|---|
+| AUC macro OvR | 0.9907 | **0.9953** |
+| FPR benigno @ τ=0.85 | 0.74% | 0.90% |
+| never-block (21 hosts, C#) | 6 fallos | **0** |
+| `rr7---sn-…googlevideo.com` | phishing 0.965 | **benign 0.998** |
+| `i.ytimg.com` | tracker 0.995 | **benign 0.997** |
+| `assets.grok.com` | tracker 0.982 | **benign 0.9995** |
+| `external-content.duckduckgo.com` | tracker 0.992 | **benign 0.997** |
+| `cdn.jsdelivr.net` | ad 0.925 | **benign 0.998** |
+| `doubleclick.net` | ad 0.52 (no bloqueaba) | **ad 0.992** |
+| `paypa1-secure-login.top` | **benign 0.507** | **phishing 0.998** |
+
+El FPR agregado subió un poco pero el test set cambió (excluye dominios contextualmente bloqueados, incluye CDN), así que no son comparables directo. Lo que sí es comparable son los hosts concretos, y ahí no hay ninguna pérdida salvo una (abajo).
+
+**Cambios de datos (`prepare_data.py`, 2 rondas — detalle en su docstring):**
+1. `CDN_DOMAINS` + `cdn_hosts()`: 53 CDN de assets/medios reales con las formas de host que sirven de verdad, incluidas las generadas por máquina (`rr11---sn-brpoi-8f1c.googlevideo.com`).
+2. `shaped_hosts()` aplicado **también a tracker/ad**: darle las formas CDN sólo al benigno invertía el atajo (ronda 1: `cdn.taboola.com` → benign 0.999).
+3. `adblock_domains_any()`: los trackers más grandes se bloquean con opciones `$third-party`, nunca entraban a `blocked`, y **Tranco los metía como benignos — también en v1**. Ahora se excluyen del pool benigno sin etiquetarlos (etiquetar desde regla contextual es lo que en v1 hizo caer a github.com).
+4. `PER_CLASS_CAP` 120k → 220k: las 4 formas por dominio hacían que el cap descartara **36% de los dominios tracker**.
+
+**Única pérdida vs v1:** `cdn.cookielaw.org` (OneTrust) pasó de `ad 0.949` a `benign 0.999`. Es consecuencia directa del punto 3 — el dominio salió de training y el modelo cae en la forma `cdn.`. **Es un agujero de listas, no del modelo**: ninguna lista de VELO cubre plataformas de consentimiento (`trackers-bundled.txt` tiene sólo quantcast; faltan OneTrust/cookielaw, Cookiebot, TrustArc, Usercentrics, Didomi, Sourcepoint, iubenda). Decisión pendiente del maintainer — bloquear CMPs puede dejar sitios esperando el script de consentimiento, y VELO ya tiene `CookieWallBypassEngine` operando en la capa DOM, que es el lugar más apropiado.
+
+### 5.0 ⛔ (histórico) model-v1 NO se podía habilitar en enforce
 
 **Verificación runtime de S-C, 2026-07-29.** El modelo carga y clasifica dentro de la app (`Sentinel loaded velo-sentinel v1 … from …\models\sentinel\v1`, modo Shadow). En **12 minutos de navegación normal** el shadow log dio esto:
 

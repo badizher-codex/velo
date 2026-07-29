@@ -9,6 +9,50 @@ phishing 1.000). VELO's verdict pipeline is host-keyed anyway (RequestGuard
 rules, whitelist, Allow-once — all per host), so the model classifies what
 the product consumes. Path-borne phishing on legit domains is explicitly
 out of scope for tier-1 (top-1000-wins-benign policy).
+
+model-v2 (2026-07-29) — the first shadow-mode session in the real browser
+found the failure the offline gates could not: model-v1 called YouTube's
+video servers PHISHING at p=0.965 and its image CDNs TRACKER at p>=0.98
+(rr7---sn-0opoxu-j8we.googlevideo.com, i.ytimg.com, yt3.ggpht.com), plus
+assets.grok.com and external-content.duckduckgo.com. AUC was 0.9907 and
+benign FPR 0.74% — the aggregate said nothing about WHICH hosts were lost.
+
+Two learned shortcuts, both caused by what the benign side never contained:
+
+  1. "CDN-shaped subdomain = tracker". Benign hosts were generated with
+     app-flavoured labels only (www/m/app/api/mail/login...), while the
+     tracker+ad side is real EasyList domains, thick with cdn./static./
+     assets./img.. So the SHAPE alone separated the classes.
+  2. "machine-generated hostname = phishing". Benign labels were always
+     dictionary words; the phishing feeds are full of random-looking hosts.
+     Nothing benign in training ever looked like rr7---sn-0opoxu-j8we.
+
+Fix below, in the data (raising tau does nothing — these arrive at p>=0.98):
+real asset/media CDN domains with the host shapes they actually serve from,
+including machine-generated labels, all on the benign side. Both changes are
+about forcing the model to read the REGISTRABLE DOMAIN instead of the shape
+of the subdomain.
+
+model-v2 round 2 — round 1 fixed the CDNs (googlevideo/ytimg/ggpht/grok all
+benign at p>=0.97) and broke the trackers: google-analytics.com came back
+benign p=0.993, cdn.taboola.com 0.999, static.criteo.net 0.998. Two causes,
+both measured rather than guessed:
+
+  a. Those domains were labeled BENIGN, in v1 too. adblock_domains() takes
+     only unconditional ||domain^ rules, and the biggest trackers are blocked
+     WITH options ($third-party) because context matters — so they never
+     entered `blocked`, and Tranco handed them over as benign. Fixed with
+     adblock_domains_any(): a wider net used ONLY to exclude from the benign
+     pool, never to label. 1,188 Tranco domains left training this way.
+  b. Giving tracker/ad the same 4 host shapes as benign quadrupled their rows,
+     and the 120k row cap then sampled away 36% of the tracker DOMAINS
+     (27,085 of 42,692 survived). Domain coverage is the thing the model
+     learns; shapes are only how each domain is presented. Cap raised to 220k
+     so the whole EasyList/EasyPrivacy pool fits.
+
+Round 2 also added the labels the first pass still missed: `code`
+(code.jquery.com → tracker p=0.88) and hyphenated multi-word asset hosts
+(external-content.duckduckgo.com → tracker p=0.9995).
 """
 import io
 import os
@@ -23,7 +67,14 @@ random.seed(42)
 os.makedirs("data", exist_ok=True)
 
 UA = {"User-Agent": "velo-sentinel-training/1.0"}
-PER_CLASS_CAP = 120_000
+# model-v2 — raised from 120k. The cap is on ROWS, and giving tracker/ad the
+# same 4 host shapes as benign (shaped_hosts) quadrupled rows per domain, so
+# the old cap silently sampled away 36% of the tracker DOMAINS: 27,085 of
+# 42,692 survived, and google-analytics-class domains disappeared. Domain
+# coverage is what the model learns from; the shapes are just how each domain
+# is presented. Sized to hold the whole EasyPrivacy + EasyList pool
+# (~43k + ~51k domains x ~4 shapes) without sampling.
+PER_CLASS_CAP = 220_000
 
 
 def fetch(url: str) -> bytes:
@@ -45,6 +96,33 @@ def adblock_domains(text: str) -> list[str]:
     return list(dict.fromkeys(out))
 
 
+def adblock_domains_any(text: str) -> list[str]:
+    """Every ||domain^ rule, options or not.
+
+    model-v2 measurement: the unconditional filter above is right about not
+    LABELING these as trackers, but keeping them out of the exclusion set was
+    a hole. The biggest trackers on the web — google-analytics.com,
+    doubleclick.net, criteo.net, taboola.com, cookielaw.org — are blocked with
+    options precisely because context matters, so none of them appeared in
+    `blocked`, and Tranco then handed every one of them to the model as
+    BENIGN. model-v1 shipped believing google-analytics.com was benign at
+    p=0.993. Nobody noticed because the exact blocklist catches them anyway —
+    but teaching the classifier that analytics-shaped domains are fine is the
+    opposite of what it exists for.
+
+    These are used ONLY to keep such domains out of the benign pool. They do
+    not become positive tracker labels: a $third-party rule on a legit domain
+    is contextual, and labeling from it is what got google.com flagged in
+    model-v1. Absent from training is the honest answer — the lists own these.
+    """
+    out = []
+    for line in text.splitlines():
+        m = re.match(r"^\|\|([a-z0-9.-]+\.[a-z]{2,})\^(\$.*)?$", line.strip(), re.I)
+        if m and "*" not in m.group(1):
+            out.append(m.group(1).lower())
+    return list(dict.fromkeys(out))
+
+
 # Model-v3 lesson: benign training hosts had no subdomains (Tranco is root
 # domains) while real phishing is full of deep hosts — so outlook.live.com
 # and accounts.google.com got flagged. Legit sites use subdomains too;
@@ -59,12 +137,157 @@ WORDS = ["watch", "browse", "detail", "search", "article", "blog", "docs",
          "portal", "my", "web", "secure", "cloud", "dev", "wiki"]
 
 
-def benign_hosts(domain: str) -> list[str]:
+# model-v2 lesson 1 — the shape of a subdomain must not decide the class.
+# Every one of these labels used to appear ONLY on the tracker/ad side.
+CDN_SUBDOMAINS = ["cdn", "static", "assets", "img", "images", "i", "media",
+                  "video", "stream", "files", "content", "edge", "cache",
+                  "thumb", "thumbs", "uploads", "dl", "fonts", "js", "css",
+                  "s", "c", "asset", "player", "download", "storage",
+                  # model-v2 round 2: real labels the first pass still missed —
+                  # code.jquery.com came back tracker p=0.88.
+                  "code", "lib", "libs", "pkg", "npm", "cdn2", "static1",
+                  "external-content", "media-cdn", "static-assets",
+                  "cdn-images", "img-cdn", "asset-cache", "user-content",
+                  "public-assets", "file-store"]
+
+
+def machine_label(min_len: int = 4, max_len: int = 10) -> str:
+    """A label that looks generated rather than written — the exact thing
+    RequestGuard.LooksRandomGenerated flags, and that model-v1 had only ever
+    seen on phishing hosts."""
+    alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+    return "".join(random.choice(alphabet) for _ in range(random.randint(min_len, max_len)))
+
+
+def shard_label() -> str:
+    """Numbered shards: img3, s1, cdn02, static4 — extremely common on real
+    sites and absent from the old benign generator."""
+    base = random.choice(["s", "c", "i", "img", "cdn", "static", "media", "n", "e", "f"])
+    return f"{base}{random.randint(1, 99)}"
+
+
+def random_sub() -> str:
+    """One subdomain label, from the full mix of shapes real hosts use."""
+    roll = random.random()
+    if roll < 0.45:
+        return random.choice(SUBDOMAINS)
+    if roll < 0.70:
+        return random.choice(WORDS)
+    if roll < 0.88:
+        return random.choice(CDN_SUBDOMAINS)   # model-v2: benign CDNs exist
+    if roll < 0.96:
+        return shard_label()
+    return machine_label()                      # model-v2: benign randomness exists
+
+
+def shaped_hosts(domain: str, n: int = 2) -> list[str]:
+    """Bare + www + n randomly-shaped subdomains.
+
+    model-v2: used for BOTH benign and tracker/ad domains, on purpose. Giving
+    the CDN-ish and machine-generated shapes only to the benign side would
+    just invert model-v1's shortcut — the model would learn "cdn.* is safe"
+    and stop seeing cdn.taboola.com / static.criteo.net / pixel.*. The shape
+    has to be uninformative on both sides so the registrable domain is the
+    only thing left to learn from.
+    """
     hosts = [domain, f"www.{domain}"]
-    for _ in range(2):
-        sub = random.choice(SUBDOMAINS) if random.random() < 0.6 else random.choice(WORDS)
-        hosts.append(f"{sub}.{domain}")
+    for _ in range(n):
+        hosts.append(f"{random_sub()}.{domain}")
     return list(dict.fromkeys(hosts))
+
+
+def benign_hosts(domain: str) -> list[str]:
+    return shaped_hosts(domain)
+
+
+# model-v2 lesson 2 — real asset/media CDNs, with the host shapes they
+# actually serve from. The names matter less than the shapes: this is the
+# only place in the benign set where a host is allowed to look like a
+# machine produced it. Each builder returns hosts modelled on traffic seen
+# in the S-C shadow logs and in ordinary browsing.
+CDN_DOMAINS = [
+    # Google / YouTube — the ones that broke in shadow
+    "googlevideo.com", "ytimg.com", "ggpht.com", "gstatic.com",
+    "googleusercontent.com", "googleapis.com",
+    # Social
+    "fbcdn.net", "cdninstagram.com", "twimg.com", "licdn.com",
+    "redditmedia.com", "redd.it", "tiktokcdn.com",
+    # Generic CDN / cloud edges
+    "akamaized.net", "akamai.net", "akamaihd.net", "cloudfront.net",
+    "fastly.net", "fastlylb.net", "azureedge.net", "azurefd.net",
+    "cdn77.org", "stackpathdns.com", "b-cdn.net", "kxcdn.com",
+    "edgecastcdn.net", "llnwd.net", "cachefly.net",
+    # Public script/asset CDNs (the jsdelivr family from the first finding)
+    "jsdelivr.net", "unpkg.com", "bootstrapcdn.com", "jquery.com",
+    # Object storage that serves site assets
+    "amazonaws.com", "digitaloceanspaces.com", "backblazeb2.com",
+    # Site platforms
+    "wp.com", "wixstatic.com", "shopifycdn.com", "squarespace-cdn.com",
+    "cloudinary.com", "imgix.net", "typekit.net",
+    # Media / streaming
+    "vimeocdn.com", "jwpcdn.com", "brightcove.com", "mzstatic.com",
+    "nflxvideo.net", "nflximg.net", "scdn.co", "sndcdn.com",
+    "steamstatic.com", "imgur.com", "giphy.com",
+]
+
+
+def cdn_hosts(domain: str) -> list[str]:
+    """Realistic hostnames for an asset/media CDN, including the generated
+    shapes. Deliberately over-samples the machine-y forms — those are what
+    model-v1 got wrong."""
+    hosts = [domain, f"www.{domain}"]
+
+    # The literal shapes from the shadow logs, generalised.
+    if domain == "googlevideo.com":
+        for _ in range(12):
+            hosts.append(
+                f"rr{random.randint(1, 14)}---sn-{machine_label(5, 7)}-{machine_label(4, 4)}.{domain}")
+    elif domain in ("ytimg.com", "ggpht.com"):
+        hosts += [f"i.{domain}", f"i9.{domain}", f"s.{domain}"]
+        hosts += [f"yt{n}.{domain}" for n in range(1, 5)]
+    elif domain == "googleusercontent.com":
+        hosts += [f"lh{n}.{domain}" for n in range(1, 7)]
+        hosts += [f"{machine_label(6, 10)}.{domain}"]
+    elif domain == "fbcdn.net":
+        for _ in range(6):
+            place = random.choice(["lax", "sjc", "iad", "ams", "cdg", "gru", "hkg"])
+            kind = random.choice(["scontent", "video", "static"])
+            hosts.append(f"{kind}-{place}{random.randint(1, 5)}-{random.randint(1, 3)}.xx.{domain}")
+    elif domain == "cloudfront.net":
+        hosts += [f"d{machine_label(12, 13)}.{domain}" for _ in range(8)]
+    elif domain in ("akamaized.net", "akamaihd.net", "akamai.net"):
+        hosts += [f"{machine_label(5, 8)}.{domain}" for _ in range(6)]
+        hosts += [f"a{random.randint(1, 999)}.{random.choice('gwx')}.{domain}" for _ in range(3)]
+    elif domain == "amazonaws.com":
+        for _ in range(6):
+            region = random.choice(["us-east-1", "us-west-2", "eu-west-1", "sa-east-1", "ap-south-1"])
+            hosts.append(f"s3.{region}.{domain}")
+            hosts.append(f"{machine_label(6, 12)}.s3.{region}.{domain}")
+    elif domain in ("b-cdn.net", "kxcdn.com", "cdn77.org", "stackpathdns.com"):
+        hosts += [f"{machine_label(6, 10)}.{domain}" for _ in range(5)]
+
+    # Every CDN also gets the ordinary shapes, so the domain itself is what
+    # carries the benign signal rather than any one pattern.
+    for _ in range(6):
+        hosts.append(f"{random.choice(CDN_SUBDOMAINS)}.{domain}")
+    for _ in range(3):
+        hosts.append(f"{shard_label()}.{domain}")
+    for _ in range(3):
+        hosts.append(f"{machine_label()}.{domain}")
+
+    return list(dict.fromkeys(hosts))
+
+
+# model-v2 — a site's OWN asset hosts (assets.grok.com came back tracker
+# p=0.982). Applied to the top of Tranco, where first-party asset hosts are
+# both most common and most expensive to get wrong.
+FIRST_PARTY_ASSET_SUBS = ["assets", "static", "cdn", "img", "images", "media",
+                          "content", "files", "video", "uploads", "s1", "i",
+                          # model-v2 round 2: hyphenated multi-word asset hosts
+                          # were absent entirely, and external-content.duckduckgo.com
+                          # came back tracker p=0.9995.
+                          "external-content", "static-content", "user-content",
+                          "media-assets", "cdn-static", "img-proxy", "asset-host"]
 
 
 def host_of(url: str) -> str:
@@ -82,14 +305,24 @@ rows: list[tuple[str, int]] = []
 
 # ── trackers / ads first: their domain sets also filter the benign pool ─
 print("easyprivacy…")
-tracker_domains = adblock_domains(fetch("https://easylist.to/easylist/easyprivacy.txt").decode(errors="replace"))
+easyprivacy = fetch("https://easylist.to/easylist/easyprivacy.txt").decode(errors="replace")
+tracker_domains = adblock_domains(easyprivacy)
 print("easylist…")
-ad_domains = adblock_domains(fetch("https://easylist.to/easylist/easylist.txt").decode(errors="replace"))
+easylist = fetch("https://easylist.to/easylist/easylist.txt").decode(errors="replace")
+ad_domains = adblock_domains(easylist)
 blocked = set(tracker_domains) | set(ad_domains)
+# model-v2 — wider net, used only to exclude from benign (see adblock_domains_any).
+contextual = (set(adblock_domains_any(easyprivacy)) | set(adblock_domains_any(easylist))) - blocked
+print(f"  labeled tracker {len(tracker_domains)} / ad {len(ad_domains)}; "
+      f"{len(contextual)} more excluded from benign as contextual")
+# model-v2 — trackers and ads get the same shape distribution as benign (see
+# shaped_hosts). Before this they only ever appeared as `d` and `www.d`, so
+# once the benign side gained cdn./static./random. subdomains the shape would
+# have become a giveaway in the other direction.
 for d in tracker_domains:
-    rows += [(d, 2), (f"www.{d}", 2)]
+    rows += [(h, 2) for h in shaped_hosts(d)]
 for d in ad_domains:
-    rows += [(d, 3), (f"www.{d}", 3)]
+    rows += [(h, 3) for h in shaped_hosts(d)]
 
 # ── benign: Tranco top-100k minus unconditionally-blocked domains ───────
 print("tranco…")
@@ -98,11 +331,41 @@ tranco = pd.read_csv(z.open(z.namelist()[0]), names=["rank", "domain"]).head(100
 # Top-10k hosts are exempt from the class cap's random sampling (model-v6:
 # www.primevideo.com got sampled out of training and misclassified).
 benign_top: list[tuple[str, int]] = []
+skipped_contextual = 0
 for rank, d in zip(tranco["rank"], tranco["domain"]):
     if d in blocked:
         continue
+    # model-v2 — a domain the lists block only in context is not evidence of
+    # "tracker", but it is definitely not evidence of "benign" either. Drop it
+    # from training and let the exact blocklist own it. Top-1000 still wins
+    # benign, same policy as phishing-on-major-platforms: google.com carries
+    # $third-party rules and must not be lost.
+    if d in contextual and rank > 1000:
+        skipped_contextual += 1
+        continue
     target = benign_top if rank <= 10_000 else rows
     target += [(h, 0) for h in benign_hosts(d)]
+    # model-v2 — first-party asset hosts for the top of the list. Every site
+    # of that size serves its own assets from somewhere, and model-v1 called
+    # assets.grok.com a tracker at p=0.982.
+    if rank <= 20_000:
+        target += [(f"{sub}.{d}", 0)
+                   for sub in random.sample(FIRST_PARTY_ASSET_SUBS, 3)]
+
+# model-v2 — the asset/media CDNs themselves, exempt from the class cap for
+# the same reason Tranco's top-10k is: these are precisely the hosts whose
+# misclassification the user experiences as "the site is broken", so they may
+# not be sampled out. A CDN that EasyList blocks unconditionally is left
+# alone — the lists are the authority there, and a conflict would teach noise.
+cdn_conflicts = [d for d in CDN_DOMAINS if d in blocked]
+if cdn_conflicts:
+    print(f"  CDN domains skipped (unconditionally blocked by the lists): {cdn_conflicts}")
+for d in CDN_DOMAINS:
+    if d in blocked:
+        continue
+    benign_top += [(h, 0) for h in cdn_hosts(d)]
+print(f"  benign_top after CDN injection: {len(benign_top)} hosts")
+print(f"  Tranco domains dropped as contextually blocked: {skipped_contextual}")
 
 # Top-1000 root domains win benign: phishing hosted ON major platforms
 # (github.com raw pages, drive.google.com, …) is real but unresolvable

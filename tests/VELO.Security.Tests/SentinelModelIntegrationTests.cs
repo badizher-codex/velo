@@ -67,12 +67,10 @@ public class SentinelModelIntegrationTests(ITestOutputHelper output)
     /// </summary>
     private static readonly HashSet<string> KnownModelV1Misses = new(StringComparer.OrdinalIgnoreCase)
     {
-        "cdn.jsdelivr.net",
-        "rr7---sn-0opoxu-j8we.googlevideo.com",
-        "i.ytimg.com",
-        "yt3.ggpht.com",
-        "assets.grok.com",
-        "external-content.duckduckgo.com",
+        // Empty since model-v2 (2026-07-29): every host above now classifies
+        // benign at p>=0.99. Keep it empty — an entry here is a promise that
+        // something is broken, and Sentinel may not move to Enforce while one
+        // exists.
     };
 
     [Fact]
