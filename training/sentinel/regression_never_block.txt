@@ -27,3 +27,23 @@ https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js
 https://unpkg.com/react@18/umd/react.production.min.js
 https://fonts.gstatic.com/s/roboto/v30/font.woff2
 https://code.jquery.com/jquery-3.7.1.min.js
+# The first 12 minutes of real shadow-mode browsing (2026-07-29) made the same
+# failure much worse than jsdelivr suggested. model-v1 calls YouTube's media
+# and image CDNs trackers-or-phishing at p=0.90-0.99:
+#   rr7---sn-0opoxu-j8we.googlevideo.com → phishing p=0.965   (the video itself)
+#   i.ytimg.com                          → tracker  p=0.995   (thumbnails)
+#   yt3.ggpht.com                        → tracker  p=0.983   (channel avatars)
+#   assets.grok.com                      → tracker  p=0.982   (a site's own assets)
+#   external-content.duckduckgo.com      → tracker  p=0.992   (image proxy)
+# In enforce mode that is "YouTube does not play". Two learned shortcuts are
+# behind it, and model-v2 has to break both: "CDN-shaped subdomain = tracker"
+# and "machine-generated hostname = phishing". The benign side of the training
+# set is Tranco ROOT domains plus synthetic subdomains — it has never seen a
+# real media CDN, so the model has no reason to know better. Fix in the data:
+# harvest actual asset/media hostnames (googlevideo, ytimg, ggpht, fbcdn,
+# akamaized, cloudfront, and per-site assets.* / static.* / cdn.*) into benign.
+https://rr7---sn-0opoxu-j8we.googlevideo.com/videoplayback
+https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg
+https://yt3.ggpht.com/ytc/AIdro_channel-avatar
+https://assets.grok.com/static/app.js
+https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fexample.com%2Fimg.png

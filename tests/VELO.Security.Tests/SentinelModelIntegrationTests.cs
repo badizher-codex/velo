@@ -37,26 +37,42 @@ public class SentinelModelIntegrationTests(ITestOutputHelper output)
         "primevideo.com", "www.primevideo.com", "netflix.com", "youtube.com",
         "bbc.co.uk", "chase.com", "paypal.com", "www.paypal.com",
         "afip.gob.ar", "cdn.jsdelivr.net", "microsoft.com", "login.microsoftonline.com",
+        // Asset/media CDNs, added after the first shadow-mode session. Blocking
+        // any of these is indistinguishable from "the site is broken".
+        "rr7---sn-0opoxu-j8we.googlevideo.com", "i.ytimg.com", "yt3.ggpht.com",
+        "assets.grok.com", "external-content.duckduckgo.com",
     ];
 
     /// <summary>
     /// Hosts the CURRENT model gets wrong, kept visible instead of quietly
-    /// removed from the list above. Found by this test during S-C:
-    /// <c>cdn.jsdelivr.net</c> comes back "ad" at p=0.92 — from the host alone
-    /// a public asset CDN and an ad network are the same shape, and S-B's
-    /// never-block list contained no CDNs to catch it.
+    /// removed from the list above.
     ///
-    /// Mitigated in product two ways: it is in
-    /// <c>RequestGuard.TrustedHosts</c>, which returns before Sentinel is ever
-    /// consulted, and Sentinel ships in Shadow mode. Fixed properly by
-    /// model-v2 — the CDN entries are now in
+    /// <c>cdn.jsdelivr.net</c> came back "ad" at p=0.92 during S-C. The first
+    /// real shadow-mode session (2026-07-29) showed that was the small version
+    /// of the problem: YouTube's media and image CDNs come back tracker or
+    /// phishing at p=0.90-0.99, which in enforce mode reads as "YouTube does
+    /// not play". Two learned shortcuts are behind all of it — "CDN-shaped
+    /// subdomain = tracker" and "machine-generated hostname = phishing" — and
+    /// the benign side of the training set (Tranco root domains plus synthetic
+    /// subdomains) gave the model no reason to know better.
+    ///
+    /// Contained today by Shadow mode, which is exactly why S-E exists. Fixed
+    /// properly by model-v2: every host here is now in
     /// <c>training/sentinel/regression_never_block.txt</c>, so the Python gate
-    /// will refuse to publish a model that still misses them, and this set
-    /// goes back to empty.
+    /// refuses to publish a model that still misses them, and this set goes
+    /// back to empty.
+    ///
+    /// <b>Sentinel must not be switched to Enforce while this set is
+    /// non-empty.</b>
     /// </summary>
     private static readonly HashSet<string> KnownModelV1Misses = new(StringComparer.OrdinalIgnoreCase)
     {
         "cdn.jsdelivr.net",
+        "rr7---sn-0opoxu-j8we.googlevideo.com",
+        "i.ytimg.com",
+        "yt3.ggpht.com",
+        "assets.grok.com",
+        "external-content.duckduckgo.com",
     };
 
     [Fact]
@@ -130,8 +146,12 @@ public class SentinelModelIntegrationTests(ITestOutputHelper output)
 
         if (knownMissesStillFailing.Count > 0)
         {
+            // Only the generic script CDNs are in TrustedHosts; the media CDNs
+            // are held back by Shadow mode alone. Say which, so nobody reads
+            // this line as "handled".
             _output.WriteLine(
-                "known model-v1 misses, mitigated by RequestGuard.TrustedHosts + shadow mode: " +
+                "known model-v1 misses (Shadow mode is what keeps these from breaking pages — " +
+                "do NOT enable Enforce until model-v2 clears them): " +
                 string.Join(", ", knownMissesStillFailing));
         }
 

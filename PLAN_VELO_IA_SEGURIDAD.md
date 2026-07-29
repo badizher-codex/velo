@@ -66,7 +66,29 @@ DirectChatAdapter HTTP (LM Studio/Ollama/Claude/GPT/Grok)   ← se queda, deja d
 
 **Piso 2 (generativo 0.5–1.7B destilado para explicaciones) — DEFERIDO explícitamente.** No arrancar hasta que S-E esté verificado en campo. Las explicaciones estáticas de v2.4.63 (`WhyBlocked`) cubren la necesidad mientras tanto.
 
-### 5.1 Hallazgo de S-C: model-v1 confunde CDN de assets con red de anuncios
+### 5.0 ⛔ model-v1 NO se puede habilitar en enforce — hace falta model-v2
+
+**Verificación runtime de S-C, 2026-07-29.** El modelo carga y clasifica dentro de la app (`Sentinel loaded velo-sentinel v1 … from …\models\sentinel\v1`, modo Shadow). En **12 minutos de navegación normal** el shadow log dio esto:
+
+| Host | Veredicto | Qué es |
+|---|---|---|
+| `rr1..rr10---sn-0opoxu-j8we.googlevideo.com` | **phishing p=0.90–0.97** | los servidores de video de YouTube |
+| `i.ytimg.com` | tracker p=0.995 | miniaturas de YouTube |
+| `yt3.ggpht.com` | tracker p=0.983 | avatares de canal |
+| `assets.grok.com` | tracker p=0.982 | assets propios del sitio |
+| `external-content.duckduckgo.com` | tracker p=0.992 | proxy de imágenes de DDG |
+
+En enforce eso es **"YouTube no reproduce"**. Aciertos reales en la misma sesión: `cdn.cookielaw.org` (OneTrust), `improving.duckduckgo.com` (telemetría), `links.duckduckgo.com`.
+
+**Dos atajos aprendidos, los dos hay que romperlos en model-v2:**
+1. *subdominio con forma de CDN = tracker* — el lado benigno son dominios **raíz** de Tranco más subdominios sintéticos; el modelo nunca vio un CDN de medios real.
+2. *hostname generado por máquina = phishing* — `rr9---sn-0opoxu-j8we` es exactamente el patrón que dispara nuestra propia `LooksRandomGenerated`, y el modelo llegó a la misma conclusión equivocada.
+
+**El arreglo es de datos, no de threshold.** Subir τ no sirve: estos vienen con p≥0.98. `prepare_data.py` tiene que cosechar hostnames de assets/medios reales al set benigno (googlevideo, ytimg, ggpht, fbcdn, akamaized, cloudfront, y `assets.*` / `static.* `/ `cdn.*` por sitio). Todos están en `regression_never_block.txt`, así que el gate de Python frena un model-v2 que siga fallando.
+
+**Regla operativa: mientras `SentinelModelIntegrationTests.KnownModelV1Misses` no esté vacío, Sentinel no pasa a Enforce.**
+
+### 5.1 Hallazgo previo de S-C: model-v1 confunde CDN de assets con red de anuncios
 
 La primera corrida del clasificador contra hosts reales encontró un falso positivo que los gates de S-B no podían ver: **`cdn.jsdelivr.net` → `ad` con p=0.92** (o sea, BLOCK). Desde el host solo, un CDN público de scripts y una red de anuncios tienen la misma forma, y la lista `regression_never_block.txt` de S-B no tenía ni un CDN.
 
