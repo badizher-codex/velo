@@ -159,6 +159,10 @@ public static class DependencyConfig
         // MainWindow when the user opts in — Shadow until S-E has diffed a
         // release worth of verdicts against real field logs (lesson #30).
         services.AddSingleton<VELO.Security.Sentinel.SentinelClassifier>();
+        // S-D — model download channel. Nothing here runs unless the user
+        // clicks the button in Settings → AI (same privacy gate as
+        // updates.auto_check); the singleton just holds the HttpClient.
+        services.AddSingleton<VELO.Security.Sentinel.SentinelModelInstaller>();
         // v2.4.42 — DirectChatAdapter: stateless one-shot OpenAI-compat for internal
         // AI services. Replaces the WireAgentChat path that piled every classifier
         // call onto AgentLauncher's shared "__ai__" history bucket.

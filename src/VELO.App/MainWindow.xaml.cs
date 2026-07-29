@@ -1426,11 +1426,13 @@ public partial class MainWindow : Window
             settingsWin.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
             settingsWin.CtLogCheckChanged      += OnCtLogCheckChanged;
             settingsWin.SentinelEnforceChanged += OnSentinelEnforceChanged;
+            settingsWin.SentinelModelInstalled += OnSentinelModelInstalled;
             settingsWin.ShowDialog();
             settingsWin.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
             settingsWin.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
             settingsWin.CtLogCheckChanged      -= OnCtLogCheckChanged;
             settingsWin.SentinelEnforceChanged -= OnSentinelEnforceChanged;
+            settingsWin.SentinelModelInstalled -= OnSentinelModelInstalled;
             var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
             await bootstrapper.ConfigureAIAdapterAsync();
             await bootstrapper.ConfigureAgentAdaptersAsync();
@@ -2254,6 +2256,24 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>S-D — Settings finished downloading and verifying a model version.
+    /// Swap it into the live classifier so it takes effect without a restart —
+    /// before this, installing a model meant closing VELO.</summary>
+    private void OnSentinelModelInstalled(object? sender, int version)
+    {
+        try
+        {
+            var sentinel = _services.GetRequiredService<VELO.Security.Sentinel.SentinelClassifier>();
+            var loaded = sentinel.Reload();
+            Log.Information("Sentinel model v{Version} installed; reload {Result} — {Status}",
+                version, loaded ? "succeeded" : "failed", sentinel.Status);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Sentinel reload after install failed");
+        }
+    }
+
     /// <summary>S-C — Loads the model and applies the enforce opt-in at startup.
     /// Every failure path here ends in "Sentinel allows everything", which is
     /// the whole point: the browser must not depend on the model being there
@@ -2745,11 +2765,13 @@ public partial class MainWindow : Window
                     sw.CtLogCheckChanged      += OnCtLogCheckChanged;
                     sw.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
                     sw.SentinelEnforceChanged += OnSentinelEnforceChanged;
+                    sw.SentinelModelInstalled += OnSentinelModelInstalled;
                     sw.ShowDialog();
                     sw.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
                     sw.CtLogCheckChanged      -= OnCtLogCheckChanged;
                     sw.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
                     sw.SentinelEnforceChanged -= OnSentinelEnforceChanged;
+                    sw.SentinelModelInstalled -= OnSentinelModelInstalled;
                     var bs = _services.GetRequiredService<AppBootstrapper>();
                     await bs.ConfigureAIAdapterAsync();
                     await bs.ConfigureAgentAdaptersAsync();

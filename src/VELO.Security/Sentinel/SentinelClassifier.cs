@@ -221,6 +221,33 @@ public sealed class SentinelClassifier : IDisposable
     }
 
     /// <summary>
+    /// S-D — drops the current session and re-runs discovery, so a model
+    /// installed while VELO is running takes effect without a restart.
+    /// Returns whether a model is loaded afterwards.
+    ///
+    /// The cache is cleared too: verdicts from the old model are not the new
+    /// model's opinion, and keeping them would make the first minutes after an
+    /// upgrade a silent mix of both.
+    /// </summary>
+    public bool Reload()
+    {
+        lock (_stateLock)
+        {
+            _session?.Dispose();
+            _session = null;
+            _tokenizer = null;
+            _manifest = null;
+            _modelDirectory = null;
+            _loadAttempted = false;
+            _status = "not loaded";
+            _cache.Clear();
+        }
+
+        _logger.LogInformation("Sentinel reloading from {Root}", _modelRoot);
+        return EnsureLoaded();
+    }
+
+    /// <summary>
     /// Classifies <paramref name="hostOrUrl"/>, blocking on the inference
     /// (~10 ms with a loaded model). Call from async paths only — sync guards
     /// use <see cref="TryGetCachedVerdict"/> plus <see cref="Prefetch"/>.

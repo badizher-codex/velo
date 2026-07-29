@@ -530,6 +530,40 @@ public class WiringSmokeTests
     }
 
     [Fact]
+    public void Sentinel_download_channel_is_wired_end_to_end()
+    {
+        // S-D. The failure this guards against is the one the model download
+        // is most likely to hit: a button that downloads a model nothing ever
+        // loads, because the classifier's load is one-shot and nobody calls
+        // Reload(). Producer (the button) and consumer (the host reload) both
+        // asserted — lesson #21.
+
+        var srcRoot = LocateSrcRoot();
+
+        var depConfig = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "Startup", "DependencyConfig.cs"));
+        Assert.Contains("AddSingleton<VELO.Security.Sentinel.SentinelModelInstaller>", depConfig);
+
+        var settings = File.ReadAllText(Path.Combine(srcRoot, "VELO.UI", "Dialogs", "SettingsWindow.xaml.cs"));
+        Assert.Contains("SentinelModelInstaller",  settings);   // producer
+        Assert.Contains("InstallAsync(",           settings);
+        Assert.Contains("SentinelModelInstalled?.Invoke", settings);
+
+        var settingsXaml = File.ReadAllText(Path.Combine(srcRoot, "VELO.UI", "Dialogs", "SettingsWindow.xaml"));
+        Assert.Contains("OnSentinelDownloadClick", settingsXaml);
+
+        var mainWindow = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs"));
+        Assert.Contains("OnSentinelModelInstalled", mainWindow);  // consumer
+        Assert.Contains("sentinel.Reload()",        mainWindow);
+
+        // The installer must verify before installing — the whole reason the
+        // manifest publishes hashes.
+        var installer = File.ReadAllText(
+            Path.Combine(srcRoot, "VELO.Security", "Sentinel", "SentinelModelInstaller.cs"));
+        Assert.Contains("Sha256HexAsync",    installer);
+        Assert.Contains("IsSchemaSupported", installer);
+    }
+
+    [Fact]
     public void Sentinel_runs_behind_the_blocklist_and_ahead_of_SmartBlock()
     {
         // The position in the pipeline is a product decision, not an accident:

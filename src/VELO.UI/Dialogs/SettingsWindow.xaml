@@ -342,7 +342,14 @@
                                TextWrapping="Wrap" Margin="0,0,0,4"/>
                     <TextBlock x:Name="SentinelPath" Text=""
                                FontSize="10" Foreground="{StaticResource TextMutedBrush}"
-                               TextWrapping="Wrap" Margin="0,0,0,10"/>
+                               TextWrapping="Wrap" Margin="0,0,0,8"/>
+                    <!-- S-D — explicit, user-initiated download. Never automatic:
+                         same privacy gate as updates.auto_check. -->
+                    <Button x:Name="SentinelDownloadButton" Content="Descargar modelo"
+                            HorizontalAlignment="Left" Margin="0,0,0,4"
+                            Click="OnSentinelDownloadClick"/>
+                    <TextBlock x:Name="SentinelDownloadResult" Margin="0,4,0,10"
+                               FontSize="11" Visibility="Collapsed" TextWrapping="Wrap"/>
                     <CheckBox x:Name="SentinelEnforceCheck" Margin="0,0,0,4">
                         <StackPanel>
                             <TextBlock x:Name="SentinelEnforceTitle" Text="Aplicar los veredictos de Sentinel" FontWeight="SemiBold"/>

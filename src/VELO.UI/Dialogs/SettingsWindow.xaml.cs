@@ -45,6 +45,11 @@ public partial class SettingsWindow : Window
     /// enforce) without a restart.</summary>
     public event EventHandler<bool>? SentinelEnforceChanged;
 
+    /// <summary>S-D — Raised after a model version is downloaded and verified so
+    /// the host can call SentinelClassifier.Reload() and start using it without
+    /// a restart. Carries the installed version number.</summary>
+    public event EventHandler<int>? SentinelModelInstalled;
+
     public SettingsWindow(SettingsRepository settings, VaultService vault)
     {
         _settings = settings;
@@ -168,6 +173,7 @@ public partial class SettingsWindow : Window
         SentinelDesc.Text         = L.T("settings.sentinel.desc");
         SentinelEnforceTitle.Text = L.T("settings.sentinel.enforce");
         SentinelEnforceDesc.Text  = L.T("settings.sentinel.enforce.desc");
+        SentinelDownloadButton.Content = L.T("settings.sentinel.download");
         RefreshSentinelStatus();
 
         // Search panel
@@ -672,6 +678,71 @@ public partial class SettingsWindow : Window
 
         // Nothing to enforce without a model — leave the toggle readable but inert.
         SentinelEnforceCheck.IsEnabled = installed;
+    }
+
+    /// <summary>
+    /// S-D — user-initiated model download. Nothing here ever runs on its own:
+    /// the check only leaves the machine when this button is clicked, matching
+    /// the privacy gate on update checks.
+    /// </summary>
+    private async void OnSentinelDownloadClick(object sender, RoutedEventArgs e)
+    {
+        var L = LocalizationService.Current;
+        var installer = new VELO.Security.Sentinel.SentinelModelInstaller();
+
+        SentinelDownloadButton.IsEnabled = false;
+        ShowSentinelResult(null, L.T("settings.sentinel.checking"));
+
+        try
+        {
+            var available = await installer.CheckAsync();
+            if (available is null)
+            {
+                // Up to date, offline, or nothing published — all the same to
+                // the user, and none of them is an error worth alarming about.
+                ShowSentinelResult(true, L.T("settings.sentinel.uptodate"));
+                return;
+            }
+
+            var progress = new Progress<VELO.Security.Sentinel.SentinelModelInstaller.Progress>(p =>
+            {
+                var pct = p.Fraction > 0 ? $" {p.Fraction:P0}" : "";
+                ShowSentinelResult(null, $"{L.T("settings.sentinel.downloading")} v{available.Version}{pct}");
+            });
+
+            var result = await installer.InstallAsync(available, progress);
+            if (!result.Success)
+            {
+                ShowSentinelResult(false, $"{L.T("settings.sentinel.failed")} {result.Error}");
+                return;
+            }
+
+            ShowSentinelResult(true, string.Format(L.T("settings.sentinel.installed"), result.Version));
+            RefreshSentinelStatus();
+            // Let the host swap the live model in without a restart.
+            SentinelModelInstalled?.Invoke(this, result.Version);
+        }
+        catch (Exception ex)
+        {
+            ShowSentinelResult(false, $"{L.T("settings.sentinel.failed")} {ex.Message}");
+        }
+        finally
+        {
+            SentinelDownloadButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary><paramref name="ok"/> null = in progress (neutral colour).</summary>
+    private void ShowSentinelResult(bool? ok, string message)
+    {
+        SentinelDownloadResult.Text       = message;
+        SentinelDownloadResult.Visibility = Visibility.Visible;
+        SentinelDownloadResult.Foreground = ok switch
+        {
+            true  => new SolidColorBrush(Color.FromRgb(0x4A, 0xDE, 0x80)),
+            false => new SolidColorBrush(Color.FromRgb(0xF8, 0x71, 0x71)),
+            null  => (Brush)FindResource("TextSecondaryBrush"),
+        };
     }
 
     // ── Council Mode panel (Phase 4.0 chunk H) ───────────────────────────
