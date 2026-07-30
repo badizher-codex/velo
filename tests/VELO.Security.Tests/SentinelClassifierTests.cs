@@ -47,6 +47,42 @@ public class SentinelClassifierTests : IDisposable
         Assert.Equal("", SentinelClassifier.NormalizeHost("https://[2001:db8::1]:8443/x"));
     }
 
+    // ── Opaque shared infrastructure is never judged ─────────────────────
+
+    [Theory]
+    [InlineData("d35aaqx5ub95lt.cloudfront.net")]   // Duolingo's CDN
+    [InlineData("d123abc.cloudfront.net")]
+    [InlineData("mybucket.s3.us-east-1.amazonaws.com")]
+    [InlineData("something.azureedge.net")]
+    [InlineData("app.herokuapp.com")]
+    [InlineData("site.pages.dev")]
+    public void Opaque_shared_hosts_are_never_classified(string host)
+    {
+        // On these platforms every customer gets a generated subdomain, so an
+        // ad network's distribution and a language app's are the same string
+        // shape on the same root — the information is not in the hostname.
+        //
+        // Dropping them from TRAINING was not enough: a classifier always emits
+        // a distribution, so model-v3 replaced the consistently-wrong "ad" with
+        // an arbitrary "phishing p=0.966". Refusing to ask is the only answer
+        // that stays true. The exact blocklists hold the specific distributions.
+        Assert.True(SentinelClassifier.IsOpaqueSharedHost(host));
+
+        using var sentinel = new SentinelClassifier(modelRoot: Path.Combine(_tempRoot, "missing"));
+        var result = sentinel.Classify(host);
+
+        Assert.Equal(SentinelAction.Allow, result.Action);
+        Assert.Contains("opaque shared", result.Reason);
+    }
+
+    [Theory]
+    [InlineData("github.com")]
+    [InlineData("cdn.jsdelivr.net")]
+    [InlineData("i.ytimg.com")]
+    [InlineData("cart-mf.cinepolis.com")]
+    public void Ordinary_hosts_are_still_classified(string host)
+        => Assert.False(SentinelClassifier.IsOpaqueSharedHost(host));
+
     // ── The two-level decision rule (must match evaluate.py's decide()) ───
 
     [Fact]

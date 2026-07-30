@@ -98,6 +98,49 @@ public sealed class SentinelClassifier : IDisposable
     // ── Public API ────────────────────────────────────────────────────────
 
     /// <summary>
+    /// Shared infrastructure where the hostname cannot carry the decision, so
+    /// the classifier is never asked about it.
+    ///
+    /// On these platforms every customer gets an opaque generated subdomain:
+    /// d35aaqx5ub95lt.cloudfront.net is Duolingo's and d123abc.cloudfront.net
+    /// could be an ad network's, and the two are the same string shape on the
+    /// same root. The information needed to tell them apart is not present in
+    /// what the model is given.
+    ///
+    /// Dropping them from training was not enough — a classifier always emits a
+    /// distribution, so removing the data replaced a consistently-wrong answer
+    /// ("ad", learned from EasyList's thousands of per-customer rules) with an
+    /// arbitrary one: model-v3 round 3 called a CloudFront host phishing at
+    /// p=0.966. Refusing to ask is the only answer that stays true.
+    ///
+    /// The exact blocklists keep owning these — they hold the specific
+    /// distributions, which is exactly the information the model lacks.
+    /// </summary>
+    private static readonly HashSet<string> OpaqueSharedHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cloudfront.net", "amazonaws.com", "azureedge.net", "azurefd.net",
+        "b-cdn.net", "kxcdn.com", "cdn77.org", "stackpathdns.com",
+        "akamaized.net", "akamaihd.net", "edgecastcdn.net", "llnwd.net",
+        "cachefly.net", "digitaloceanspaces.com", "backblazeb2.com",
+        "herokuapp.com", "appspot.com", "cloudfunctions.net",
+        "workers.dev", "pages.dev", "netlify.app", "vercel.app",
+        "web.app", "firebaseapp.com", "trafficmanager.net",
+    };
+
+    /// <summary>True when the host lives on shared infrastructure whose
+    /// per-customer names are opaque — see <see cref="OpaqueSharedHosts"/>.</summary>
+    internal static bool IsOpaqueSharedHost(string host)
+    {
+        var parts = host.Split('.');
+        for (var i = 0; i < parts.Length - 1; i++)
+        {
+            if (OpaqueSharedHosts.Contains(string.Join('.', parts[i..])))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Describes the model installed on disk WITHOUT loading it — reading the
     /// manifest costs a kilobyte, building the ONNX session costs 67 MB and
     /// ~130 ms, and a settings dialog has no business paying that. Returns a
@@ -259,6 +302,10 @@ public sealed class SentinelClassifier : IDisposable
         var host = NormalizeHost(hostOrUrl);
         if (host.Length == 0)
             return SentinelResult.Unavailable with { Reason = "empty host" };
+
+        // Never ask a question the model provably cannot answer.
+        if (IsOpaqueSharedHost(host))
+            return SentinelResult.Unavailable with { Reason = "opaque shared-infrastructure host" };
 
         var cached = TryGetCachedVerdict(host);
         if (cached is not null) return cached;
