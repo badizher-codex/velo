@@ -288,6 +288,53 @@ public class RequestGuardTests
         Assert.Equal(VerdictType.Safe, verdict.Verdict);
     }
 
+    // ── v2.4.69 — Sentinel is scoped like SmartBlock (first shadow session) ──
+
+    [Fact]
+    public void Evaluate_NeverAppliesSentinelToFirstPartyRequests()
+    {
+        // The failure this exists for: 75 hosts from one real browsing session
+        // and the model wanted to block cart-mf.cinepolis.com, myaccount.ea.com,
+        // stories.duolingo.com — a site's own app subdomains while the user was
+        // on that site. A site is never its own tracker.
+        using var sentinel = SentinelWith(Blocked(SentinelLabel.Tracker), "cart-mf.cinepolis.com", SentinelMode.Enforce);
+        var guard = Build(sentinel: sentinel);
+
+        var verdict = guard.Evaluate(
+            "https://cart-mf.cinepolis.com/api/cart",
+            "https://www.cinepolis.com/compra",
+            "XmlHttpRequest");
+
+        Assert.Equal(VerdictType.Safe, verdict.Verdict);
+    }
+
+    [Fact]
+    public void Evaluate_AppliesSentinelToThirdPartySubresources()
+    {
+        using var sentinel = SentinelWith(Blocked(SentinelLabel.Tracker), "metrics.tracker.net", SentinelMode.Enforce);
+        var guard = Build(sentinel: sentinel);
+
+        var verdict = guard.Evaluate("https://metrics.tracker.net/t.js", "https://news.example/", "Script");
+
+        Assert.Equal(VerdictType.Block, verdict.Verdict);
+        Assert.Equal("SENTINEL", verdict.Source);
+    }
+
+    [Fact]
+    public void Evaluate_MainFrameNavigationOnlyBlocksOnPhishing()
+    {
+        // Navigating TO a tracker or ad domain is the user deciding to go
+        // there. Phishing is the one label that justifies cancelling a
+        // top-level navigation — and it is the reason Sentinel exists.
+        using var tracker = SentinelWith(Blocked(SentinelLabel.Tracker), "analytics.example", SentinelMode.Enforce);
+        Assert.Equal(VerdictType.Safe,
+            Build(sentinel: tracker).Evaluate("https://analytics.example/", "https://www.google.com/", "Document").Verdict);
+
+        using var phishing = SentinelWith(Blocked(SentinelLabel.Phishing), "paypa1-verify.top", SentinelMode.Enforce);
+        Assert.Equal(VerdictType.Block,
+            Build(sentinel: phishing).Evaluate("https://paypa1-verify.top/", "https://mail.google.com/", "Document").Verdict);
+    }
+
     [Fact]
     public void Evaluate_WithoutASentinelBehavesExactlyAsBefore()
     {

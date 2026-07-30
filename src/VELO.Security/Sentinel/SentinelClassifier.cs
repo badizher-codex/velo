@@ -59,6 +59,7 @@ public sealed class SentinelClassifier : IDisposable
     private readonly object _inferenceLock = new();
     private readonly Dictionary<string, (SentinelResult R, DateTime At)> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _prefetching = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _pendingContext = new(StringComparer.OrdinalIgnoreCase);
 
     private InferenceSession?   _session;
     private WordPieceTokenizer? _tokenizer;
@@ -283,11 +284,14 @@ public sealed class SentinelClassifier : IDisposable
         // record the maintainer diffs against real field blocks.
         if (result.Action != SentinelAction.Allow)
         {
+            string context;
+            lock (_stateLock) { _pendingContext.TryGetValue(host, out context!); }
+
             _logger.LogInformation(
-                "Sentinel {Mode} {Action} {Host} → {Label} p={Confidence:0.###} (τ={Threshold:0.##})",
+                "Sentinel {Mode} {Action} {Host} → {Label} p={Confidence:0.###} (τ={Threshold:0.##}) [{Context}]",
                 Mode == SentinelMode.Shadow ? "SHADOW" : "ENFORCE",
                 result.Action, host, result.Label, result.Confidence,
-                _manifest?.BlockThreshold ?? 0);
+                _manifest?.BlockThreshold ?? 0, context ?? "direct");
         }
 
         return result;
@@ -319,7 +323,14 @@ public sealed class SentinelClassifier : IDisposable
     /// no verdict for. Deduplicated per host so a page pulling 30 assets off
     /// one CDN queues one inference, not 30. Returns immediately.
     /// </summary>
-    public void Prefetch(string? hostOrUrl)
+    /// <param name="context">
+    /// Optional description of the request that triggered this — "third-party
+    /// Script", "main-frame Document". It rides along into the one-time verdict
+    /// log so the shadow record is self-describing: without it, S-E cannot tell
+    /// a third-party beacon from a top-level navigation when reading the field
+    /// logs weeks later.
+    /// </param>
+    public void Prefetch(string? hostOrUrl, string? context = null)
     {
         var host = NormalizeHost(hostOrUrl);
         if (host.Length == 0) return;
@@ -329,13 +340,21 @@ public sealed class SentinelClassifier : IDisposable
             if (_loadAttempted && _session is null) return;   // no model — don't queue work forever
             if (_cache.ContainsKey(host)) return;
             if (!_prefetching.Add(host)) return;
+            if (context is not null) _pendingContext[host] = context;
         }
 
         _ = Task.Run(() =>
         {
             try { Classify(host); }
             catch { /* Classify already fail-softs; this is belt-and-braces */ }
-            finally { lock (_stateLock) { _prefetching.Remove(host); } }
+            finally
+            {
+                lock (_stateLock)
+                {
+                    _prefetching.Remove(host);
+                    _pendingContext.Remove(host);
+                }
+            }
         });
     }
 

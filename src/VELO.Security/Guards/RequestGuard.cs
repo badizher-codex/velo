@@ -176,27 +176,42 @@ public class RequestGuard(
         if (_blocklist.IsBlocked(host))
             return SecurityVerdict.Block("Dominio en blocklist de rastreadores conocidos", ThreatType.KnownTracker, "BLOCKLIST");
 
-        // 2b (S-C). VELO Sentinel — the embedded classifier, for the tail the
-        //           exact lists never saw (fresh lookalikes, zero-day phishing).
-        //           Deliberately AFTER the blocklist: an exact match is cheaper
-        //           and cannot be wrong, so it wins. Deliberately BEFORE the
-        //           heuristics and SmartBlock: this is the offline always-on
-        //           path, the HTTP one stays opt-in.
+        // 2b (S-C, scoped in v2.4.69). VELO Sentinel — the embedded classifier,
+        //     for the tail the exact lists never saw (fresh lookalikes, zero-day
+        //     phishing). AFTER the blocklist: an exact match is cheaper and
+        //     cannot be wrong, so it wins. BEFORE the heuristics and SmartBlock:
+        //     this is the offline always-on path, the HTTP one stays opt-in.
         //
-        //           Only Block-level verdicts (p ≥ the manifest threshold) reach
-        //           here, and only in Enforce mode. In Shadow — the default until
-        //           S-E has compared a release worth of verdicts against the real
-        //           field logs — the classifier records what it would have done
-        //           and this returns nothing.
-        if (_sentinel is not null)
+        //     The scope below came out of the first real shadow session. 75
+        //     hosts from ordinary browsing, and the model wanted to block
+        //     cart-mf.cinepolis.com, myaccount.ea.com, stories.duolingo.com,
+        //     merchantpool1.linkedin.com — a site's own app subdomains, while
+        //     the user was on that site. A site is never its own tracker; the
+        //     same conclusion v2.4.62 P2-A reached for SmartBlock, which this
+        //     rule should have inherited from the start and did not.
+        //
+        //     Main-frame is scoped differently rather than skipped. Sentinel
+        //     exists for zero-day phishing, and that arrives as a top-level
+        //     navigation — but AISecurityEngine (the other Sentinel call-site)
+        //     is only reached when RequestGuard already raised NeedsAI, i.e.
+        //     when a heuristic fired, which is exactly the tail Sentinel is
+        //     supposed to cover on its own. So main-frame keeps the classifier,
+        //     restricted to Phishing: navigating TO a tracker or ad domain is
+        //     the user deciding to go there, not a threat to cancel.
+        if (_sentinel is not null && !isFirstParty)
         {
             var sentinelVerdict = _sentinel.TryGetCachedVerdict(host);
             if (sentinelVerdict is null)
             {
-                _sentinel.Prefetch(host);
+                // Context travels into the one-time verdict log so the shadow
+                // record says what kind of request produced it — without it the
+                // log cannot distinguish a third-party beacon from a main-frame
+                // navigation, and S-E has to guess.
+                _sentinel.Prefetch(host, isMainFrame ? $"main-frame {resourceType}" : $"third-party {resourceType}");
             }
             else if (sentinelVerdict.Action == SentinelAction.Block &&
-                     _sentinel.Mode == SentinelMode.Enforce)
+                     _sentinel.Mode == SentinelMode.Enforce &&
+                     (!isMainFrame || sentinelVerdict.Label == SentinelLabel.Phishing))
             {
                 return SecurityVerdict.Block(sentinelVerdict.Reason, ToThreatType(sentinelVerdict.Label), "SENTINEL");
             }
