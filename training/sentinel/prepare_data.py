@@ -53,6 +53,28 @@ both measured rather than guessed:
 Round 2 also added the labels the first pass still missed: `code`
 (code.jquery.com → tracker p=0.88) and hyphenated multi-word asset hosts
 (external-content.duckduckgo.com → tracker p=0.9995).
+
+model-v3 (2026-07-30) — replaying 75 hosts from a REAL shadow session through
+model-v2 left 53 still blocked: cart-mf.cinepolis.com, myaccount.ea.com,
+pin-river.data.ea.com, merchantpool1.linkedin.com, *.fastly.steamstatic.com,
+*.w.hcaptcha.com, use.typekit.net, and checkout.steampowered.com actually got
+WORSE than v1 (phishing 0.765 → 0.902, crossing the block threshold). Adding
+more hand-written vocabulary was never going to fix it, because the problem is
+the vocabulary itself.
+
+Measured, not guessed: 7,465 real hostnames from Certificate Transparency
+carry 6,232 distinct labels — 5,230 appearing exactly once, 71% hyphenated,
+47% with a digit, median length 12. The curated lists in this file are ~90
+short dictionary words, almost none hyphenated or numeric. Meanwhile the
+tracker/ad side has always been REAL EasyList domains. So the label alone
+separated the classes, and no amount of `cdn`/`static`/`assets` additions
+could close a gap that wide.
+
+model-v3 draws labels from the real distribution (harvest_ct.py → REAL_LABELS)
+for benign and tracker/ad alike, and nests two levels a quarter of the time
+because real hosts do. Note the harvest's own bias is an asset here: it is
+dominated by internal/staging infrastructure a browser never requests, which
+is useless as hostnames and ideal as label shapes.
 """
 import io
 import os
@@ -166,18 +188,65 @@ def shard_label() -> str:
     return f"{base}{random.randint(1, 99)}"
 
 
+# model-v3 — the real subdomain-label vocabulary, harvested from Certificate
+# Transparency by harvest_ct.py.
+#
+# This replaces guessing. Measured on the first harvest: 7,465 real hostnames
+# yielded 6,232 distinct labels, 5,230 of them appearing exactly once, 71% with
+# a hyphen and 47% with a digit, median length 12. The hand-written vocabulary
+# below it is ~90 short dictionary words, almost none hyphenated or numeric.
+# That gap IS the bug model-v2 could not shake: the tracker/ad side is real
+# EasyList domains, so the label alone separated the classes and the model
+# learned "a label I recognise means benign, anything else means tracker" —
+# which is why it blocked cart-mf.cinepolis.com, pin-river.data.ea.com and
+# merchantpool1.linkedin.com at p>0.99.
+#
+# Only the LABELS are used, never the hostnames. The harvest is dominated by
+# internal/staging infrastructure (corp., stg., crew-backend.) that a browser
+# never requests — useless as hostnames, ideal as label shapes, because they
+# are exactly the weird-but-benign labels the synthetic generator could not
+# produce. Labels are drawn by frequency, so www/api/cdn stay common and the
+# long tail still shows up.
+CT_HOSTS_FILE = "data/ct_hosts.txt"
+
+
+def load_real_labels() -> list[str]:
+    """Flat list of labels (repeats kept, so sampling follows the real
+    frequency distribution). Empty when the harvest hasn't run — the generator
+    then falls back to the curated vocabulary alone."""
+    if not os.path.exists(CT_HOSTS_FILE):
+        return []
+    out = []
+    for line in open(CT_HOSTS_FILE, encoding="utf-8"):
+        parts = line.strip().split(".")
+        for label in parts[:-2]:
+            if label and len(label) <= 40:
+                out.append(label)
+    return out
+
+
+REAL_LABELS = load_real_labels()
+print(f"vocabulario real: {len(REAL_LABELS)} etiquetas ({len(set(REAL_LABELS))} distintas)"
+      if REAL_LABELS else "sin data/ct_hosts.txt — usando solo el vocabulario curado")
+
+
 def random_sub() -> str:
-    """One subdomain label, from the full mix of shapes real hosts use."""
+    """One subdomain label, from the mix of shapes real hosts actually use."""
     roll = random.random()
-    if roll < 0.45:
+    # The curated lists stay in the mix: they carry the labels that matter most
+    # (www/api/cdn/static) at a rate the CT harvest under-represents, since CT
+    # is skewed toward internal infrastructure.
+    if roll < 0.25:
         return random.choice(SUBDOMAINS)
-    if roll < 0.70:
+    if roll < 0.40:
         return random.choice(WORDS)
-    if roll < 0.88:
-        return random.choice(CDN_SUBDOMAINS)   # model-v2: benign CDNs exist
-    if roll < 0.96:
+    if roll < 0.55:
+        return random.choice(CDN_SUBDOMAINS)
+    if roll < 0.62:
         return shard_label()
-    return machine_label()                      # model-v2: benign randomness exists
+    if REAL_LABELS:
+        return random.choice(REAL_LABELS)       # model-v3: real label shapes
+    return machine_label()
 
 
 def shaped_hosts(domain: str, n: int = 2) -> list[str]:
@@ -193,6 +262,11 @@ def shaped_hosts(domain: str, n: int = 2) -> list[str]:
     hosts = [domain, f"www.{domain}"]
     for _ in range(n):
         hosts.append(f"{random_sub()}.{domain}")
+    # model-v3 — real hosts nest: p1-st-iad-ss-user-targeting.linkedin.com sits
+    # beside orc3191.corpinternal.corp.linkedin.com. Two levels appeared in
+    # every harvested domain and never once in the synthetic generator.
+    if random.random() < 0.25:
+        hosts.append(f"{random_sub()}.{random_sub()}.{domain}")
     return list(dict.fromkeys(hosts))
 
 
@@ -275,6 +349,14 @@ def cdn_hosts(domain: str) -> list[str]:
     for _ in range(3):
         hosts.append(f"{machine_label()}.{domain}")
 
+    # model-v3 — the CDN provider as a MIDDLE label: cdn.fastly.steamstatic.com,
+    # video.akamai.steamstatic.com. An extremely common convention that the
+    # generator never produced, and the reason Steam's whole asset CDN was still
+    # coming back tracker at p>0.99 after the vocabulary fix.
+    for provider in ("fastly", "akamai", "cloudfront", "edge", "cdn"):
+        for _ in range(2):
+            hosts.append(f"{random.choice(CDN_SUBDOMAINS)}.{provider}.{domain}")
+
     return list(dict.fromkeys(hosts))
 
 
@@ -301,6 +383,70 @@ def root_domain(host: str) -> str:
     return ".".join(host.split(".")[-2:]) if host else ""
 
 
+# model-v3 — shared infrastructure the model CANNOT judge, at any label.
+#
+# Measured: cloudfront.net had 5,319 rows in the v3 validation dataset — 4,731
+# ad, 561 tracker, 27 benign — because EasyList lists thousands of individual
+# customer distributions (d123abc.cloudfront.net) as ad rules. The model duly
+# learned "*.cloudfront.net is an ad" at 175:1, and then blocked Duolingo's
+# d35aaqx5ub95lt.cloudfront.net at p=0.954.
+#
+# There is no amount of data that fixes this. On these CDNs every customer gets
+# an opaque generated subdomain, so an ad network's distribution and a
+# language app's are the same string shape on the same root: the information
+# needed to tell them apart is not in the hostname. Training on either label
+# teaches a rule that must be wrong half the time.
+#
+# So they are dropped from training entirely — no benign rows, no tracker/ad
+# rows. The model then has no opinion, lands below the block threshold and
+# allows, and the exact blocklists (which hold the specific distributions) keep
+# owning them. Same reasoning as the `contextual` exclusion above: absent is
+# the honest answer when the host cannot carry the decision.
+SHARED_INFRA = {
+    "cloudfront.net", "amazonaws.com", "azureedge.net", "azurefd.net",
+    "b-cdn.net", "kxcdn.com", "cdn77.org", "stackpathdns.com",
+    "akamaized.net", "akamaihd.net", "akamai.net", "edgecastcdn.net",
+    "fastly.net", "fastlylb.net", "llnwd.net", "cachefly.net",
+    "digitaloceanspaces.com", "backblazeb2.com", "herokuapp.com",
+    "appspot.com", "cloudfunctions.net", "workers.dev", "pages.dev",
+    "netlify.app", "vercel.app", "web.app", "firebaseapp.com",
+    "githubusercontent.com", "blob.core.windows.net", "trafficmanager.net",
+}
+
+
+def is_shared_infra(host: str) -> bool:
+    parts = host.split(".")
+    for i in range(len(parts) - 1):
+        if ".".join(parts[i:]) in SHARED_INFRA:
+            return True
+    return False
+
+
+# model-v3 — access-critical third parties, forced benign.
+#
+# EasyPrivacy lists hCaptcha, and it is not wrong to: bot-protection works by
+# fingerprinting. But blocking a CAPTCHA does not degrade a page the way
+# blocking an analytics beacon does — it locks the user out of their own
+# account, with no error a person could connect to a security setting. A
+# browser that cannot log you in is not protecting you.
+#
+# This is a product judgement, not a data-quality fix, and it is deliberately a
+# short list: bot-protection and CAPTCHA only. Anything whose absence merely
+# costs the site some telemetry does not belong here.
+FUNCTIONAL_EXEMPT = {
+    "hcaptcha.com", "recaptcha.net", "arkoselabs.com", "funcaptcha.com",
+    "geetest.com", "friendlycaptcha.com", "turnstile.com",
+}
+
+
+def is_functional(host: str) -> bool:
+    parts = host.split(".")
+    for i in range(len(parts) - 1):
+        if ".".join(parts[i:]) in FUNCTIONAL_EXEMPT:
+            return True
+    return False
+
+
 rows: list[tuple[str, int]] = []
 
 # ── trackers / ads first: their domain sets also filter the benign pool ─
@@ -319,10 +465,18 @@ print(f"  labeled tracker {len(tracker_domains)} / ad {len(ad_domains)}; "
 # shaped_hosts). Before this they only ever appeared as `d` and `www.d`, so
 # once the benign side gained cdn./static./random. subdomains the shape would
 # have become a giveaway in the other direction.
-for d in tracker_domains:
-    rows += [(h, 2) for h in shaped_hosts(d)]
-for d in ad_domains:
-    rows += [(h, 3) for h in shaped_hosts(d)]
+skipped_infra = skipped_functional = 0
+for domain_list, label in ((tracker_domains, 2), (ad_domains, 3)):
+    for d in domain_list:
+        if is_shared_infra(d):
+            skipped_infra += 1
+            continue
+        if is_functional(d):
+            skipped_functional += 1
+            continue
+        rows += [(h, label) for h in shaped_hosts(d)]
+print(f"  {skipped_infra} reglas descartadas por infra compartida, "
+      f"{skipped_functional} por ser acceso-criticas (CAPTCHA/bot-protection)")
 
 # ── benign: Tranco top-100k minus unconditionally-blocked domains ───────
 print("tranco…")
@@ -343,6 +497,9 @@ for rank, d in zip(tranco["rank"], tranco["domain"]):
     if d in contextual and rank > 1000:
         skipped_contextual += 1
         continue
+    # model-v3 — shared infra gets no benign rows either (see SHARED_INFRA).
+    if is_shared_infra(d):
+        continue
     target = benign_top if rank <= 10_000 else rows
     target += [(h, 0) for h in benign_hosts(d)]
     # model-v2 — first-party asset hosts for the top of the list. Every site
@@ -361,9 +518,22 @@ cdn_conflicts = [d for d in CDN_DOMAINS if d in blocked]
 if cdn_conflicts:
     print(f"  CDN domains skipped (unconditionally blocked by the lists): {cdn_conflicts}")
 for d in CDN_DOMAINS:
-    if d in blocked:
+    # model-v3 — a shared-infra CDN gets no benign rows either. Injecting them
+    # would just move the 175:1 imbalance to the other side; the point is that
+    # the model must have NO opinion about these roots.
+    if d in blocked or is_shared_infra(d):
         continue
     benign_top += [(h, 0) for h in cdn_hosts(d)]
+
+# The access-critical providers are taught as benign rather than merely
+# dropped: the model should be confident about them, not undecided. Exempt from
+# the cap for the same reason Tranco's top-10k is — being sampled out is how a
+# CAPTCHA provider quietly becomes blockable again.
+for d in FUNCTIONAL_EXEMPT:
+    benign_top += [(h, 0) for h in shaped_hosts(d, n=4)]
+    benign_top += [(f"{sub}.{d}", 0)
+                   for sub in ("js", "api", "assets", "newassets", "challenges", "cdn", "hcaptcha")]
+    benign_top += [(f"{machine_label(8, 12)}.w.{d}", 0) for _ in range(6)]
 print(f"  benign_top after CDN injection: {len(benign_top)} hosts")
 print(f"  Tranco domains dropped as contextually blocked: {skipped_contextual}")
 
@@ -406,8 +576,18 @@ df = df[~df["url"].str.match(r"^\d+\.\d+\.\d+\.\d+$")]
 # Benign gets a higher cap: over-representing it biases residual confusion
 # away from benign false positives, which is the gate that matters most.
 # benign_top (Tranco ≤10k) bypasses sampling entirely.
+#
+# model-v3 — the tracker/ad caps are now tied to how much phishing the feeds
+# actually gave us. Raising them to 220k in v2 round 2 (to stop the cap eating
+# tracker DOMAINS) pushed phishing down to 4.1% of the dataset, and the
+# must-catch gate failed for the first time: paypal-secure-verification.net
+# stopped being recognised. The feeds decide how much phishing exists, so they
+# have to decide the ceiling for everything else.
 top_df = pd.DataFrame(benign_top, columns=["url", "label"]).drop_duplicates("url")
-caps = {0: 200_000, 1: PER_CLASS_CAP, 2: PER_CLASS_CAP, 3: PER_CLASS_CAP}
+phishing_rows = int((df["label"] == 1).sum())
+class_cap = min(PER_CLASS_CAP, max(60_000, phishing_rows * 5))
+print(f"  phishing disponible: {phishing_rows} → cap por clase {class_cap}")
+caps = {0: max(200_000, class_cap), 1: PER_CLASS_CAP, 2: class_cap, 3: class_cap}
 parts = [g.sample(min(len(g), caps[label]), random_state=42) for label, g in df.groupby("label")]
 # top_df first: on a host collision (e.g. a phishing feed entry on a
 # rank-1001..10k domain) the benign label wins for top sites.
