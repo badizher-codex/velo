@@ -270,8 +270,8 @@ def shaped_hosts(domain: str, n: int = 2) -> list[str]:
     return list(dict.fromkeys(hosts))
 
 
-def benign_hosts(domain: str) -> list[str]:
-    return shaped_hosts(domain)
+def benign_hosts(domain: str, n: int = 2) -> list[str]:
+    return shaped_hosts(domain, n)
 
 
 # model-v2 lesson 2 — real asset/media CDNs, with the host shapes they
@@ -300,7 +300,7 @@ CDN_DOMAINS = [
     "cloudinary.com", "imgix.net", "typekit.net",
     # Media / streaming
     "vimeocdn.com", "jwpcdn.com", "brightcove.com", "mzstatic.com",
-    "nflxvideo.net", "nflximg.net", "scdn.co", "sndcdn.com",
+    "nflxvideo.net", "nflximg.net", "nflxso.net", "scdn.co", "sndcdn.com",
     "steamstatic.com", "imgur.com", "giphy.com",
 ]
 
@@ -339,6 +339,25 @@ def cdn_hosts(domain: str) -> list[str]:
             hosts.append(f"{machine_label(6, 12)}.s3.{region}.{domain}")
     elif domain in ("b-cdn.net", "kxcdn.com", "cdn77.org", "stackpathdns.com"):
         hosts += [f"{machine_label(6, 10)}.{domain}" for _ in range(5)]
+    elif domain == "nflxvideo.net":
+        # Netflix Open Connect appliances live INSIDE the ISP and put the ISP's
+        # name in the hostname: ipv4-c011-cvj001-telmex-isp.1.oca.nflxvideo.net.
+        # model-v3 called these trackers at p=0.999 — they are the servers that
+        # stream the video, so that verdict is "Netflix does not play".
+        for _ in range(10):
+            isp = random.choice(["telmex", "totalplay", "izzi", "comcast", "vodafone",
+                                 "movistar", "claro", "telefonica", "orange", "att"])
+            hosts.append(f"ipv{random.choice(['4', '6'])}-c{random.randint(1, 300):03d}-"
+                         f"{machine_label(3, 4)}{random.randint(1, 999):03d}-{isp}-isp."
+                         f"{random.randint(1, 4)}.oca.{domain}")
+    elif domain == "nflxso.net":
+        # Netflix's image/asset shard: occ-0-8407-2218.1.nflxso.net
+        for _ in range(10):
+            hosts.append(f"occ-{random.randint(0, 9)}-{random.randint(100, 9999)}-"
+                         f"{random.randint(30, 9999)}.{random.randint(1, 3)}.{domain}")
+        hosts.append(f"occ.a.{domain}")
+        hosts += [f"{machine_label(18, 22)}-us-west-{random.randint(1, 2)}.r.{domain}"
+                  for _ in range(4)]
 
     # Every CDN also gets the ordinary shapes, so the domain itself is what
     # carries the benign signal rather than any one pattern.
@@ -501,13 +520,22 @@ for rank, d in zip(tranco["rank"], tranco["domain"]):
     if is_shared_infra(d):
         continue
     target = benign_top if rank <= 10_000 else rows
-    target += [(h, 0) for h in benign_hosts(d)]
+    # model-v3 round 2 — depth per domain, not just breadth across domains.
+    #
+    # Measured on the field gate: every failure sat on a domain with almost no
+    # representation — ea.com had SEVEN rows, pv-cdn.net eight, commercetools
+    # four. A real site has dozens of subdomains; four synthetic ones teach the
+    # model the domain exists but nothing about the shape of its host space, so
+    # an unfamiliar label like pin-river.data.ea.com falls back on the prior —
+    # and the prior is "tracker", because the tracker side is ~45k domains of
+    # unfamiliar-looking names.
+    target += [(h, 0) for h in benign_hosts(d, n=12 if rank <= 20_000 else 3)]
     # model-v2 — first-party asset hosts for the top of the list. Every site
     # of that size serves its own assets from somewhere, and model-v1 called
     # assets.grok.com a tracker at p=0.982.
     if rank <= 20_000:
         target += [(f"{sub}.{d}", 0)
-                   for sub in random.sample(FIRST_PARTY_ASSET_SUBS, 3)]
+                   for sub in random.sample(FIRST_PARTY_ASSET_SUBS, 6)]
 
 # model-v2 — the asset/media CDNs themselves, exempt from the class cap for
 # the same reason Tranco's top-10k is: these are precisely the hosts whose
