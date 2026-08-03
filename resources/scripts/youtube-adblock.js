@@ -45,6 +45,32 @@
     // ── 1. Response pruning ───────────────────────────────────────────
     // Every hook is fail-soft: a throw returns the original object so a
     // pruning bug degrades to "ads show" — never to "video breaks".
+    //
+    // v0.3 (v2.4.69) — layer 1 rebuilt after a field bisect on 2026-08-03.
+    //
+    // v0.2's version of this layer stopped video playback outright (no start,
+    // page unclickable) on both a regular video and a livestream replay, and
+    // playback was fine the instant the script was absent. Disabling layer 1
+    // alone restored it in one test, so the fault was here — but the bisect
+    // only proved the layer, never which of its three hooks. Rather than guess,
+    // v0.3 keeps the two hooks that can be written without side effects on
+    // shared state and drops the one that cannot:
+    //
+    //   1a. ytInitialPlayerResponse property trap — KEPT. Touches one window
+    //       property that only YouTube writes.
+    //   1b. Global JSON.parse override — DROPPED. It hijacked a language
+    //       builtin for every script on the page to catch SPA navigations;
+    //       1c covers the same payloads at the network boundary, and no
+    //       cosmetic feature justifies that blast radius.
+    //   1c. fetch hook — KEPT, rewritten. v0.2 built a NEW Response around the
+    //       re-serialised body while copying the original headers, so
+    //       content-length and content-encoding described bytes that no longer
+    //       existed. It now wraps .json() on the response instance instead, so
+    //       the response object and its headers are never replaced.
+    //
+    // Trade-off accepted: a caller that reads the player payload with .text()
+    // and parses it itself now bypasses pruning. The skip layer is the
+    // fallback there, exactly as it is for server-stitched ads.
     const AD_KEYS = ['adPlacements', 'adSlots', 'playerAds', 'adBreakHeartbeatParams'];
     const prune = (obj) => {
         try {
@@ -68,13 +94,8 @@
         });
     } catch (_) { /* fail-soft */ }
 
-    // 1b. SPA navigations that JSON.parse the next watch-page payload.
-    try {
-        const nativeParse = JSON.parse.bind(JSON);
-        JSON.parse = function (text, reviver) {
-            return prune(nativeParse(text, reviver));
-        };
-    } catch (_) { /* fail-soft */ }
+    // 1b. Dropped in v0.3 — see the note above. The global JSON.parse override
+    // lived here.
 
     // 1c. Innertube player calls — Response.json() is native and never
     // touches the page's JSON.parse, so the fetch boundary needs its own
@@ -87,14 +108,16 @@
             try {
                 const url = typeof input === 'string' ? input : (input && input.url) || '';
                 if (url.includes('/youtubei/v1/player')) {
-                    const data = prune(await response.clone().json());
-                    return new Response(JSON.stringify(data), {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: response.headers,
-                    });
+                    // Wrap .json() on the instance. The response object, its
+                    // body stream and its headers all stay exactly as the
+                    // network delivered them — v0.2 returned a NEW Response
+                    // carrying the original content-length and
+                    // content-encoding over a body that had been re-serialised
+                    // to a different size.
+                    const nativeJson = response.json.bind(response);
+                    response.json = async () => prune(await nativeJson());
                 }
-            } catch (_) { /* fail-soft: fall through to original response */ }
+            } catch (_) { /* fail-soft: caller keeps the untouched response */ }
             return response;
         };
     } catch (_) { /* fail-soft */ }
@@ -206,10 +229,67 @@
     const killEnforcement = () => {
         const modals = document.querySelectorAll('ytd-enforcement-message-view-model');
         if (modals.length === 0) return;
-        modals.forEach(el => { try { el.remove(); } catch (_) {} });
+
+        // Remove the dialog that OWNS the modal, resolved from the modal
+        // itself. The first version of this removed every
+        // tp-yt-paper-dialog[opened] on the page whenever an enforcement modal
+        // appeared, which is a much bigger hammer than the job needs — any
+        // unrelated YouTube dialog open at that instant went with it.
+        modals.forEach(el => {
+            let target = el;
+            try { target = el.closest('tp-yt-paper-dialog') || el; } catch (_) { /* fail-soft */ }
+            try { target.remove(); } catch (_) { /* fail-soft */ }
+        });
+
+        // v2.4.69 — removing the dialog is not enough, and this is what the
+        // field report looked like: video playing, no controls, the page
+        // ignoring every click, and "the screen went slightly dark when I came
+        // in". Polymer builds its overlays as a dialog PLUS a sibling
+        // backdrop; tearing the dialog out of the DOM never closes the
+        // overlay, so the backdrop is orphaned — a full-viewport scrim, high
+        // z-index, dimming the page and swallowing every pointer event
+        // forever. The CSS blocklist above hid the dialog and made it worse by
+        // hiding the evidence.
+        //
+        // Polymer also locks scrolling on <body> while an overlay is open, so
+        // that lock has to come off with it.
+        document.querySelectorAll('tp-yt-iron-overlay-backdrop')
+            .forEach(el => { try { el.remove(); } catch (_) {} });
+
+        for (const el of [document.body, document.documentElement]) {
+            if (!el) continue;
+            try {
+                el.style.removeProperty('overflow');
+                el.classList.remove('no-scroll', 'iron-overlay-backdrop');
+                el.removeAttribute('scroll-lock');
+            } catch (_) { /* fail-soft */ }
+        }
+
         const video = document.querySelector('video.html5-main-video');
         if (video && video.paused) {
             try { video.play(); } catch (_) { /* user gesture required, will retry on next mutation */ }
+        }
+    };
+
+    // Orphaned-backdrop sweep. killEnforcement returns early once the modal is
+    // gone, so a backdrop that Polymer attaches a tick later would survive
+    // every subsequent pass — and one orphaned scrim makes the whole page
+    // unclickable. This runs unconditionally but only fires when a backdrop
+    // exists with NO dialog left to belong to, so YouTube's own share /
+    // save-to-playlist dialogs keep their scrim and keep working.
+    const killOrphanBackdrop = () => {
+        const backdrops = document.querySelectorAll('tp-yt-iron-overlay-backdrop');
+        if (backdrops.length === 0) return;
+
+        const dialog = document.querySelector(
+            'tp-yt-paper-dialog[opened], ytd-popup-container [aria-modal="true"], ' +
+            'tp-yt-paper-dialog:not([aria-hidden="true"])');
+        if (dialog && dialog.getBoundingClientRect().height > 0) return;   // a real dialog owns it
+
+        backdrops.forEach(el => { try { el.remove(); } catch (_) {} });
+        for (const el of [document.body, document.documentElement]) {
+            if (!el) continue;
+            try { el.style.removeProperty('overflow'); } catch (_) { /* fail-soft */ }
         }
     };
 
@@ -242,6 +322,7 @@
         const obs = new MutationObserver(() => {
             skipAds();
             killEnforcement();
+            killOrphanBackdrop();
         });
         obs.observe(root, {
             subtree: true,
@@ -258,10 +339,12 @@
         installStyle();
         skipAds();
         killEnforcement();
+        killOrphanBackdrop();
     }, 250);
 
     // First-run sweep — handles the case where the ad is already showing
     // by the time this script runs (e.g. re-injection on an SPA page).
     skipAds();
     killEnforcement();
+    killOrphanBackdrop();
 })();
