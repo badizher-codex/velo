@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.70] — 2026-08-04 — Tabs opened from a link show the page again
+
+**A tab opened by clicking a link showed VELO's new-tab page instead of the site.** The tab was working the whole time — correct URL in the address bar, page fetched and rendered — you just couldn't see any of it.
+
+A fresh tab starts with the web view hidden and the new-tab overlay on top, and the only thing that swaps them is the navigation path. Popup tabs deliberately skip that path: since v2.4.60 the web view has to reach Chromium un-navigated so the `window.opener` chain survives, which is what "Sign in with Google / Microsoft / Apple" needs to hand its token back to the page that opened it. Skipping navigation was correct; skipping the part that reveals the view was not.
+
+Both sides verified in the field: links that open a tab now show the page, and OAuth popups still complete and close themselves.
+
+The regression shipped in v2.4.60 and survived nine releases, because it only appears on links that open a new tab.
+
+---
+
 ## [2.4.69] — 2026-08-03 — VELO Sentinel: an offline security classifier that runs in-process
 
 **The security AI no longer depends on a server that is usually down.** Field logs had shown the local LLM endpoint unreachable most of the time, which meant the AI layer of a "security-first browser" was decorative whenever it mattered. Sentinel replaces that dependency with a DistilBERT-class classifier quantised to int8, loaded in-process: 138 ms to load, **9 ms per host**, no network, nothing sent anywhere.
