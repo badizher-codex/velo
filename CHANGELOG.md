@@ -11,6 +11,38 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.69] — 2026-08-03 — VELO Sentinel: an offline security classifier that runs in-process
+
+**The security AI no longer depends on a server that is usually down.** Field logs had shown the local LLM endpoint unreachable most of the time, which meant the AI layer of a "security-first browser" was decorative whenever it mattered. Sentinel replaces that dependency with a DistilBERT-class classifier quantised to int8, loaded in-process: 138 ms to load, **9 ms per host**, no network, nothing sent anywhere.
+
+It answers one question — *what kind of host is this?* — and it is scoped to the one answer a model can give that a blocklist cannot: **a lookalike domain nobody has reported yet**. `paypa1-secure-login.top` at p=0.998, `bbva-clientes-mx.com` at p=0.998.
+
+**Sentinel ships in shadow mode.** It records what it would have blocked and blocks nothing until you turn it on in Settings → AI. That is not caution for its own sake — see below.
+
+### What it does, and deliberately does not do
+
+- **Only the phishing label acts.** Tracker and ad verdicts are computed and logged, never enforced. Measured against 89 hosts from a real browsing session, *every* false positive the classifier produced was a tracker verdict — Steam's CDN, EA's APIs, Instagram's images, hCaptcha, a cinema chain's own checkout. Restricting the product to phishing took that from 8 wrong blocks to 0. Trackers and ads are what the exact blocklists already do well and cheaply.
+- **Behind the blocklists, never in front.** An exact list match is faster and cannot be wrong, so it wins. Sentinel covers the tail the lists never saw.
+- **Never judges first-party requests.** A site is not its own tracker.
+- **Never asked about opaque shared infrastructure.** On CloudFront, S3, Netlify and friends every customer gets a generated subdomain, so a language app's CDN and an ad network's are the same string on the same root — the information needed to tell them apart is not in the hostname, and refusing to answer is the only response that stays true.
+- **Fail-soft everywhere.** No model, unreadable manifest, unsupported schema, a throwing session: every path ends in "allow", logged once.
+
+### Model distribution
+
+The model is not in the installer — 67 MB of blob is more antivirus surface for no benefit, and it is versioned independently so a new one with a compatible schema is adopted without an app update. **Settings → AI → Download model** fetches it from a GitHub release and verifies SHA256 for every file before installing; a mismatch, an unsupported schema, or a tag that disagrees with its own manifest all abort with the previously installed model untouched. Nothing leaves your machine unless you click the button.
+
+Published alongside this release: [`model-v3`](https://github.com/badizher-codex/velo/releases/tag/model-v3) — AUC 0.994, and 89/89 on a gate built from real browsing.
+
+### Also in this release
+
+- **YouTube ad-block v0.3.** v0.2 could leave a page dimmed and refusing every click: removing YouTube's anti-adblock dialog left its overlay backdrop orphaned — a full-screen scrim that swallowed all input while the video played behind it. The backdrop is now removed with the dialog, the scroll lock released, and a separate sweep catches one attached a moment later. The response-pruning layer was also rebuilt: it no longer overrides `JSON.parse` for the whole page, and no longer rebuilds fetch responses with headers describing bytes that no longer existed — that combination was stopping playback outright.
+- **Checkbox and radio descriptions wrap instead of being clipped.** Both control templates used a horizontal StackPanel as their root, which measures children with infinite width, so `TextWrapping="Wrap"` never had a constraint to work with. Affects every checkbox and radio in VELO, not just Settings.
+- **The YouTube ad-block setting is translated.** It shipped hardcoded in Spanish in v2.4.53 and was the only Spanish text left on an English UI.
+- **Opening Settings from the command palette now applies the YouTube toggle.** The same Save behaved differently depending on how the dialog was opened.
+- Major public CDNs (jsDelivr, cdnjs, unpkg, Bootstrap, jQuery, gstatic) added to the trusted-host set.
+
+---
+
 ## [2.4.68] — 2026-07-28 — Prime Video plays: VELO no longer announces itself as an app host
 
 **F-1 closed after two months.** Prime Video's play button spun forever while every layer underneath checked out fine — the Widevine CDM was installed and licensed (EME test: `SW_SECURE_CRYPTO`/`SW_SECURE_DECODE` + PlayReady + ClearKey all OK), RequestGuard only blocked telemetry, and turning fingerprint protection off changed nothing.
