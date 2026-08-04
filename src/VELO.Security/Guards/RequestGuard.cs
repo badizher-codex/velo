@@ -190,14 +190,21 @@ public class RequestGuard(
         //     same conclusion v2.4.62 P2-A reached for SmartBlock, which this
         //     rule should have inherited from the start and did not.
         //
-        //     Main-frame is scoped differently rather than skipped. Sentinel
-        //     exists for zero-day phishing, and that arrives as a top-level
-        //     navigation — but AISecurityEngine (the other Sentinel call-site)
-        //     is only reached when RequestGuard already raised NeedsAI, i.e.
-        //     when a heuristic fired, which is exactly the tail Sentinel is
-        //     supposed to cover on its own. So main-frame keeps the classifier,
-        //     restricted to Phishing: navigating TO a tracker or ad domain is
-        //     the user deciding to go there, not a threat to cancel.
+        //     ONLY the Phishing label may block, at any request type. Measured
+        //     on 89 hosts from real browsing: every single false positive the
+        //     classifier produced was a tracker verdict — Steam's CDN, EA's
+        //     APIs, Instagram's images, hCaptcha. Restricting the product to
+        //     the phishing label takes that from 8 wrong blocks to 0-1 while
+        //     the lookalike detection stays at 4/4 above p=0.98.
+        //
+        //     That is not a workaround, it is the scope the plan asked for:
+        //     "el modelo NO reemplaza las listas — cubre lo que las listas no
+        //     vieron". Trackers and ads are what the exact blocklists do well
+        //     and cheaply; a fresh lookalike domain is what they structurally
+        //     cannot see, and it is the only thing whose name carries the
+        //     evidence. The classifier still REPORTS tracker/ad verdicts and
+        //     they still reach the shadow log — S-E needs that record — they
+        //     just never act.
         if (_sentinel is not null && !isFirstParty)
         {
             var sentinelVerdict = _sentinel.TryGetCachedVerdict(host);
@@ -210,10 +217,10 @@ public class RequestGuard(
                 _sentinel.Prefetch(host, isMainFrame ? $"main-frame {resourceType}" : $"third-party {resourceType}");
             }
             else if (sentinelVerdict.Action == SentinelAction.Block &&
-                     _sentinel.Mode == SentinelMode.Enforce &&
-                     (!isMainFrame || sentinelVerdict.Label == SentinelLabel.Phishing))
+                     sentinelVerdict.Label == SentinelLabel.Phishing &&
+                     _sentinel.Mode == SentinelMode.Enforce)
             {
-                return SecurityVerdict.Block(sentinelVerdict.Reason, ToThreatType(sentinelVerdict.Label), "SENTINEL");
+                return SecurityVerdict.Block(sentinelVerdict.Reason, ThreatType.Phishing, "SENTINEL");
             }
         }
 

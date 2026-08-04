@@ -301,6 +301,10 @@ CDN_DOMAINS = [
     # Media / streaming
     "vimeocdn.com", "jwpcdn.com", "brightcove.com", "mzstatic.com",
     "nflxvideo.net", "nflximg.net", "nflxso.net", "scdn.co", "sndcdn.com",
+    # Prime Video — the last host the field gate caught, and missing for the
+    # same reason nflxso.net was: nobody had listed it. Not a special case,
+    # a gap in a list that is supposed to hold real media CDNs.
+    "pv-cdn.net", "aiv-cdn.net", "aiv-delivery.net", "media-amazon.com",
     "steamstatic.com", "imgur.com", "giphy.com",
 ]
 
@@ -350,6 +354,17 @@ def cdn_hosts(domain: str) -> list[str]:
             hosts.append(f"ipv{random.choice(['4', '6'])}-c{random.randint(1, 300):03d}-"
                          f"{machine_label(3, 4)}{random.randint(1, 999):03d}-{isp}-isp."
                          f"{random.randint(1, 4)}.oca.{domain}")
+    elif domain in ("pv-cdn.net", "aiv-cdn.net", "aiv-delivery.net"):
+        # Prime Video buries a long opaque token in the leftmost label:
+        # ablxdzpaaaaaaaammczrxmvbk4agc.ta.pop-vod-dash.main.amazon.pv-cdn.net
+        # — 29 random characters, which is precisely the shape the model reads
+        # as phishing until it has seen benign examples of it.
+        for _ in range(10):
+            mid = random.choice(["ta.pop-vod-dash.main.amazon", "aux", "xp-assets",
+                                 "cf-trickplay.aux", "us-east-1"])
+            hosts.append(f"{machine_label(24, 30)}.{mid}.{domain}")
+        hosts += [f"{machine_label(5, 9)}-draper{random.randint(1, 9)}."
+                  f"us-east-{random.randint(1, 2)}.{domain}" for _ in range(4)]
     elif domain == "nflxso.net":
         # Netflix's image/asset shard: occ-0-8407-2218.1.nflxso.net
         for _ in range(10):

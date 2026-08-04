@@ -53,8 +53,31 @@ CONF_THRESHOLD = 0.85
 
 
 def decide(probs: np.ndarray) -> np.ndarray:
+    """The classifier's raw verdict — what the model reports, all four labels.
+    Used for AUC and the informational FPR."""
     argmax = probs.argmax(axis=1)
     return np.where(probs.max(axis=1) >= CONF_THRESHOLD, argmax, 0)
+
+
+PHISHING = 1
+
+
+def blocks(probs: np.ndarray) -> np.ndarray:
+    """What the PRODUCT actually cancels a request for.
+
+    Since 2026-08-03 only the phishing label acts: RequestGuard rule 2b and
+    AISecurityEngine both require SentinelLabel.Phishing. Measured on 89 hosts
+    from real browsing, every false positive the classifier produced was a
+    tracker verdict — Steam's CDN, EA's APIs, Instagram's images, hCaptcha —
+    and restricting the product to phishing took that from 8 wrong blocks to
+    0-1 with detection unchanged at 4/4 above p=0.98.
+
+    The never-block gates below use THIS rule, not decide(), because a gate has
+    to measure what ships. A tracker verdict on a benign host cannot break a
+    page any more — it only lands in the shadow log, where S-E still wants it.
+    That distinction is reported separately so the signal is not lost.
+    """
+    return (probs.argmax(axis=1) == PHISHING) & (probs.max(axis=1) >= CONF_THRESHOLD)
 
 
 failures = []
@@ -98,13 +121,20 @@ for path, name in (("regression_never_block.txt", "never-block"),
         continue
     p = predict(urls)
     if name == "must-catch":
-        bad = [u for u, v in zip(urls, p.argmax(axis=1)) if v != 1]
+        bad = [u for u, v in zip(urls, p.argmax(axis=1)) if v != PHISHING]
     else:
-        bad = [u for u, v in zip(urls, decide(p)) if v != 0]
+        bad = [u for u, v in zip(urls, blocks(p)) if v]
     if bad:
         failures.append(f"{name}: {len(bad)} of {len(urls)} misclassified — {bad[:5]}")
     else:
         print(f"  {name}: {len(urls)}/{len(urls)} ok")
+
+    # Not a gate — the product ignores these labels — but losing sight of them
+    # is how the tracker side would silently rot.
+    if name != "must-catch":
+        noisy = int(((decide(p) != 0) & ~blocks(p)).sum())
+        if noisy:
+            print(f"      ({noisy} tracker/ad verdicts on these hosts — logged in shadow, never blocked)")
 
 metrics = {"auc_macro_ovr": round(float(auc), 4), "benign_fpr": round(fpr, 5),
            "conf_threshold": CONF_THRESHOLD,

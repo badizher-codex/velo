@@ -309,30 +309,49 @@ public class RequestGuardTests
     }
 
     [Fact]
-    public void Evaluate_AppliesSentinelToThirdPartySubresources()
+    public void Evaluate_AppliesSentinelToThirdPartyPhishingSubresources()
     {
-        using var sentinel = SentinelWith(Blocked(SentinelLabel.Tracker), "metrics.tracker.net", SentinelMode.Enforce);
+        using var sentinel = SentinelWith(Blocked(SentinelLabel.Phishing), "paypa1-cdn.top", SentinelMode.Enforce);
         var guard = Build(sentinel: sentinel);
 
-        var verdict = guard.Evaluate("https://metrics.tracker.net/t.js", "https://news.example/", "Script");
+        var verdict = guard.Evaluate("https://paypa1-cdn.top/t.js", "https://news.example/", "Script");
 
         Assert.Equal(VerdictType.Block, verdict.Verdict);
         Assert.Equal("SENTINEL", verdict.Source);
     }
 
-    [Fact]
-    public void Evaluate_MainFrameNavigationOnlyBlocksOnPhishing()
+    [Theory]
+    [InlineData(SentinelLabel.Tracker)]
+    [InlineData(SentinelLabel.Ad)]
+    public void Evaluate_NeverBlocksOnATrackerOrAdVerdict(SentinelLabel label)
     {
-        // Navigating TO a tracker or ad domain is the user deciding to go
-        // there. Phishing is the one label that justifies cancelling a
-        // top-level navigation — and it is the reason Sentinel exists.
-        using var tracker = SentinelWith(Blocked(SentinelLabel.Tracker), "analytics.example", SentinelMode.Enforce);
-        Assert.Equal(VerdictType.Safe,
-            Build(sentinel: tracker).Evaluate("https://analytics.example/", "https://www.google.com/", "Document").Verdict);
+        // Measured on 89 hosts from real browsing: EVERY false positive the
+        // classifier produced was a tracker verdict — Steam's CDN, EA's APIs,
+        // Instagram's images, hCaptcha. Restricting the product to the phishing
+        // label took that from 8 wrong blocks to 0-1 with detection unchanged.
+        // Trackers and ads are what the exact blocklists already do well; a
+        // fresh lookalike domain is the only thing whose NAME carries the
+        // evidence, and the only thing a classifier adds.
+        using var sentinel = SentinelWith(Blocked(label), "metrics.tracker.net", SentinelMode.Enforce);
+        var guard = Build(sentinel: sentinel);
 
+        Assert.Equal(VerdictType.Safe,
+            guard.Evaluate("https://metrics.tracker.net/t.js", "https://news.example/", "Script").Verdict);
+        Assert.Equal(VerdictType.Safe,
+            guard.Evaluate("https://metrics.tracker.net/", "https://news.example/", "Document").Verdict);
+    }
+
+    [Fact]
+    public void Evaluate_BlocksPhishingOnMainFrameNavigation()
+    {
+        // The case Sentinel exists for: a lookalike domain no blocklist has
+        // seen, reached as a top-level navigation.
         using var phishing = SentinelWith(Blocked(SentinelLabel.Phishing), "paypa1-verify.top", SentinelMode.Enforce);
-        Assert.Equal(VerdictType.Block,
-            Build(sentinel: phishing).Evaluate("https://paypa1-verify.top/", "https://mail.google.com/", "Document").Verdict);
+        var verdict = Build(sentinel: phishing)
+            .Evaluate("https://paypa1-verify.top/", "https://mail.google.com/", "Document");
+
+        Assert.Equal(VerdictType.Block, verdict.Verdict);
+        Assert.Equal(ThreatType.Phishing, verdict.ThreatType);
     }
 
     [Fact]

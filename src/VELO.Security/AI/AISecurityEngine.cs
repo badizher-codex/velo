@@ -71,11 +71,16 @@ public class AISecurityEngine(
         {
             sentinelResult = await _sentinel.ClassifyAsync(context.Domain, ct).ConfigureAwait(false);
 
-            if (sentinelResult.Action == SentinelAction.Block && _sentinel.Mode == SentinelMode.Enforce)
+            // Phishing only — see the long note on RequestGuard rule 2b. Every
+            // false positive measured against real browsing was a tracker
+            // verdict, and trackers are the blocklists' job.
+            if (sentinelResult.Action == SentinelAction.Block &&
+                sentinelResult.Label == SentinelLabel.Phishing &&
+                _sentinel.Mode == SentinelMode.Enforce)
             {
                 _logger.LogWarning("Sentinel blocked {Domain}: {Reason}", context.Domain, sentinelResult.Reason);
                 var sentinelVerdict = AIVerdict.Block(sentinelResult.Reason, source: "SENTINEL");
-                sentinelVerdict.ThreatType = RequestGuard.ToThreatType(sentinelResult.Label);
+                sentinelVerdict.ThreatType = ThreatType.Phishing;
                 sentinelVerdict.Confidence = (int)Math.Round(sentinelResult.Confidence * 100);
                 sentinelVerdict.Host       = context.Domain ?? "";
                 await _cache.SetAsync(context, sentinelVerdict);
