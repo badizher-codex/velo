@@ -486,6 +486,72 @@ public class WiringSmokeTests
         }
     }
 
+    [Fact]
+    public void Every_path_that_hands_a_tab_to_the_user_makes_the_WebView_visible()
+    {
+        // v2.4.70. BrowserTab.xaml starts with WebView collapsed and
+        // NewTabPageControl visible, and the only thing that swaps them is
+        // ShowWebView(). NavigateAsync calls it; AttachAsPopupAsync (the F-2
+        // popup path, added in v2.4.60) did not — because it deliberately never
+        // navigates, so window.opener survives for OAuth.
+        //
+        // The tab then looked broken while working perfectly: correct URL in the
+        // address bar, page loaded underneath, VELO's new-tab overlay sitting on
+        // top. Nine releases before anyone reported it, because it only happens
+        // on links that open in a new tab.
+        //
+        // Any future method that produces a tab the user is meant to look at has
+        // to make the WebView visible. Assert the two that exist do.
+        var browserTabDir = Path.Combine(LocateSrcRoot(), "VELO.UI", "Controls");
+        var sources = Directory
+            .GetFiles(browserTabDir, "BrowserTab*.cs", SearchOption.TopDirectoryOnly)
+            .Where(p => !p.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase))
+            .Where(p => !p.EndsWith(".g.i.cs", StringComparison.OrdinalIgnoreCase))
+            .Select(File.ReadAllText)
+            .ToList();
+        Assert.NotEmpty(sources);
+
+        var all = string.Concat(sources);
+
+        // Grab each method body by brace-matching from its signature.
+        static string BodyOf(string text, string signature)
+        {
+            var start = text.IndexOf(signature, StringComparison.Ordinal);
+            if (start < 0) return "";
+            var open = text.IndexOf('{', start);
+            if (open < 0) return "";
+            var depth = 0;
+            for (var i = open; i < text.Length; i++)
+            {
+                if (text[i] == '{') depth++;
+                else if (text[i] == '}' && --depth == 0) return text[open..i];
+            }
+            return "";
+        }
+
+        // Comments are stripped first. The first version of this test matched
+        // the word ShowWebView() inside the explanatory comment that sits right
+        // above the call — so it passed with the call deleted, which is exactly
+        // the failure it was written to catch. A guard nobody has watched fail
+        // is not a guard.
+        static string WithoutComments(string code) =>
+            string.Join('\n', code.Split('\n').Select(l =>
+            {
+                var idx = l.IndexOf("//", StringComparison.Ordinal);
+                return idx >= 0 ? l[..idx] : l;
+            }));
+
+        foreach (var signature in new[] { "public async Task AttachAsPopupAsync", "public async Task NavigateAsync" })
+        {
+            var body = BodyOf(all, signature);
+            Assert.True(body.Length > 0, $"{signature} not found — update this test if it was renamed");
+            Assert.True(WithoutComments(body).Contains("ShowWebView()", StringComparison.Ordinal),
+                $"{signature} hands a tab to the user without calling ShowWebView(); " +
+                "the WebView starts collapsed, so the user sees the new-tab overlay " +
+                "over a page that actually loaded.");
+        }
+    }
+
     // ── S-C — VELO Sentinel: producer AND consumer both wired ────────────
 
     [Fact]

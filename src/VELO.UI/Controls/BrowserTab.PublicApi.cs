@@ -35,6 +35,21 @@ public partial class BrowserTab
         {
             await EnsureWebViewInitializedAsync(env);
             args.NewWindow = WebView.CoreWebView2;
+
+            // v2.4.70 — Chromium now drives the navigation, but nothing has
+            // made the WebView visible. A fresh BrowserTab starts with
+            // WebView collapsed and NewTabPageControl visible (see
+            // BrowserTab.xaml), and the ONLY thing that flips them is
+            // ShowWebView() inside NavigateAsync — which the popup path
+            // deliberately never calls, because the webview has to reach
+            // args.NewWindow un-navigated for window.opener to survive.
+            //
+            // The result was a tab that looked broken while working perfectly:
+            // the address bar showed the target URL, the page loaded
+            // underneath, and the user saw VELO's new-tab overlay sitting on
+            // top of it. Field report on v2.4.69: "when a tab opens from a
+            // click it stays on VELO's home page".
+            ShowWebView();
         }
         catch (Exception ex)
         {
