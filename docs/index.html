@@ -258,7 +258,7 @@
     </div>
     <div class="flex items-center gap-2">
       <i class="fa-solid fa-robot text-emerald-400"></i>
-      <span data-i18n="trust_ai">100% local AI (Ollama + LlamaSharp)</span>
+      <span data-i18n="trust_ai">100% local AI (Sentinel + Ollama)</span>
     </div>
     <div class="flex items-center gap-2">
       <i class="fa-solid fa-code-branch text-emerald-400"></i>
@@ -285,7 +285,7 @@
         <i class="fa-solid fa-fingerprint text-indigo-400 text-2xl"></i>
       </div>
       <h3 class="text-xl font-bold mb-3" data-i18n="feat1_title">Fingerprint Protection</h3>
-      <p class="text-slate-400 text-sm leading-relaxed" data-i18n="feat1_desc">Canvas, WebGL, AudioContext and hardware noise injection. WebRTC relay mode. Tracker blocker with 250+ domains updated automatically from EasyPrivacy.</p>
+      <p class="text-slate-400 text-sm leading-relaxed" data-i18n="feat1_desc">Canvas, WebGL, AudioContext and hardware noise injection. WebRTC relay mode. Tracker blocker with 90,000+ domains, updated automatically from EasyList, EasyPrivacy and uBlock Origin.</p>
     </div>
 
     <div class="feature-card bg-slate-900 border border-slate-800 rounded-3xl p-8">
@@ -301,7 +301,7 @@
         <i class="fa-solid fa-robot text-violet-400 text-2xl"></i>
       </div>
       <h3 class="text-xl font-bold mb-3" data-i18n="feat3_title">VeloAgent — Your AI Assistant</h3>
-      <p class="text-slate-400 text-sm leading-relaxed" data-i18n="feat3_desc">Side-panel chat with local AI (LlamaSharp GGUF or Ollama / LM Studio). Sandboxed actions with user approval. Automatically feeds the Shield Score.</p>
+      <p class="text-slate-400 text-sm leading-relaxed" data-i18n="feat3_desc">Side-panel chat with local AI (Ollama / LM Studio, or your own Claude key). Sandboxed actions with user approval. Automatically feeds the Shield Score.</p>
     </div>
 
     <div class="feature-card bg-slate-900 border border-slate-800 rounded-3xl p-8">
@@ -425,10 +425,10 @@
             <span class="ml-3 text-xs text-slate-500 font-mono" data-i18n="chrome_settings">Settings — VELO</span>
           </div>
           <img src="images/screenshot-ai-settings.png"
-               alt="VELO AI settings — Ollama, LlamaSharp, Claude (BYOK)"
+               alt="VELO AI settings — Sentinel offline classifier, Ollama, Claude (BYOK)"
                class="w-full block" loading="lazy" />
         </div>
-        <p class="mt-3 text-sm text-slate-400 text-center" data-i18n="screen_ai_settings_caption">AI Settings — pick Ollama, LlamaSharp local, or bring your own Claude API key</p>
+        <p class="mt-3 text-sm text-slate-400 text-center" data-i18n="screen_ai_settings_caption">AI Settings — Sentinel runs offline by default; add Ollama or your own Claude API key</p>
       </div>
 
     </div>
@@ -453,7 +453,7 @@
           </li>
           <li class="flex items-start gap-3">
             <i class="fa-solid fa-check text-emerald-400 mt-1 flex-shrink-0"></i>
-            <span data-i18n="ai_feat2"><strong>LlamaSharp</strong> — Run GGUF models directly, zero network</span>
+            <span data-i18n="ai_feat2"><strong>VELO Sentinel</strong> — Embedded classifier, in-process. ~9 ms per host, no server, nothing sent</span>
           </li>
           <li class="flex items-start gap-3">
             <i class="fa-solid fa-check text-emerald-400 mt-1 flex-shrink-0"></i>
@@ -571,7 +571,7 @@
         <div class="scrolly-step" data-reveal>
           <div class="text-5xl mb-4">🤖</div>
           <h3 class="text-2xl font-display font-bold mb-3" data-i18n="trans_step3_title">VeloAgent — local first</h3>
-          <p class="text-slate-400 leading-relaxed" data-i18n="trans_step3_body">By default the AI runs on your machine via LlamaSharp or Ollama on localhost. The Claude adapter is opt-in and uses YOUR API key — VELO has no shared key, no proxy, no telemetry. The agent's prompts and your conversations never reach our servers because we don't have any.</p>
+          <p class="text-slate-400 leading-relaxed" data-i18n="trans_step3_body">By default the AI runs on your machine: Sentinel is embedded in the browser itself, and the agent talks to Ollama on localhost. The Claude adapter is opt-in and uses YOUR API key — VELO has no shared key, no proxy, no telemetry. The agent's prompts and your conversations never reach our servers because we don't have any.</p>
         </div>
 
         <div class="scrolly-step" data-reveal>
@@ -639,7 +639,7 @@
         <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 flex-shrink-0"></i>
         <div>
           <p class="text-sm font-semibold text-amber-300 mb-1" data-i18n="dl_smartscreen_title">Windows may show a security warning</p>
-          <p class="text-xs text-slate-400 leading-relaxed" data-i18n="dl_smartscreen_body">VELO is a new open-source app and doesn't yet have a commercial code-signing certificate. Windows SmartScreen may flag the installer. Click <strong class="text-slate-300">More info → Run anyway</strong> to proceed. You can verify the file with the SHA256 checksum on GitHub.</p>
+          <p class="text-xs text-slate-400 leading-relaxed" data-i18n="dl_smartscreen_body">VELO is a new open-source app and doesn't yet have a commercial code-signing certificate. Windows SmartScreen — and some antivirus products — may flag the installer or quarantine it. Click <strong class="text-slate-300">More info → Run anyway</strong> to proceed, and if your antivirus removes the file, restore it and add an exclusion. You can verify the download against the SHA256 checksum published with every release.</p>
         </div>
       </div>
     </div>
@@ -727,7 +727,7 @@ const T = {
     trans_step2_title:"DNS over HTTPS",
     trans_step2_body:"If you enable DoH, VELO routes DNS through Quad9 instead of your ISP. The browser never queries any other resolver. Off by default — your existing system DNS is used until you opt in.",
     trans_step3_title:"VeloAgent — local first",
-    trans_step3_body:"By default the AI runs on your machine via LlamaSharp or Ollama on localhost. The Claude adapter is opt-in and uses YOUR API key — VELO has no shared key, no proxy, no telemetry. The agent's prompts and your conversations never reach our servers because we don't have any.",
+    trans_step3_body:"By default the AI runs on your machine: Sentinel is embedded in the browser itself, and the agent talks to Ollama on localhost. The Claude adapter is opt-in and uses YOUR API key — VELO has no shared key, no proxy, no telemetry. The agent's prompts and your conversations never reach our servers because we don't have any.",
     trans_step4_title:"HIBP breach check (k-anonymity)",
     trans_step4_body:"When you save a new password, VELO can ask Have-I-Been-Pwned if it's in any known breach. We send the FIRST 5 HEX CHARS of the SHA-1 hash. Not the password. Not the full hash. The server returns ~500 candidates and the comparison happens locally. Off by default.",
     trans_step5_title:"Blocklist refresh",
@@ -739,18 +739,18 @@ const T = {
     hero_req_free:"Free &amp; open source",
     // Trust bar
     trust_telemetry:"Zero hardcoded telemetry",
-    trust_ai:"100% local AI (Ollama + LlamaSharp)",
+    trust_ai:"100% local AI (Sentinel + Ollama)",
     trust_oss:"Open source — AGPL-3.0",
     trust_platform:"Built for Windows 10 &amp; 11",
     // Features section
     features_label:"EVERYTHING YOU NEED",
     features_title:"Professional-grade privacy &amp; security",
     feat1_title:"Fingerprint Protection",
-    feat1_desc:"Canvas, WebGL, AudioContext and hardware noise injection. WebRTC relay mode. Tracker blocker with 250+ domains updated automatically from EasyPrivacy.",
+    feat1_desc:"Canvas, WebGL, AudioContext and hardware noise injection. WebRTC relay mode. Tracker blocker with 90,000+ domains, updated automatically from EasyList, EasyPrivacy and uBlock Origin.",
     feat2_title:"Shield Score + Privacy Receipt",
     feat2_desc:"Real-time security indicator (Red / Yellow / Green / Gold). Per-session privacy receipt with blocked trackers, TLS status, AI verdict and more.",
     feat3_title:"VeloAgent — Your AI Assistant",
-    feat3_desc:"Side-panel chat with local AI (LlamaSharp GGUF or Ollama / LM Studio). Sandboxed actions with user approval. Automatically feeds the Shield Score.",
+    feat3_desc:"Side-panel chat with local AI (Ollama / LM Studio, or your own Claude key). Sandboxed actions with user approval. Automatically feeds the Shield Score.",
     feat4_title:"Advanced Containers",
     feat4_desc:"Isolate sessions by context. Banking mode with anti-capture protection. Auto-expiring containers for temporary sessions.",
     feat5_title:"Security Inspector",
@@ -769,12 +769,12 @@ const T = {
     screen_tabs_caption:"Vertical tab sidebar with workspaces — organize sessions the way you think",
     screen_agent_caption:"VeloAgent — your local AI assistant, always one click away",
     screen_vault_caption:"Password Vault — encrypted with your master password, never leaves your device",
-    screen_ai_settings_caption:"AI Settings — pick Ollama, LlamaSharp local, or bring your own Claude API key",
+    screen_ai_settings_caption:"AI Settings — Sentinel runs offline by default; add Ollama or your own Claude API key",
     // AI section
     ai_label:"LOCAL ARTIFICIAL INTELLIGENCE",
     ai_title:"AI that protects you<br>without sending your data",
     ai_feat1:"<strong>Ollama + LM Studio</strong> — OpenAI-compatible local models",
-    ai_feat2:"<strong>LlamaSharp</strong> — Run GGUF models directly, zero network",
+    ai_feat2:"<strong>VELO Sentinel</strong> — Embedded classifier, in-process. ~9 ms per host, no server, nothing sent",
     ai_feat3:"<strong>Claude</strong> (optional) via your own API key",
     ai_feat4:"<strong>Sandboxed actions</strong> — The agent only does what you approve",
     ai_cta:"Configure your local model",
@@ -804,7 +804,7 @@ const T = {
     dl_all_releases:"All releases &amp; checksums on GitHub →",
     dl_signpath:"Code signing in progress — verify integrity with the SHA256 checksum on GitHub Releases.",
     dl_smartscreen_title:"Windows may show a security warning",
-    dl_smartscreen_body:"VELO is a new open-source app and doesn't yet have a commercial code-signing certificate. Windows SmartScreen may flag the installer. Click <strong class=\"text-slate-300\">More info → Run anyway</strong> to proceed. You can verify the file with the SHA256 checksum on GitHub.",
+    dl_smartscreen_body:"VELO is a new open-source app and doesn't yet have a commercial code-signing certificate. Windows SmartScreen — and some antivirus products — may flag the installer or quarantine it. Click <strong class=\"text-slate-300\">More info → Run anyway</strong> to proceed, and if your antivirus removes the file, restore it and add an exclusion. You can verify the download against the SHA256 checksum published with every release.",
     // Footer
     footer_tagline:"The browser that puts your privacy first.",
     footer_project:"Project", footer_releases:"Releases",
@@ -835,7 +835,7 @@ const T = {
     trans_step2_title:"DNS sobre HTTPS",
     trans_step2_body:"Si activas DoH, VELO enruta DNS por Quad9 en vez de tu ISP. El navegador nunca consulta otro resolver. Apagado por defecto — usa tu DNS de sistema hasta que tú decidas.",
     trans_step3_title:"VeloAgent — local primero",
-    trans_step3_body:"Por defecto la IA corre en tu máquina vía LlamaSharp u Ollama en localhost. El adaptador de Claude es opt-in y usa TU API key — VELO no tiene clave compartida, ni proxy, ni telemetría. Los prompts y conversaciones nunca llegan a nuestros servidores porque no tenemos servidores.",
+    trans_step3_body:"Por defecto la IA corre en tu máquina: Sentinel va incrustado en el navegador, y el agente habla con Ollama en localhost. El adaptador de Claude es opt-in y usa TU API key — VELO no tiene clave compartida, ni proxy, ni telemetría. Los prompts y conversaciones nunca llegan a nuestros servidores porque no tenemos servidores.",
     trans_step4_title:"HIBP (k-anonimato)",
     trans_step4_body:"Al guardar una contraseña nueva, VELO puede preguntarle a Have-I-Been-Pwned si está filtrada. Enviamos los PRIMEROS 5 CARACTERES HEX del SHA-1. Ni la contraseña ni el hash completo. El servidor devuelve ~500 candidatos y la comparación se hace local. Apagado por defecto.",
     trans_step5_title:"Refresco de listas de bloqueo",
@@ -846,17 +846,17 @@ const T = {
     hero_req_runtime:"Autocontenido — sin instalar .NET",
     hero_req_free:"Gratuito y código abierto",
     trust_telemetry:"Sin telemetría fija",
-    trust_ai:"IA 100% local (Ollama + LlamaSharp)",
+    trust_ai:"IA 100% local (Sentinel + Ollama)",
     trust_oss:"Código abierto — AGPL-3.0",
     trust_platform:"Diseñado para Windows 10 y 11",
     features_label:"TODO LO QUE NECESITAS",
     features_title:"Privacidad y seguridad de nivel profesional",
     feat1_title:"Protección de huella digital",
-    feat1_desc:"Ruido en Canvas, WebGL, AudioContext y hardware. Modo relay WebRTC. Bloqueador de trackers con 250+ dominios actualizados desde EasyPrivacy.",
+    feat1_desc:"Ruido en Canvas, WebGL, AudioContext y hardware. Modo relay WebRTC. Bloqueador de trackers con 90.000+ dominios, actualizados desde EasyList, EasyPrivacy y uBlock Origin.",
     feat2_title:"Shield Score + Recibo de privacidad",
     feat2_desc:"Indicador de seguridad en tiempo real (Rojo/Amarillo/Verde/Oro). Recibo por sesión con trackers bloqueados, estado TLS y veredicto IA.",
     feat3_title:"VeloAgent — Tu asistente IA",
-    feat3_desc:"Chat lateral con IA local (LlamaSharp GGUF u Ollama/LM Studio). Acciones en sandbox con aprobación del usuario. Alimenta el Shield Score automáticamente.",
+    feat3_desc:"Chat lateral con IA local (Ollama/LM Studio, o tu propia clave de Claude). Acciones en sandbox con aprobación del usuario. Alimenta el Shield Score automáticamente.",
     feat4_title:"Contenedores avanzados",
     feat4_desc:"Aísla sesiones por contexto. Modo bancario con protección anti-captura. Contenedores con expiración automática.",
     feat5_title:"Inspector de seguridad",
@@ -874,11 +874,11 @@ const T = {
     screen_tabs_caption:"Barra lateral de pestañas con workspaces — organiza tus sesiones como piensas",
     screen_agent_caption:"VeloAgent — tu asistente IA local, siempre a un clic",
     screen_vault_caption:"Password Vault — cifrado con tu contraseña maestra, nunca sale de tu equipo",
-    screen_ai_settings_caption:"Configuración de IA — elige Ollama, LlamaSharp local o tu propia API key de Claude",
+    screen_ai_settings_caption:"Configuración de IA — Sentinel corre offline por defecto; sumá Ollama o tu propia API key de Claude",
     ai_label:"INTELIGENCIA ARTIFICIAL LOCAL",
     ai_title:"IA que te protege<br>sin enviar tus datos",
     ai_feat1:"<strong>Ollama + LM Studio</strong> — Modelos locales compatibles con OpenAI",
-    ai_feat2:"<strong>LlamaSharp</strong> — Modelos GGUF directo, sin red",
+    ai_feat2:"<strong>VELO Sentinel</strong> — Clasificador incrustado, in-process. ~9 ms por host, sin servidor, sin enviar nada",
     ai_feat3:"<strong>Claude</strong> (opcional) con tu propia API key",
     ai_feat4:"<strong>Acciones en sandbox</strong> — El agente solo hace lo que tú apruebas",
     ai_cta:"Configura tu modelo local",
@@ -906,7 +906,7 @@ const T = {
     dl_all_releases:"Todas las versiones y checksums en GitHub →",
     dl_signpath:"Firma de código en proceso — verifica la integridad con el hash SHA256 en GitHub Releases.",
     dl_smartscreen_title:"Windows puede mostrar una advertencia de seguridad",
-    dl_smartscreen_body:"VELO es una aplicación nueva de código abierto y aún no tiene un certificado de firma de código comercial. Windows SmartScreen puede marcar el instalador. Haz clic en <strong class=\"text-slate-300\">Más información → Ejecutar de todas formas</strong> para continuar. Puedes verificar el archivo con el checksum SHA256 en GitHub.",
+    dl_smartscreen_body:"VELO es una aplicación nueva de código abierto y aún no tiene un certificado de firma de código comercial. Windows SmartScreen — y algunos antivirus — pueden marcar el instalador o ponerlo en cuarentena. Haz clic en <strong class=\"text-slate-300\">Más información → Ejecutar de todas formas</strong> para continuar, y si tu antivirus elimina el archivo, restauralo y agregá una exclusión. Podés verificar la descarga con el checksum SHA256 publicado en cada release.",
     footer_tagline:"El navegador que prioriza tu privacidad por encima de todo.",
     footer_project:"Proyecto", footer_releases:"Versiones",
     footer_issues:"Problemas", footer_contribute:"Contribuir",
@@ -926,17 +926,17 @@ const T = {
     hero_req_runtime:"Autonome — pas besoin d'installer .NET",
     hero_req_free:"Gratuit et open source",
     trust_telemetry:"Zéro télémétrie intégrée",
-    trust_ai:"IA 100% locale (Ollama + LlamaSharp)",
+    trust_ai:"IA 100% locale (Sentinel + Ollama)",
     trust_oss:"Open source — AGPL-3.0",
     trust_platform:"Conçu pour Windows 10 et 11",
     features_label:"TOUT CE DONT VOUS AVEZ BESOIN",
     features_title:"Confidentialité et sécurité de niveau professionnel",
     feat1_title:"Protection des empreintes",
-    feat1_desc:"Bruit Canvas, WebGL, AudioContext et matériel. Mode relay WebRTC. Bloqueur de trackers 250+ domaines mis à jour depuis EasyPrivacy.",
+    feat1_desc:"Bruit Canvas, WebGL, AudioContext et matériel. Mode relay WebRTC. Bloqueur de trackers 90 000+ domaines, mis à jour depuis EasyList, EasyPrivacy et uBlock Origin.",
     feat2_title:"Shield Score + Reçu de confidentialité",
     feat2_desc:"Indicateur de sécurité temps réel (Rouge/Jaune/Vert/Or). Reçu par session avec trackers bloqués, statut TLS, verdict IA.",
     feat3_title:"VeloAgent — Votre assistant IA",
-    feat3_desc:"Chat latéral avec IA locale (LlamaSharp GGUF ou Ollama/LM Studio). Actions en sandbox avec approbation. Alimente le Shield Score automatiquement.",
+    feat3_desc:"Chat latéral avec IA locale (Ollama/LM Studio, ou votre propre clé Claude). Actions en sandbox avec approbation. Alimente le Shield Score automatiquement.",
     feat4_title:"Conteneurs avancés",
     feat4_desc:"Isolez les sessions par contexte. Mode bancaire anti-capture. Conteneurs à expiration automatique.",
     feat5_title:"Inspecteur de sécurité",
@@ -954,7 +954,7 @@ const T = {
     ai_label:"INTELLIGENCE ARTIFICIELLE LOCALE",
     ai_title:"Une IA qui vous protège<br>sans envoyer vos données",
     ai_feat1:"<strong>Ollama + LM Studio</strong> — Modèles locaux compatibles OpenAI",
-    ai_feat2:"<strong>LlamaSharp</strong> — Modèles GGUF en local, zéro réseau",
+    ai_feat2:"<strong>VELO Sentinel</strong> — Classificateur intégré, in-process. ~9 ms par hôte, sans serveur, rien n'est envoyé",
     ai_feat3:"<strong>Claude</strong> (optionnel) avec votre propre clé API",
     ai_feat4:"<strong>Actions sécurisées</strong> — L'agent ne fait que ce que vous approuvez",
     ai_cta:"Configurez votre modèle local",
@@ -982,7 +982,7 @@ const T = {
     dl_all_releases:"Toutes les versions et checksums sur GitHub →",
     dl_signpath:"Signature de code en cours — vérifiez l'intégrité avec le checksum SHA256 sur GitHub Releases.",
     dl_smartscreen_title:"Windows peut afficher un avertissement de sécurité",
-    dl_smartscreen_body:"VELO est une nouvelle application open source sans certificat de signature commerciale. Windows SmartScreen peut signaler l'installeur. Cliquez sur <strong class=\"text-slate-300\">Informations complémentaires → Exécuter quand même</strong> pour continuer. Vérifiez le fichier avec le checksum SHA256 sur GitHub.",
+    dl_smartscreen_body:"VELO est une nouvelle application open source sans certificat de signature commerciale. Windows SmartScreen — et certains antivirus — peuvent signaler l'installeur ou le mettre en quarantaine. Cliquez sur <strong class=\"text-slate-300\">Informations complémentaires → Exécuter quand même</strong> pour continuer, et si votre antivirus supprime le fichier, restaurez-le et ajoutez une exclusion. Vérifiez le téléchargement avec le checksum SHA256 publié à chaque version.",
     footer_tagline:"Le navigateur qui place votre confidentialité en premier.",
     footer_project:"Projet", footer_releases:"Versions",
     footer_issues:"Problèmes", footer_contribute:"Contribuer",
@@ -1002,17 +1002,17 @@ const T = {
     hero_req_runtime:"Eigenständig — kein .NET-Install nötig",
     hero_req_free:"Kostenlos und Open Source",
     trust_telemetry:"Null eingebaute Telemetrie",
-    trust_ai:"100% lokale KI (Ollama + LlamaSharp)",
+    trust_ai:"100% lokale KI (Sentinel + Ollama)",
     trust_oss:"Open Source — AGPL-3.0",
     trust_platform:"Für Windows 10 und 11 entwickelt",
     features_label:"ALLES WAS SIE BRAUCHEN",
     features_title:"Datenschutz und Sicherheit auf Profi-Niveau",
     feat1_title:"Fingerabdruckschutz",
-    feat1_desc:"Canvas-, WebGL-, AudioContext- und Hardware-Rauschen. WebRTC-Relay-Modus. Tracker-Blocker mit 250+ Domains aus EasyPrivacy.",
+    feat1_desc:"Canvas-, WebGL-, AudioContext- und Hardware-Rauschen. WebRTC-Relay-Modus. Tracker-Blocker mit 90.000+ Domains aus EasyList, EasyPrivacy und uBlock Origin.",
     feat2_title:"Shield Score + Datenschutzbeleg",
     feat2_desc:"Echtzeit-Sicherheitsanzeige (Rot/Gelb/Grün/Gold). Sitzungsbeleg mit blockierten Trackern, TLS-Status, KI-Urteil.",
     feat3_title:"VeloAgent — Ihr KI-Assistent",
-    feat3_desc:"Seitenpanel-Chat mit lokaler KI (LlamaSharp GGUF oder Ollama/LM Studio). Sandboxed-Aktionen mit Nutzerfreigabe. Speist automatisch den Shield Score.",
+    feat3_desc:"Seitenpanel-Chat mit lokaler KI (Ollama/LM Studio oder Ihr eigener Claude-Schlüssel). Sandboxed-Aktionen mit Nutzerfreigabe. Speist automatisch den Shield Score.",
     feat4_title:"Erweiterte Container",
     feat4_desc:"Sitzungen nach Kontext isolieren. Banking-Modus mit Anti-Capture-Schutz. Automatisch ablaufende Container.",
     feat5_title:"Sicherheitsinspektor",
@@ -1030,7 +1030,7 @@ const T = {
     ai_label:"LOKALE KÜNSTLICHE INTELLIGENZ",
     ai_title:"KI, die Sie schützt<br>ohne Ihre Daten zu senden",
     ai_feat1:"<strong>Ollama + LM Studio</strong> — Lokale OpenAI-kompatible Modelle",
-    ai_feat2:"<strong>LlamaSharp</strong> — GGUF-Modelle lokal ausführen, kein Netz",
+    ai_feat2:"<strong>VELO Sentinel</strong> — Eingebetteter Klassifikator, in-process. ~9 ms pro Host, kein Server, nichts wird gesendet",
     ai_feat3:"<strong>Claude</strong> (optional) mit eigenem API-Schlüssel",
     ai_feat4:"<strong>Sandboxed-Aktionen</strong> — Der Agent tut nur, was Sie freigeben",
     ai_cta:"Lokales Modell konfigurieren",
@@ -1058,7 +1058,7 @@ const T = {
     dl_all_releases:"Alle Releases und Prüfsummen auf GitHub →",
     dl_signpath:"Code-Signierung in Bearbeitung — Integrität mit dem SHA256-Prüfwert auf GitHub Releases prüfen.",
     dl_smartscreen_title:"Windows zeigt möglicherweise eine Sicherheitswarnung",
-    dl_smartscreen_body:"VELO ist eine neue Open-Source-App ohne kommerzielles Code-Signing-Zertifikat. Windows SmartScreen kann den Installer markieren. Klicken Sie auf <strong class=\"text-slate-300\">Weitere Informationen → Trotzdem ausführen</strong>. Überprüfen Sie die Datei mit dem SHA256-Prüfwert auf GitHub.",
+    dl_smartscreen_body:"VELO ist eine neue Open-Source-App ohne kommerzielles Code-Signing-Zertifikat. Windows SmartScreen — und einige Antivirenprogramme — können den Installer markieren oder in Quarantäne verschieben. Klicken Sie auf <strong class=\"text-slate-300\">Weitere Informationen → Trotzdem ausführen</strong>, und falls Ihr Antivirus die Datei entfernt, stellen Sie sie wieder her und fügen Sie eine Ausnahme hinzu. Überprüfen Sie den Download mit dem SHA256-Prüfwert, der zu jeder Version veröffentlicht wird.",
     footer_tagline:"Der Browser, der Ihre Privatsphäre an erste Stelle stellt.",
     footer_project:"Projekt", footer_releases:"Releases",
     footer_issues:"Probleme", footer_contribute:"Mitmachen",
@@ -1078,17 +1078,17 @@ const T = {
     hero_req_runtime:"Autocontido — sem instalar .NET",
     hero_req_free:"Gratuito e open source",
     trust_telemetry:"Zero telemetria embutida",
-    trust_ai:"IA 100% local (Ollama + LlamaSharp)",
+    trust_ai:"IA 100% local (Sentinel + Ollama)",
     trust_oss:"Open source — AGPL-3.0",
     trust_platform:"Criado para Windows 10 e 11",
     features_label:"TUDO O QUE VOCÊ PRECISA",
     features_title:"Privacidade e segurança de nível profissional",
     feat1_title:"Proteção de impressão digital",
-    feat1_desc:"Ruído em Canvas, WebGL, AudioContext e hardware. Modo relay WebRTC. Bloqueador de rastreadores com 250+ domínios atualizados do EasyPrivacy.",
+    feat1_desc:"Ruído em Canvas, WebGL, AudioContext e hardware. Modo relay WebRTC. Bloqueador de rastreadores com 90.000+ domínios, atualizados do EasyList, EasyPrivacy e uBlock Origin.",
     feat2_title:"Shield Score + Recibo de privacidade",
     feat2_desc:"Indicador de segurança em tempo real (Vermelho/Amarelo/Verde/Ouro). Recibo por sessão com rastreadores bloqueados, status TLS, veredicto IA.",
     feat3_title:"VeloAgent — Seu assistente IA",
-    feat3_desc:"Chat lateral com IA local (LlamaSharp GGUF ou Ollama/LM Studio). Ações em sandbox com aprovação do usuário. Alimenta o Shield Score automaticamente.",
+    feat3_desc:"Chat lateral com IA local (Ollama/LM Studio, ou sua própria chave Claude). Ações em sandbox com aprovação do usuário. Alimenta o Shield Score automaticamente.",
     feat4_title:"Contêineres avançados",
     feat4_desc:"Isole sessões por contexto. Modo bancário com proteção anti-captura. Contêineres com expiração automática.",
     feat5_title:"Inspetor de segurança",
@@ -1106,7 +1106,7 @@ const T = {
     ai_label:"INTELIGÊNCIA ARTIFICIAL LOCAL",
     ai_title:"IA que protege você<br>sem enviar seus dados",
     ai_feat1:"<strong>Ollama + LM Studio</strong> — Modelos locais compatíveis com OpenAI",
-    ai_feat2:"<strong>LlamaSharp</strong> — Execute modelos GGUF localmente, sem rede",
+    ai_feat2:"<strong>VELO Sentinel</strong> — Classificador incorporado, in-process. ~9 ms por host, sem servidor, nada é enviado",
     ai_feat3:"<strong>Claude</strong> (opcional) com sua própria chave API",
     ai_feat4:"<strong>Ações em sandbox</strong> — O agente só faz o que você aprova",
     ai_cta:"Configure seu modelo local",
@@ -1134,7 +1134,7 @@ const T = {
     dl_all_releases:"Todas as versões e checksums no GitHub →",
     dl_signpath:"Assinatura de código em andamento — verifique a integridade com o checksum SHA256 no GitHub Releases.",
     dl_smartscreen_title:"O Windows pode exibir um aviso de segurança",
-    dl_smartscreen_body:"VELO é um novo aplicativo open source e ainda não possui um certificado de assinatura de código comercial. O Windows SmartScreen pode sinalizar o instalador. Clique em <strong class=\"text-slate-300\">Mais informações → Executar mesmo assim</strong> para continuar. Verifique o arquivo com o checksum SHA256 no GitHub.",
+    dl_smartscreen_body:"VELO é um novo aplicativo open source e ainda não possui um certificado de assinatura de código comercial. O Windows SmartScreen — e alguns antivírus — podem sinalizar o instalador ou colocá-lo em quarentena. Clique em <strong class=\"text-slate-300\">Mais informações → Executar mesmo assim</strong> para continuar e, se o seu antivírus remover o arquivo, restaure-o e adicione uma exclusão. Verifique o download com o checksum SHA256 publicado em cada versão.",
     footer_tagline:"O navegador que coloca sua privacidade em primeiro lugar.",
     footer_project:"Projeto", footer_releases:"Versões",
     footer_issues:"Problemas", footer_contribute:"Contribuir",
