@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using Microsoft.Extensions.Logging;
 using VELO.Core.Localization;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
@@ -16,6 +17,11 @@ public partial class SettingsWindow : Window
 {
     private readonly SettingsRepository _settings;
     private readonly VaultService _vault;
+
+    /// <summary>S-D — passed to <see cref="VELO.Security.Sentinel.SentinelModelInstaller"/>
+    /// so the download leaves an audit trail. Without it the installer falls back to
+    /// NullLogger and a SHA256 mismatch is invisible in the field log.</summary>
+    private readonly ILogger<VELO.Security.Sentinel.SentinelModelInstaller>? _modelInstallerLogger;
 
     // Track active nav button
     private Button? _activeNav;
@@ -50,10 +56,14 @@ public partial class SettingsWindow : Window
     /// a restart. Carries the installed version number.</summary>
     public event EventHandler<int>? SentinelModelInstalled;
 
-    public SettingsWindow(SettingsRepository settings, VaultService vault)
+    public SettingsWindow(
+        SettingsRepository settings,
+        VaultService vault,
+        ILogger<VELO.Security.Sentinel.SentinelModelInstaller>? modelInstallerLogger = null)
     {
         _settings = settings;
         _vault = vault;
+        _modelInstallerLogger = modelInstallerLogger;
         InitializeComponent();
 
         // Wire up conditional enables
@@ -688,7 +698,8 @@ public partial class SettingsWindow : Window
     private async void OnSentinelDownloadClick(object sender, RoutedEventArgs e)
     {
         var L = LocalizationService.Current;
-        var installer = new VELO.Security.Sentinel.SentinelModelInstaller();
+        var installer = new VELO.Security.Sentinel.SentinelModelInstaller(
+            logger: _modelInstallerLogger);
 
         SentinelDownloadButton.IsEnabled = false;
         ShowSentinelResult(null, L.T("settings.sentinel.checking"));

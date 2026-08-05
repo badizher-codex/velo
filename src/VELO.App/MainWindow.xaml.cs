@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Serilog;
 using VELO.Vault;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Web.WebView2.Core;
 using VELO.Agent;
 using VELO.App.Startup;
@@ -1421,7 +1422,10 @@ public partial class MainWindow : Window
         {
             var s = _services.GetRequiredService<SettingsRepository>();
             var v = _services.GetRequiredService<VaultService>();
-            var settingsWin = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
+            var settingsWin = new VELO.UI.Dialogs.SettingsWindow(
+                s, v,
+                _services.GetRequiredService<ILogger<VELO.Security.Sentinel.SentinelModelInstaller>>())
+            { Owner = this };
             settingsWin.DomainAgeCheckChanged  += OnDomainAgeCheckChanged;
             settingsWin.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
             settingsWin.CtLogCheckChanged      += OnCtLogCheckChanged;
@@ -2760,7 +2764,10 @@ public partial class MainWindow : Window
                 {
                     var s = _services.GetRequiredService<SettingsRepository>();
                     var v = _services.GetRequiredService<VaultService>();
-                    var sw = new VELO.UI.Dialogs.SettingsWindow(s, v) { Owner = this };
+                    var sw = new VELO.UI.Dialogs.SettingsWindow(
+                        s, v,
+                        _services.GetRequiredService<ILogger<VELO.Security.Sentinel.SentinelModelInstaller>>())
+                    { Owner = this };
                     sw.DomainAgeCheckChanged  += OnDomainAgeCheckChanged;
                     sw.CtLogCheckChanged      += OnCtLogCheckChanged;
                     sw.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
