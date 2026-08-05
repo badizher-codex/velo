@@ -32,6 +32,8 @@
     .feature-card { transition: transform 0.25s ease, box-shadow 0.25s ease; }
     .feature-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px -12px rgba(0,0,0,0.4); }
     .nav-scrolled { background-color: rgba(2,6,23,0.95); backdrop-filter: blur(12px); }
+    /* The navbar is fixed and 73px tall — keep anchor targets clear of it. */
+    html { scroll-padding-top: 6rem; }
     #lang-menu { display: none; }
     #lang-menu.open { display: block; }
 
@@ -92,10 +94,11 @@
       gap: 4rem;
     }
     @media (max-width: 768px) { .scrolly { grid-template-columns: 1fr; } }
+    /* Pinned below the fixed navbar. Centring this with translateY(-50%) paints
+       the card half its height above its sticky box, on top of the heading. */
     .scrolly-sticky {
       position: sticky;
-      top: 50%;
-      transform: translateY(-50%);
+      top: 7rem;
       align-self: start;
       max-height: 70vh;
       display: flex;
@@ -139,7 +142,7 @@
         <span class="font-display text-2xl font-bold tracking-tight">VELO</span>
       </div>
 
-      <div class="hidden md:flex items-center gap-8 text-sm text-slate-400">
+      <div class="hidden lg:flex items-center gap-8 text-sm text-slate-400">
         <a href="#features" class="hover:text-white transition-colors" data-i18n="nav_features">Features</a>
         <a href="#ai"       class="hover:text-white transition-colors" data-i18n="nav_ai">VeloAgent AI</a>
         <a href="#security" class="hover:text-white transition-colors" data-i18n="nav_security">Security</a>
@@ -438,7 +441,7 @@
 <!-- ── AI SECTION ─────────────────────────────────────────────────────── -->
 <div id="ai" class="bg-slate-900 py-24 border-y border-slate-800" data-reveal>
   <div class="max-w-5xl mx-auto px-6">
-    <div class="grid md:grid-cols-2 gap-16 items-center">
+    <div class="grid lg:grid-cols-2 gap-16 items-center">
 
       <div>
         <div class="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-violet-500/10 text-violet-400 text-xs font-bold mb-5 uppercase tracking-widest">
@@ -627,7 +630,7 @@
         <a href="https://github.com/badizher-codex/velo/releases/download/v2.4.70/VELO-v2.4.70-win-x64-portable.zip"
            class="mt-auto inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 font-bold rounded-xl py-3 px-6 transition-all text-sm">
           <i class="fa-solid fa-file-zipper"></i>
-          <span>VELO-v2.4.70-portable.zip</span>
+          <span>VELO-v2.4.70-win-x64-portable.zip</span>
         </a>
       </div>
 
@@ -922,6 +925,26 @@ const T = {
     hero_title_1:"Le navigateur de", hero_title_2:"confidentialité le plus avancé", hero_title_3:"pour Windows",
     hero_sub:"Zéro télémétrie. IA locale optionnelle. Protection totale des empreintes.<br>Tout ce dont vous avez besoin, rien de plus.",
     hero_cta_installer:"Télécharger l'installeur (v2.4.70)", hero_cta_github:"Voir sur GitHub",
+    trans_label:"TRANSPARENCE RADICALE",
+    trans_title:"Chaque connexion. Listée.",
+    trans_sub:"VELO n'a aucun appel réseau caché. La liste complète des connexions sortantes tient sur cette page.",
+    trans_console:"~/velo$ netstat --par-défaut",
+    trans_default:"Par défaut, exactement UNE connexion sortante :",
+    trans_opt_in:"Uniquement si vous activez une fonctionnalité :",
+    trans_never:"JAMAIS :",
+    trans_never_list:"analytics · rapports de plantage · télémétrie ML · pings fournisseur",
+    trans_step1_title:"Vérification des mises à jour",
+    trans_step1_body:"Une fois toutes les 24 heures, VELO demande à GitHub s'il existe une version plus récente. C'est le seul appel activé d'origine. Désactivez-le dans Paramètres → Confidentialité et même celui-ci disparaît. Les mises à jour sont vérifiées par somme SHA256 + signature du manifeste — sans Authenticode.",
+    trans_step2_title:"DNS sur HTTPS",
+    trans_step2_body:"Si vous activez DoH, VELO fait passer le DNS par Quad9 au lieu de votre FAI. Le navigateur n'interroge jamais un autre résolveur. Désactivé par défaut — votre DNS système est utilisé tant que vous ne l'activez pas.",
+    trans_step3_title:"VeloAgent — le local d'abord",
+    trans_step3_body:"Par défaut l'IA tourne sur votre machine : Sentinel est intégré au navigateur lui-même, et l'agent parle à Ollama en localhost. L'adaptateur Claude est optionnel et utilise VOTRE clé API — VELO n'a ni clé partagée, ni proxy, ni télémétrie. Les prompts de l'agent et vos conversations n'atteignent jamais nos serveurs, parce que nous n'en avons aucun.",
+    trans_step4_title:"Vérification de fuites HIBP (k-anonymat)",
+    trans_step4_body:"Quand vous enregistrez un nouveau mot de passe, VELO peut demander à Have-I-Been-Pwned s'il figure dans une fuite connue. Nous envoyons les 5 PREMIERS CARACTÈRES HEX du hash SHA-1. Pas le mot de passe. Pas le hash complet. Le serveur renvoie ~500 candidats et la comparaison se fait localement. Désactivé par défaut.",
+    trans_step5_title:"Actualisation des listes de blocage",
+    trans_step5_body:"Les listes de trackers, publicités et malwares sont fournies avec l'installeur. En option, VELO les actualise chaque semaine depuis raw.githubusercontent.com (EasyPrivacy + Golden List + Malwaredex). La requête est un simple GET ; pas de cookies, pas de fingerprinting, pas de bidouille d'User-Agent.",
+    trans_step6_title:"Ce que nous ne faisons jamais",
+    trans_step6_body:"Pas d'analytics. Pas de rapports de plantage (prévus, uniquement sur activation). Pas de télémétrie ML. Pas de « statistiques d'usage anonymes ». Pas de pings fournisseur. Pas de commissions d'affiliation. Le code source est sur GitHub — vérifiez-le vous-même.",
     hero_req_os:"Windows 10 / 11 x64",
     hero_req_runtime:"Autonome — pas besoin d'installer .NET",
     hero_req_free:"Gratuit et open source",
@@ -998,6 +1021,26 @@ const T = {
     hero_title_1:"Der fortschrittlichste", hero_title_2:"Datenschutz-Browser", hero_title_3:"für Windows",
     hero_sub:"Keine Telemetrie. Optionale lokale KI. Vollständiger Fingerabdruckschutz.<br>Alles was Sie brauchen, nichts mehr.",
     hero_cta_installer:"Installer herunterladen (v2.4.70)", hero_cta_github:"Auf GitHub ansehen",
+    trans_label:"RADIKALE TRANSPARENZ",
+    trans_title:"Jede Verbindung. Aufgelistet.",
+    trans_sub:"VELO hat keine versteckten Netzwerkaufrufe. Die vollständige Liste ausgehender Verbindungen passt auf diese Seite.",
+    trans_console:"~/velo$ netstat --standardmäßig",
+    trans_default:"Standardmäßig genau EINE ausgehende Verbindung:",
+    trans_opt_in:"Nur wenn Sie eine Funktion aktivieren:",
+    trans_never:"NIEMALS:",
+    trans_never_list:"Analytics · Absturzberichte · ML-Telemetrie · Anbieter-Pings",
+    trans_step1_title:"Update-Prüfung",
+    trans_step1_body:"Einmal alle 24 Stunden fragt VELO bei GitHub nach, ob eine neuere Version existiert. Das ist der einzige ab Werk aktive Aufruf. Schalten Sie ihn in Einstellungen → Datenschutz ab, dann verschwindet auch dieser. Updates werden per SHA256-Prüfsumme + Manifest-Signatur verifiziert — kein Authenticode nötig.",
+    trans_step2_title:"DNS über HTTPS",
+    trans_step2_body:"Wenn Sie DoH aktivieren, leitet VELO DNS über Quad9 statt über Ihren Provider. Der Browser fragt nie einen anderen Resolver ab. Standardmäßig aus — bis Sie es aktivieren, wird Ihr System-DNS verwendet.",
+    trans_step3_title:"VeloAgent — zuerst lokal",
+    trans_step3_body:"Standardmäßig läuft die KI auf Ihrem Rechner: Sentinel ist direkt im Browser eingebettet, und der Agent spricht mit Ollama auf localhost. Der Claude-Adapter ist optional und nutzt IHREN API-Schlüssel — VELO hat keinen gemeinsamen Schlüssel, keinen Proxy, keine Telemetrie. Die Prompts des Agenten und Ihre Unterhaltungen erreichen unsere Server nie, weil wir keine haben.",
+    trans_step4_title:"HIBP-Leak-Prüfung (k-Anonymität)",
+    trans_step4_body:"Wenn Sie ein neues Passwort speichern, kann VELO bei Have-I-Been-Pwned nachfragen, ob es in einem bekannten Leak auftaucht. Wir senden die ERSTEN 5 HEX-ZEICHEN des SHA-1-Hashes. Nicht das Passwort. Nicht den vollständigen Hash. Der Server liefert ~500 Kandidaten zurück, der Vergleich passiert lokal. Standardmäßig aus.",
+    trans_step5_title:"Aktualisierung der Blocklisten",
+    trans_step5_body:"Tracker-, Werbe- und Malware-Listen liegen dem Installer bei. Optional aktualisiert VELO sie wöchentlich von raw.githubusercontent.com (EasyPrivacy + Golden List + Malwaredex). Die Anfrage ist ein einfacher GET; keine Cookies, kein Fingerprinting, keine User-Agent-Tricks.",
+    trans_step6_title:"Was wir niemals tun",
+    trans_step6_body:"Keine Analytics. Keine Absturzberichte (geplant, nur mit Zustimmung). Keine ML-Telemetrie. Keine „anonymen Nutzungsstatistiken“. Keine Anbieter-Pings. Keine Referral-Provisionen. Der Quellcode liegt auf GitHub — prüfen Sie ihn selbst.",
     hero_req_os:"Windows 10 / 11 x64",
     hero_req_runtime:"Eigenständig — kein .NET-Install nötig",
     hero_req_free:"Kostenlos und Open Source",
@@ -1074,6 +1117,26 @@ const T = {
     hero_title_1:"O navegador de privacidade", hero_title_2:"mais avançado", hero_title_3:"para Windows",
     hero_sub:"Zero telemetria. IA local opcional. Proteção total de impressão digital.<br>Tudo que você precisa, nada a mais.",
     hero_cta_installer:"Baixar instalador (v2.4.70)", hero_cta_github:"Ver no GitHub",
+    trans_label:"TRANSPARÊNCIA RADICAL",
+    trans_title:"Cada conexão. Listada.",
+    trans_sub:"VELO não tem chamadas de rede ocultas. A lista completa de conexões de saída cabe nesta página.",
+    trans_console:"~/velo$ netstat --por-padrão",
+    trans_default:"Por padrão, exatamente UMA conexão de saída:",
+    trans_opt_in:"Somente se você ativar algum recurso:",
+    trans_never:"NUNCA:",
+    trans_never_list:"analytics · relatórios de falha · telemetria de ML · pings de fornecedor",
+    trans_step1_title:"Verificação de atualizações",
+    trans_step1_body:"Uma vez a cada 24 horas, o VELO pergunta ao GitHub se existe uma versão mais nova. É a única chamada ativa de fábrica. Desligue-a em Configurações → Privacidade e até ela desaparece. As atualizações são verificadas com checksum SHA256 + assinatura do manifesto — sem Authenticode.",
+    trans_step2_title:"DNS sobre HTTPS",
+    trans_step2_body:"Se você ativar o DoH, o VELO roteia o DNS pelo Quad9 em vez do seu provedor. O navegador nunca consulta outro resolvedor. Desligado por padrão — seu DNS do sistema é usado até você optar por ativar.",
+    trans_step3_title:"VeloAgent — local primeiro",
+    trans_step3_body:"Por padrão a IA roda na sua máquina: o Sentinel vem embutido no próprio navegador, e o agente fala com o Ollama em localhost. O adaptador do Claude é opcional e usa a SUA chave de API — o VELO não tem chave compartilhada, nem proxy, nem telemetria. Os prompts do agente e suas conversas nunca chegam aos nossos servidores porque não temos servidores.",
+    trans_step4_title:"Verificação de vazamentos HIBP (k-anonimato)",
+    trans_step4_body:"Ao salvar uma senha nova, o VELO pode perguntar ao Have-I-Been-Pwned se ela aparece em algum vazamento conhecido. Enviamos os 5 PRIMEIROS CARACTERES HEX do hash SHA-1. Não a senha. Não o hash completo. O servidor devolve ~500 candidatos e a comparação acontece localmente. Desligado por padrão.",
+    trans_step5_title:"Atualização das listas de bloqueio",
+    trans_step5_body:"As listas de rastreadores, anúncios e malware vêm junto com o instalador. Opcionalmente o VELO as atualiza semanalmente a partir de raw.githubusercontent.com (EasyPrivacy + Golden List + Malwaredex). A requisição é um GET simples; sem cookies, sem fingerprinting, sem truques de User-Agent.",
+    trans_step6_title:"O que nunca fazemos",
+    trans_step6_body:"Sem analytics. Sem relatórios de falha (planejados, apenas opt-in). Sem telemetria de ML. Sem \"estatísticas anônimas de uso\". Sem pings de fornecedor. Sem comissões de indicação. O código-fonte está no GitHub — verifique você mesmo.",
     hero_req_os:"Windows 10 / 11 x64",
     hero_req_runtime:"Autocontido — sem instalar .NET",
     hero_req_free:"Gratuito e open source",
