@@ -279,8 +279,8 @@
                     <RadioButton x:Name="DnsCustom" GroupName="DNS" Margin="0,0,0,4">
                         <TextBlock x:Name="DnsCustomLabel" Text="Personalizado"/>
                     </RadioButton>
-                    <TextBlock x:Name="DnsUrlLabel" Text="URL DoH:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
-                               Margin="20,4,0,2"/>
+                    <TextBlock x:Name="DnsUrlLabel" Text="DOH URL"
+                               Style="{StaticResource FieldLabel}" Margin="20,8,0,6"/>
                     <TextBox x:Name="DnsCustomUrl" Margin="20,0,0,0" IsEnabled="False"
                              Tag="https://dns.example.com/dns-query"/>
                 </StackPanel>
@@ -306,8 +306,8 @@
                                        FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
-                    <TextBlock x:Name="AiApiKeyLabel" Text="API Key:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
-                               Margin="20,4,0,2"/>
+                    <TextBlock x:Name="AiApiKeyLabel" Text="API KEY"
+                               Style="{StaticResource FieldLabel}" Margin="20,8,0,6"/>
                     <TextBox x:Name="ApiKeyField" Margin="20,0,0,12" IsEnabled="False"
                              Tag="sk-ant-..."/>
 
@@ -318,12 +318,12 @@
                                        FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
-                    <TextBlock x:Name="AiEndpointLabel" Text="Endpoint:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
-                               Margin="20,4,0,2"/>
+                    <TextBlock x:Name="AiEndpointLabel" Text="ENDPOINT"
+                               Style="{StaticResource FieldLabel}" Margin="20,8,0,6"/>
                     <TextBox x:Name="CustomEndpointField" Margin="20,0,0,4" IsEnabled="False"
                              Tag="http://localhost:11434"/>
-                    <TextBlock x:Name="AiModelLabel" Text="Modelo:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
-                               Margin="20,0,0,2"/>
+                    <TextBlock x:Name="AiModelLabel" Text="MODEL"
+                               Style="{StaticResource FieldLabel}" Margin="20,10,0,6"/>
                     <TextBox x:Name="CustomModelField" Margin="20,0,0,8" IsEnabled="False"
                              Tag="llama3"/>
                     <Button x:Name="TestOllamaButton" Content="Probar conexión"
@@ -456,14 +456,14 @@
                     <Separator Margin="0,20,0,16"/>
 
                     <TextBlock x:Name="ChangePassTitle" Text="Cambiar master password" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                    <TextBlock x:Name="NewPassLabel" Text="Nueva master password:" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="NewPassLabel" Text="NEW MASTER PASSWORD" Style="{StaticResource FieldLabel}"/>
                     <PasswordBox x:Name="NewMasterPwd" Width="300" HorizontalAlignment="Left"
                                  Padding="8,6"
                                  Background="{DynamicResource SurfaceOverlayBrush}"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
                                  BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  BorderThickness="1"/>
-                    <TextBlock x:Name="ConfirmPassLabel" Text="Confirmar:" Margin="0,8,0,4"/>
+                    <TextBlock x:Name="ConfirmPassLabel" Text="CONFIRM" Style="{StaticResource FieldLabel}" Margin="0,14,0,6"/>
                     <PasswordBox x:Name="ConfirmMasterPwd" Width="300" HorizontalAlignment="Left"
                                  Padding="8,6"
                                  Background="{DynamicResource SurfaceOverlayBrush}"
