@@ -73,6 +73,7 @@ public partial class App : Application
             // machine set to light. App.xaml boots with Dark.xaml merged; this
             // swaps it for the persisted choice (default: follow Windows).
             VELO.Core.Navigation.TabInfo.ContainerColorResolver = ContainerPalette.HexFor;
+            WindowChromeHelper.InstallGlobalHook();
             ThemeService.Apply(ThemeService.Parse(
                 await settings.GetAsync(SettingKeys.Theme, ThemeService.Serialize(ThemeMode.System))));
 

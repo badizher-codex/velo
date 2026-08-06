@@ -25,6 +25,39 @@ namespace VELO.UI.Themes;
 /// </summary>
 public static class WindowChromeHelper
 {
+    private static bool _classHandlerInstalled;
+
+    /// <summary>
+    /// Applies the themed title bar to every Window the app opens, once, for
+    /// the lifetime of the process. Call from App.OnStartup before the first
+    /// window is shown.
+    ///
+    /// The attached property below is not enough on its own. It is set from the
+    /// implicit Window style, and in practice that only reliably reaches
+    /// MainWindow — which is why MainWindow already carried an explicit
+    /// ApplyToWindow call and every dialog opened with a system-coloured title
+    /// bar over dark content. The bug hid for a long time because a light title
+    /// bar looks correct under the light theme, and because a theme *switch*
+    /// runs RefreshAllWindows and fixes every open window, so the chrome was
+    /// only ever wrong until the first toggle.
+    ///
+    /// A class handler on Window.Loaded has no such gap: Loaded fires after
+    /// SourceInitialized, so the HWND always exists by then.
+    /// </summary>
+    public static void InstallGlobalHook()
+    {
+        if (_classHandlerInstalled) return;
+        _classHandlerInstalled = true;
+
+        EventManager.RegisterClassHandler(
+            typeof(Window),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler((sender, _) =>
+            {
+                if (sender is Window window) ApplyToWindow(window);
+            }));
+    }
+
     public static readonly DependencyProperty FollowThemeProperty =
         DependencyProperty.RegisterAttached(
             "FollowTheme",
