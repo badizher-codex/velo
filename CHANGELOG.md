@@ -11,6 +11,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] — Light and dark themes
+
+**VELO can now be light.** Settings → Appearance offers Follow Windows (the new default), Light and Dark. The switch is instant — no restart, and no window reopens. Picking "Follow Windows" also means VELO changes on its own when you change the system theme.
+
+Getting there meant rebuilding the colour layer rather than adding a second palette on top of the old one:
+
+- **Tokens are named for their role, not their value.** `SurfaceCanvas`, `TextPrimary`, `BorderSubtle`, `Accent`. The old names (`BackgroundDark`, `SurfaceLight`, `AccentBlue`) described what a colour looked like, which stops being true the moment a light theme exists.
+- **The v2.4 cyan is gone.** Phase 5 introduced the purple accent but only reached the dialogs; the chrome, the active tab and the Save button stayed neon cyan. One accent now, everywhere.
+- **628 `StaticResource` colour lookups became `DynamicResource`,** which is what makes live switching possible at all: a `StaticResource` is resolved once when the screen is parsed and keeps its colour forever.
+- **~85 hardcoded colours in the views and ~60 in code-behind** now resolve from the active theme. Third-party brand colours (Claude, OpenAI, Twitter in the Council disclaimer) are deliberately left alone.
+- **Every status colour has a light-mode twin.** The dark-theme green, amber and red sit near 1.7:1 on white — unreadable. The light theme uses darker tones for anything that has to be read as text.
+
+Fixed along the way:
+
+- **Six windows would have failed to open.** Settings, Vault, Bookmarks, Clipboard History, Onboarding and the Council disclaimer each merged their own private copy of the theme dictionary — which also meant they could never have followed a theme change.
+- **The active tab looked like a debug focus rectangle.** It was a 2 px ring on all four sides plus a glow; it is now a filled row with an accent stripe on the left, the way every other browser marks "you are here".
+- **A 2 px red line ran the full height of the window,** permanently, down the right edge of every page. The collapsed security chip was documented as "32×120px" but never had a height set, so it stretched to fill its row.
+- **`PasswordBox` had no style at all** — all five in the app, the Vault's included, fell back to the stock white WPF box.
+- **The settings nav used colour emoji** (🔒 🌐 🧠 🔍 🔑 🤝 🌍 ⚙️). Emoji ignore `Foreground`, so they stayed fully saturated against every theme and could not dim when disabled. They are monochrome vector icons now.
+- **The command palette prompted in Spanish** regardless of UI language, and the URL bar's AI chip read "IA" in English builds.
+- **The scrollbar** kept the stock WPF template under a 6 px width, so its arrows and track showed through on all 20 scroll views.
+
+Four new smoke tests guard the result: the two theme dictionaries must define the same key set, every `DynamicResource` must resolve, `Controls.xaml` may not reach a colour through `StaticResource`, and no view may hardcode a hex colour.
+
+---
+
 ## [2.4.70] — 2026-08-04 — Tabs opened from a link show the page again
 
 **A tab opened by clicking a link showed VELO's new-tab page instead of the site.** The tab was working the whole time — correct URL in the address bar, page fetched and rendered — you just couldn't see any of it.

@@ -5,8 +5,8 @@
         Width="480" Height="540"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource BackgroundDarkestBrush}"
-        Foreground="{StaticResource TextPrimaryBrush}">
+        Background="{DynamicResource SurfaceCanvasBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
     <!-- Phase 5.0 re-skin — frame 7 left. -->
     <Grid Margin="32,28,32,28">
@@ -22,8 +22,8 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal"
                     HorizontalAlignment="Center" Margin="0,0,0,14">
             <Border Width="56" Height="56" CornerRadius="28"
-                    Background="{StaticResource BadgeRedBgBrush}"
-                    BorderBrush="{StaticResource BadgeRedBrush}"
+                    Background="{DynamicResource StatusDangerSoftBrush}"
+                    BorderBrush="{DynamicResource StatusDangerTextBrush}"
                     BorderThickness="1"
                     Margin="0,0,16,0">
                 <TextBlock Text="🗑" FontSize="26"
@@ -31,7 +31,7 @@
             </Border>
             <TextBlock x:Name="TitleLabel"
                        FontSize="22" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
                        VerticalAlignment="Center"/>
         </StackPanel>
 
@@ -39,7 +39,7 @@
         <TextBlock Grid.Row="1"
                    x:Name="SubtitleLabel"
                    FontSize="13"
-                   Foreground="{StaticResource TextSecondaryBrush}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    HorizontalAlignment="Center" TextAlignment="Center"
                    TextWrapping="Wrap" Margin="0,0,0,22"/>
 
@@ -50,9 +50,9 @@
                 <CheckBox x:Name="ClearHistoryCheck" IsChecked="True">
                     <StackPanel>
                         <TextBlock x:Name="ClearHistoryLabel" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock x:Name="ClearHistoryDesc"
-                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,3,0,0"/>
                     </StackPanel>
                 </CheckBox>
@@ -62,9 +62,9 @@
                 <CheckBox x:Name="ClearCookiesCheck" IsChecked="False">
                     <StackPanel>
                         <TextBlock x:Name="ClearCookiesLabel" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock x:Name="ClearCookiesDesc"
-                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,3,0,0"/>
                     </StackPanel>
                 </CheckBox>
@@ -74,9 +74,9 @@
                 <CheckBox x:Name="ClearCacheCheck" IsChecked="False">
                     <StackPanel>
                         <TextBlock x:Name="ClearCacheLabel" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock x:Name="ClearCacheDesc"
-                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,3,0,0"/>
                     </StackPanel>
                 </CheckBox>
@@ -86,9 +86,9 @@
                 <CheckBox x:Name="ClearDownloadsCheck" IsChecked="False">
                     <StackPanel>
                         <TextBlock x:Name="ClearDownloadsLabel" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock x:Name="ClearDownloadsDesc"
-                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,3,0,0"/>
                     </StackPanel>
                 </CheckBox>
@@ -99,7 +99,7 @@
         <!-- Status -->
         <TextBlock Grid.Row="3" x:Name="StatusLabel"
                    FontSize="12" Margin="0,16,0,0" Visibility="Collapsed"
-                   Foreground="{StaticResource TextMutedBrush}"
+                   Foreground="{DynamicResource TextMutedBrush}"
                    HorizontalAlignment="Center"/>
 
         <!-- Actions: ghost cancel + danger clear -->

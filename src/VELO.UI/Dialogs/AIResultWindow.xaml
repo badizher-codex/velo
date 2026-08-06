@@ -6,8 +6,8 @@
         MinWidth="420" MinHeight="340"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
-        Background="{StaticResource BackgroundDarkestBrush}"
-        Foreground="{StaticResource TextPrimaryBrush}">
+        Background="{DynamicResource SurfaceCanvasBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
     <!-- Phase 5.2 re-skin — IA result dialog. -->
     <Grid>
@@ -19,8 +19,8 @@
 
         <!-- ── Header / adapter chip ─────────────────────────────────── -->
         <Border Grid.Row="0"
-                Background="{StaticResource SurfaceDarkBrush}"
-                BorderBrush="{StaticResource BorderSubtleBrush}"
+                Background="{DynamicResource SurfaceBaseBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="18,14">
             <Grid>
@@ -34,12 +34,12 @@
                            Text="Resultado IA"
                            FontSize="14" FontWeight="SemiBold"
                            VerticalAlignment="Center"
-                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <!-- AdapterChip — defaults to green (local); code-behind repaints
                      when Claude/Ollama remote etc. is active. -->
                 <Border x:Name="AdapterChip" Grid.Column="1"
-                        Background="#FF1A3A20"
-                        BorderBrush="#FF2EB54F"
+                        Background="{DynamicResource StatusSuccessSoftBrush}"
+                        BorderBrush="{DynamicResource StatusSuccessTextBrush}"
                         BorderThickness="1"
                         CornerRadius="99"
                         Padding="10,3"
@@ -49,7 +49,7 @@
                                Text="🖥 Local"
                                FontSize="10.5"
                                FontWeight="SemiBold"
-                               Foreground="#FF2EB54F"/>
+                               Foreground="{DynamicResource StatusSuccessTextBrush}"/>
                 </Border>
                 <Button x:Name="CloseButton" Grid.Column="3"
                         Style="{StaticResource IconButton}"
@@ -64,12 +64,12 @@
             <StackPanel>
                 <TextBlock x:Name="SourceLabel"
                            FontSize="10"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            Margin="0,0,0,4"
                            Text=""/>
                 <TextBlock x:Name="SourceText"
                            FontSize="11"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            TextWrapping="Wrap"
                            Margin="0,0,0,14"
                            FontStyle="Italic"
@@ -77,19 +77,19 @@
                 <!-- Loading skeleton card -->
                 <Border x:Name="LoadingPanel"
                         HorizontalAlignment="Left"
-                        Background="{StaticResource SurfaceMidBrush}"
-                        BorderBrush="{StaticResource BorderSubtleBrush}"
+                        Background="{DynamicResource SurfaceRaisedBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
                         BorderThickness="1"
                         Padding="14,9"
                         CornerRadius="10"
                         Visibility="Visible">
                     <TextBlock Text="⏳ Generando…"
                                FontSize="11.5"
-                               Foreground="{StaticResource AccentPurpleLightBrush}"/>
+                               Foreground="{DynamicResource AccentHoverBrush}"/>
                 </Border>
                 <TextBlock x:Name="ResultText"
                            FontSize="13.5"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            TextWrapping="Wrap"
                            LineHeight="20"
                            Visibility="Collapsed"/>
@@ -98,8 +98,8 @@
 
         <!-- ── Action bar ────────────────────────────────────────────── -->
         <Border Grid.Row="2"
-                Background="{StaticResource SurfaceDarkBrush}"
-                BorderBrush="{StaticResource BorderSubtleBrush}"
+                Background="{DynamicResource SurfaceBaseBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="18,12">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

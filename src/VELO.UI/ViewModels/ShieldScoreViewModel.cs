@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using VELO.Security.Models;
+using VELO.UI.Themes;
 
 namespace VELO.UI.ViewModels;
 
@@ -41,12 +42,12 @@ public class ShieldScoreViewModel : INotifyPropertyChanged
 
     public Brush BadgeBrush => Level switch
     {
-        SafetyLevel.Gold      => new SolidColorBrush(Color.FromRgb(0xD4, 0xAF, 0x37)),
-        SafetyLevel.Green     => new SolidColorBrush(Color.FromRgb(0x2E, 0xB5, 0x4F)),
-        SafetyLevel.Yellow    => new SolidColorBrush(Color.FromRgb(0xF0, 0xB4, 0x29)),
-        SafetyLevel.Red       => new SolidColorBrush(Color.FromRgb(0xE5, 0x3E, 0x3E)),
-        SafetyLevel.Analyzing => new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)),
-        _                     => new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)),
+        SafetyLevel.Gold      => ThemePalette.Brush(ThemePalette.Keys.ShieldGold),
+        SafetyLevel.Green     => ThemePalette.Brush(ThemePalette.Keys.StatusSuccessText),
+        SafetyLevel.Yellow    => ThemePalette.Brush(ThemePalette.Keys.StatusWarningText),
+        SafetyLevel.Red       => ThemePalette.Brush(ThemePalette.Keys.StatusDangerText),
+        SafetyLevel.Analyzing => ThemePalette.Brush(ThemePalette.Keys.ShieldNeutral),
+        _                     => ThemePalette.Brush(ThemePalette.Keys.ShieldNeutral),
     };
 
     public void Update(SafetyResult result)

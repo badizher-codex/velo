@@ -6,7 +6,15 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/VELO.UI;component/Themes/DarkTheme.xaml"/>
+                <!-- Slot 0 — the theme. ThemeService replaces this entry in
+                     place to switch light/dark at runtime; the index is
+                     hardcoded there as ThemeSlot, so this must stay first.
+                     Dark is the boot default; App.OnStartup re-applies the
+                     persisted ui.theme once the database is open. -->
+                <ResourceDictionary Source="pack://application:,,,/VELO.UI;component/Themes/Dark.xaml"/>
+                <!-- Slot 1 — control styles. Theme-independent; every colour
+                     inside is a DynamicResource pointing at slot 0. -->
+                <ResourceDictionary Source="pack://application:,,,/VELO.UI;component/Themes/Controls.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

@@ -7,63 +7,52 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize">
 
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
-
-    <Grid Background="{StaticResource BackgroundDarkBrush}">
+    <Grid Background="{DynamicResource SurfaceBaseBrush}">
 
         <!-- ── LOCKED OVERLAY (Phase 5.0 re-skin — frame 3) ── -->
         <Grid x:Name="LockScreen"
-              Background="{StaticResource BackgroundDarkestBrush}">
+              Background="{DynamicResource SurfaceCanvasBrush}">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="380">
 
                 <!-- Shield icon — circular surface with purple glow -->
                 <Border Width="92" Height="92" CornerRadius="46"
                         HorizontalAlignment="Center"
-                        Background="{StaticResource SurfaceLightBrush}"
-                        BorderBrush="{StaticResource AccentPurpleBrush}"
+                        Background="{DynamicResource SurfaceOverlayBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
                         BorderThickness="2"
-                        Margin="0,0,0,22">
-                    <Border.Effect>
-                        <DropShadowEffect Color="#7C5CFF" Opacity="0.55"
-                                          BlurRadius="36" ShadowDepth="0"/>
-                    </Border.Effect>
+                        Margin="0,0,0,22"
+                        Effect="{DynamicResource ShadowAccent}">
                     <TextBlock Text="🛡" FontSize="46"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 
                 <!-- Title -->
                 <TextBlock Text="Password Vault" FontSize="26" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            HorizontalAlignment="Center" Margin="0,0,0,8"/>
 
                 <!-- Subtitle -->
                 <TextBlock x:Name="UnlockSubtitle"
                            FontSize="13"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            HorizontalAlignment="Center" TextWrapping="Wrap"
                            TextAlignment="Center" Margin="0,0,0,30"/>
 
                 <!-- Master password label -->
                 <TextBlock x:Name="MasterLabel"
                            FontSize="12"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="2,0,0,8"/>
 
                 <!-- Password input (purple focus border + rounded 10px) -->
                 <PasswordBox x:Name="UnlockPwd"
-                             Style="{StaticResource ModernPasswordBox}"
+                            
                              FontSize="14"
                              KeyDown="UnlockPwd_KeyDown"/>
 
                 <!-- Error message -->
                 <TextBlock x:Name="UnlockError" Text=""
-                           Foreground="{StaticResource BadgeRedBrush}"
+                           Foreground="{DynamicResource StatusDangerTextBrush}"
                            FontSize="12" Margin="2,8,0,0" Visibility="Collapsed"/>
 
                 <!-- Full-width gradient unlock button -->
@@ -76,10 +65,10 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                             Margin="0,32,0,0">
                     <Ellipse Width="8" Height="8"
-                             Fill="{StaticResource BadgeGreenBrush}"
+                             Fill="{DynamicResource StatusSuccessTextBrush}"
                              VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock x:Name="VaultFooter"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                FontSize="11.5" VerticalAlignment="Center"/>
                 </StackPanel>
 
@@ -101,7 +90,7 @@
                     <TextBlock Text="🔑 Password Vault" FontSize="16" FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                     <TextBlock x:Name="EntryCount" Text=""
-                               FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
                                VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -115,8 +104,8 @@
 
             <!-- Search -->
             <Border Grid.Row="1" Margin="20,12,20,0"
-                    Background="{StaticResource SurfaceLightBrush}"
-                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    Background="{DynamicResource SurfaceOverlayBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="1" CornerRadius="10">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -125,12 +114,12 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="🔍" FontSize="14"
                                VerticalAlignment="Center" Margin="14,0,8,0"
-                               Foreground="{StaticResource TextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
                     <TextBox x:Name="SearchBox" Grid.Column="1"
                              Background="Transparent" BorderThickness="0"
-                             Foreground="{StaticResource TextPrimaryBrush}"
-                             CaretBrush="{StaticResource AccentPurpleBrush}"
-                             SelectionBrush="{StaticResource AccentPurpleBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             CaretBrush="{DynamicResource AccentBrush}"
+                             SelectionBrush="{DynamicResource AccentBrush}"
                              Padding="0,11,12,11" FontSize="13"
                              TextChanged="Search_Changed"/>
                 </Grid>
@@ -143,16 +132,16 @@
             </ScrollViewer>
 
             <!-- Status bar -->
-            <Border Grid.Row="3" BorderBrush="{StaticResource BorderSubtleBrush}"
+            <Border Grid.Row="3" BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,0" Padding="20,10">
                 <TextBlock x:Name="StatusText" Text=""
-                           Foreground="{StaticResource BadgeGreenBrush}" FontSize="11.5"/>
+                           Foreground="{DynamicResource StatusSuccessTextBrush}" FontSize="11.5"/>
             </Border>
         </Grid>
 
         <!-- ── ADD / EDIT PANEL ── -->
         <Grid x:Name="EditScreen" Visibility="Collapsed"
-              Background="{StaticResource BackgroundDarkestBrush}">
+              Background="{DynamicResource SurfaceCanvasBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -176,7 +165,7 @@
                              TextChanged="RequiredField_Changed"/>
                     <TextBlock x:Name="SiteError"
                                Text="✦ Este campo es obligatorio"
-                               Foreground="{StaticResource BadgeRedBrush}" FontSize="10.5"
+                               Foreground="{DynamicResource StatusDangerTextBrush}" FontSize="10.5"
                                Visibility="Collapsed" Margin="2,0,0,8"/>
 
                     <TextBlock x:Name="UrlLabel" Text="URL" Margin="0,0,0,4"/>
@@ -187,7 +176,7 @@
                              TextChanged="RequiredField_Changed"/>
                     <TextBlock x:Name="UsernameError"
                                Text="✦ Este campo es obligatorio"
-                               Foreground="{StaticResource BadgeRedBrush}" FontSize="10.5"
+                               Foreground="{DynamicResource StatusDangerTextBrush}" FontSize="10.5"
                                Visibility="Collapsed" Margin="2,0,0,8"/>
 
                     <TextBlock x:Name="PasswordLabel" Text="Contraseña" Margin="0,0,0,4"/>
@@ -208,13 +197,13 @@
 
                     <!-- Password strength bar -->
                     <Grid Margin="0,4,0,6" Height="5">
-                        <Rectangle Fill="{StaticResource SurfaceLightBrush}" RadiusX="2.5" RadiusY="2.5"/>
+                        <Rectangle Fill="{DynamicResource SurfaceOverlayBrush}" RadiusX="2.5" RadiusY="2.5"/>
                         <Rectangle x:Name="StrengthBar" HorizontalAlignment="Left"
                                    RadiusX="2.5" RadiusY="2.5" Width="0"/>
                     </Grid>
                     <TextBlock x:Name="PasswordError"
                                Text="✦ Este campo es obligatorio"
-                               Foreground="{StaticResource BadgeRedBrush}" FontSize="10.5"
+                               Foreground="{DynamicResource StatusDangerTextBrush}" FontSize="10.5"
                                Visibility="Collapsed" Margin="2,0,0,8"/>
 
                     <!-- Generator options -->
@@ -256,11 +245,11 @@
             </ScrollViewer>
 
             <!-- Edit buttons -->
-            <Border Grid.Row="2" BorderBrush="{StaticResource BorderSubtleBrush}"
+            <Border Grid.Row="2" BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,0" Padding="24,14">
                 <Grid>
                     <Button x:Name="DeleteBtn" Content="🗑 Eliminar"
-                            Foreground="{StaticResource BadgeRedBrush}"
+                            Foreground="{DynamicResource StatusDangerTextBrush}"
                             HorizontalAlignment="Left" Padding="12,8"
                             Visibility="Collapsed" Click="Delete_Click"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

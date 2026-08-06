@@ -2,8 +2,10 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using VELO.App.Startup;
+using VELO.Data.Models;
 using VELO.Data.Repositories;
 using VELO.UI.Dialogs;
+using VELO.UI.Themes;
 using VELO.Vault;
 
 namespace VELO.App;
@@ -67,6 +69,13 @@ public partial class App : Application
             var settings = _services.GetRequiredService<SettingsRepository>();
             var vault    = _services.GetRequiredService<VaultService>();
 
+            // Before the first window is shown, so nothing flashes dark on a
+            // machine set to light. App.xaml boots with Dark.xaml merged; this
+            // swaps it for the persisted choice (default: follow Windows).
+            VELO.Core.Navigation.TabInfo.ContainerColorResolver = ContainerPalette.HexFor;
+            ThemeService.Apply(ThemeService.Parse(
+                await settings.GetAsync(SettingKeys.Theme, ThemeService.Serialize(ThemeMode.System))));
+
             if (!await bootstrapper.IsOnboardingCompletedAsync(settings))
             {
                 var wizard = new OnboardingWizard(settings, vault);
@@ -109,6 +118,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         try { _singleInstance?.Dispose(); } catch { }
+        ThemeService.Shutdown();
         Log.CloseAndFlush();
         base.OnExit(e);
     }

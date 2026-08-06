@@ -8,6 +8,7 @@ using VELO.Core.Localization;
 using VELO.Security;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -249,15 +250,14 @@ public partial class SecurityPanel : UserControl
 
     private void ApplyVerdictStyle(VerdictType verdict)
     {
-        var (borderHex, icon) = verdict switch
+        var (tokenKey, icon) = verdict switch
         {
-            VerdictType.Block => ("#E53E3E", "🔴"),
-            VerdictType.Warn  => ("#F0B429", "⚠️"),
-            _                 => ("#2EB54F", "✅"),
+            VerdictType.Block => (ThemePalette.Keys.StatusDangerText,  "🔴"),
+            VerdictType.Warn  => (ThemePalette.Keys.StatusWarningText, "⚠️"),
+            _                 => (ThemePalette.Keys.StatusSuccessText, "✅"),
         };
 
-        var color = (Color)ColorConverter.ConvertFromString(borderHex);
-        var brush = new SolidColorBrush(color);
+        var brush = ThemePalette.Brush(tokenKey);
 
         PanelBorder.BorderBrush = brush;
         VerdictIcon.Text        = icon;
@@ -268,11 +268,9 @@ public partial class SecurityPanel : UserControl
 
     private void UpdateChip()
     {
-        var color = _hasActiveWarn
-            ? (Color)ColorConverter.ConvertFromString("#F0B429")
-            : (Color)ColorConverter.ConvertFromString("#E53E3E");
-
-        MiniBadge.Background   = new SolidColorBrush(color);
+        MiniBadge.Background   = ThemePalette.Brush(_hasActiveWarn
+            ? ThemePalette.Keys.StatusWarning
+            : ThemePalette.Keys.StatusDanger);
         MiniBadgeCount.Text    = _sessionThreatCount > 99 ? "99+" : _sessionThreatCount.ToString();
         MiniIcon.Text          = _hasActiveWarn ? "⚠️" : "🔴";
         MiniWarnIndicator.Visibility = _hasActiveWarn ? Visibility.Visible : Visibility.Collapsed;

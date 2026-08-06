@@ -14,8 +14,8 @@
         <conv:BytesToImageSourceConverter x:Key="BytesToImage"/>
     </UserControl.Resources>
 
-    <Border Background="{StaticResource SurfaceDarkBrush}"
-            BorderBrush="{StaticResource BorderSubtleBrush}"
+    <Border Background="{DynamicResource SurfaceBaseBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="0,0,1,0">
         <Grid>
             <Grid.RowDefinitions>
@@ -27,8 +27,8 @@
 
             <!-- ── Top new-tab button (shortcut so users don't need to scroll) ── -->
             <Border Grid.Row="0"
-                    Background="{StaticResource BackgroundDarkestBrush}"
-                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    Background="{DynamicResource SurfaceCanvasBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="6,6">
                 <Button x:Name="TopNewTabBtn"
@@ -37,7 +37,7 @@
                         Padding="8,6"
                         HorizontalAlignment="Stretch"
                         Background="Transparent"
-                        Foreground="{StaticResource TextMutedBrush}"
+                        Foreground="{DynamicResource TextMutedBrush}"
                         BorderThickness="0"
                         Cursor="Hand"
                         Click="NewTab_Click"
@@ -47,8 +47,8 @@
             <!-- ── Workspace strip ──────────────────────────────────────── -->
             <Border x:Name="WorkspaceStripBorder"
                     Grid.Row="1"
-                    Background="{StaticResource BackgroundDarkestBrush}"
-                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    Background="{DynamicResource SurfaceCanvasBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="6,6">
                 <ScrollViewer HorizontalScrollBarVisibility="Auto"
@@ -87,23 +87,14 @@
                                     ToolTip="{Binding Title}">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
-                                                <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
-                                                <!-- v2.4.37 — glow also in collapsed mode. -->
-                                                <Setter Property="Effect">
-                                                    <Setter.Value>
-                                                        <DropShadowEffect Color="#7C5CFF"
-                                                                          Opacity="0.55"
-                                                                          BlurRadius="14"
-                                                                          ShadowDepth="0"/>
-                                                    </Setter.Value>
-                                                </Setter>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}"/>
                                             </DataTrigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="BorderBrush" Value="{StaticResource BorderEmphasisBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -118,7 +109,7 @@
                                            RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <TextBlock FontSize="14"
                                                FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
                                                HorizontalAlignment="Center"
                                                VerticalAlignment="Center"
                                                IsHitTestVisible="False">
@@ -152,11 +143,15 @@
                         <DataTemplate>
                             <!-- Tab row: outer Border carries the per-tab accent tint (local
                                  value so it is never overridden by style triggers); the inner
-                                 Border overlays a semi-transparent dark wash for active/hover
+                                 Border overlays a semi-transparent wash for active/hover
                                  states so the tint still bleeds through subtly.
-                                 v2.0.5.4 — When the tab is active the outer Border switches to
-                                 a 2 px cyan ring on all sides so the active row is unmistakable
-                                 in the expanded sidebar (mirrors the collapsed-mode treatment). -->
+
+                                 v2.5.0 — the active row is a FILLED SURFACE with the left
+                                 stripe promoted to the accent colour. v2.0.5.4 had drawn it
+                                 as a 2 px ring on all four sides plus a 16 px glow, which
+                                 reads as a debug focus rectangle rather than a selection:
+                                 an outline says "this has keyboard focus", a fill says
+                                 "you are here". Chrome, Edge and Arc all fill. -->
                             <Border x:Name="TabRow"
                                     Background="{Binding SubtleAccentColor, Converter={StaticResource StringToBrush}}"
                                     MinHeight="38"
@@ -176,19 +171,9 @@
                                         <Setter Property="CornerRadius" Value="0"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="BorderThickness" Value="2"/>
-                                                <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
-                                                <Setter Property="CornerRadius" Value="6"/>
-                                                <!-- v2.4.37 — soft purple glow on the active tab so it
-                                                     reads as the focus point, not just a coloured ring. -->
-                                                <Setter Property="Effect">
-                                                    <Setter.Value>
-                                                        <DropShadowEffect Color="#7C5CFF"
-                                                                          Opacity="0.55"
-                                                                          BlurRadius="16"
-                                                                          ShadowDepth="0"/>
-                                                    </Setter.Value>
-                                                </Setter>
+                                                <Setter Property="BorderThickness" Value="3,0,0,0"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                <Setter Property="CornerRadius" Value="0,6,6,0"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -200,11 +185,12 @@
                                             <Setter Property="Background" Value="Transparent"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                    <!-- Active row: semi-transparent purple wash over the per-tab accent tint. -->
-                                                    <Setter Property="Background" Value="#A6261942"/>
+                                                    <!-- Semi-transparent by design: the per-tab container
+                                                         tint on the outer Border still bleeds through. -->
+                                                    <Setter Property="Background" Value="{DynamicResource OverlaySelectedBrush}"/>
                                                 </DataTrigger>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#661F1F2C"/>
+                                                    <Setter Property="Background" Value="{DynamicResource OverlayHoverBrush}"/>
                                                 </Trigger>
                                             </Style.Triggers>
                                         </Style>
@@ -261,10 +247,10 @@
                                                Margin="6,0,4,0">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                                         <Setter Property="FontWeight" Value="SemiBold"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
@@ -279,7 +265,7 @@
                                             Padding="2"
                                             Style="{StaticResource IconButton}"
                                             VerticalAlignment="Center"
-                                            Foreground="{StaticResource TextMutedBrush}"
+                                            Foreground="{DynamicResource TextMutedBrush}"
                                             Tag="{Binding Id}"
                                             Click="CloseTab_Click"/>
                                 </Grid>
@@ -292,8 +278,8 @@
 
             <!-- ── Bottom actions ────────────────────────────────────────── -->
             <Border Grid.Row="3"
-                    Background="{StaticResource BackgroundDarkestBrush}"
-                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    Background="{DynamicResource SurfaceCanvasBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,0"
                     Padding="6,6">
                 <Grid>
@@ -312,7 +298,7 @@
                             Padding="8,6"
                             HorizontalAlignment="Stretch"
                             Background="Transparent"
-                            Foreground="{StaticResource TextMutedBrush}"
+                            Foreground="{DynamicResource TextMutedBrush}"
                             BorderThickness="0"
                             Cursor="Hand"
                             Click="NewTab_Click"

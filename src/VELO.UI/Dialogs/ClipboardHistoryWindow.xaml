@@ -7,15 +7,7 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize">
 
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
-
-    <Grid Background="{StaticResource BackgroundDarkBrush}">
+    <Grid Background="{DynamicResource SurfaceBaseBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -30,8 +22,8 @@
 
         <!-- Search -->
         <Border Grid.Row="1" Margin="20,10,20,0"
-                Background="{StaticResource BackgroundLightBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
+                Background="{DynamicResource SurfaceOverlayBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="1" CornerRadius="6" Padding="10,0">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -39,10 +31,10 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="🔍" VerticalAlignment="Center" Margin="0,0,8,0"
-                           Foreground="{StaticResource TextMutedBrush}"/>
+                           Foreground="{DynamicResource TextMutedBrush}"/>
                 <TextBox x:Name="SearchBox" Grid.Column="1"
                          Background="Transparent" BorderThickness="0"
-                         Foreground="{StaticResource TextPrimaryBrush}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
                          Padding="0,9" TextChanged="Search_Changed"/>
             </Grid>
         </Border>
@@ -62,7 +54,7 @@
             <TextBlock x:Name="HintLabel" Grid.Column="0"
                        VerticalAlignment="Center"
                        FontSize="11"
-                       Foreground="{StaticResource TextMutedBrush}"/>
+                       Foreground="{DynamicResource TextMutedBrush}"/>
             <Button x:Name="ClearAllButton" Grid.Column="1"
                     Padding="14,5" Click="OnClearAllClick"/>
         </Grid>

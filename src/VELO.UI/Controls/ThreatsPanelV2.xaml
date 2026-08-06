@@ -10,9 +10,9 @@
         <conv:LocalizeKeyConverter x:Key="L"/>
     </UserControl.Resources>
 
-    <Border BorderBrush="#FF3D71"
+    <Border BorderBrush="{DynamicResource StatusDangerBrush}"
             BorderThickness="3,0,0,0"
-            Background="#1A1A2E"
+            Background="{DynamicResource SurfaceRaisedBrush}"
             CornerRadius="0,6,6,0">
         <Grid>
             <Grid.RowDefinitions>
@@ -24,8 +24,8 @@
 
             <!-- ── Header ─────────────────────────────────────────────── -->
             <Border Grid.Row="0"
-                    Background="#FF111118"
-                    BorderBrush="#FF2A2A3A"
+                    Background="{DynamicResource SurfaceBaseBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="14,10">
                 <Grid>
@@ -38,7 +38,7 @@
                                VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock x:Name="HeaderTitle" Grid.Column="1"
                                FontSize="13" FontWeight="SemiBold"
-                               Foreground="#FFE0E0E8"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
                                VerticalAlignment="Center"/>
                     <Button x:Name="CloseButton" Grid.Column="2"
                             Style="{StaticResource IconButton}"
@@ -51,7 +51,7 @@
             <!-- ── Summary ────────────────────────────────────────────── -->
             <TextBlock x:Name="SummaryText" Grid.Row="1"
                        FontSize="11"
-                       Foreground="#FF8080A0"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        Padding="14,8"
                        TextWrapping="Wrap"/>
 
@@ -69,11 +69,11 @@
                                     BorderThickness="1">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="Background"  Value="#FF1E1E2E"/>
-                                        <Setter Property="BorderBrush" Value="#FF2A2A3A"/>
+                                        <Setter Property="Background"  Value="{DynamicResource SurfaceRaisedBrush}"/>
+                                        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsMalwaredexHit}" Value="True">
-                                                <Setter Property="BorderBrush" Value="#FFE53E3E"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource StatusDangerBrush}"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -92,7 +92,7 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0"
                                                        FontSize="11"
-                                                       Foreground="#FF8080A0"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                        VerticalAlignment="Center"
                                                        Margin="0,0,6,0">
                                                 <TextBlock.Style>
@@ -110,18 +110,18 @@
                                                        Text="{Binding Host}"
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
-                                                       Foreground="#FFD0D0E8"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"/>
                                             <Border Grid.Column="2"
-                                                    Background="#FF2A2A3A"
+                                                    Background="{DynamicResource BorderSubtleBrush}"
                                                     CornerRadius="8"
                                                     Padding="6,1"
                                                     VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Count}"
                                                            FontSize="10"
                                                            FontWeight="SemiBold"
-                                                           Foreground="#FFD0D0E8"/>
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             </Border>
                                         </Grid>
                                     </Border>
@@ -142,7 +142,7 @@
                                             <DataTemplate>
                                                 <Border Margin="0,4,0,0"
                                                         Padding="6,4"
-                                                        Background="#FF14141A"
+                                                        Background="{DynamicResource SurfaceCanvasBrush}"
                                                         CornerRadius="4">
                                                     <StackPanel>
                                                         <Grid>
@@ -153,12 +153,12 @@
                                                             <TextBlock Grid.Column="0"
                                                                        Text="{Binding ShortPath}"
                                                                        FontSize="10.5"
-                                                                       Foreground="#FFB0B0C0"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                                        TextTrimming="CharacterEllipsis"/>
                                                             <TextBlock Grid.Column="1"
                                                                        Text="{Binding TimeLabel}"
                                                                        FontSize="9.5"
-                                                                       Foreground="#FF606080"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"
                                                                        Margin="6,0,0,0"/>
                                                         </Grid>
                                                         <!-- v2.4.63 — Generic localised reason, always visible.
@@ -167,7 +167,7 @@
                                                              only ever saw "blocked" and three buttons. -->
                                                         <TextBlock Text="{Binding WhyBlocked, Mode=OneTime}"
                                                                    FontSize="10.5"
-                                                                   Foreground="#FF9090A8"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
                                                                    TextWrapping="Wrap"
                                                                    Margin="0,4,0,0"/>
                                                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
@@ -191,7 +191,7 @@
                                                         </StackPanel>
                                                         <TextBlock Text="{Binding Explanation, Mode=OneWay}"
                                                                    FontSize="10.5"
-                                                                   Foreground="#FF7080B0"
+                                                                   Foreground="{DynamicResource StatusInfoTextBrush}"
                                                                    TextWrapping="Wrap"
                                                                    Margin="0,4,0,0">
                                                             <TextBlock.Style>
@@ -219,8 +219,8 @@
 
             <!-- ── Footer ─────────────────────────────────────────────── -->
             <Border Grid.Row="3"
-                    Background="#FF111118"
-                    BorderBrush="#FF2A2A3A"
+                    Background="{DynamicResource SurfaceBaseBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,0"
                     Padding="10,6">
                 <StackPanel Orientation="Horizontal">

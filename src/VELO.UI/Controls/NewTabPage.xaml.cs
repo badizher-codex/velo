@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using VELO.Core.Localization;
 using VELO.Data.Repositories;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -16,6 +17,10 @@ public partial class NewTabPage : UserControl
 {
     private readonly DispatcherTimer _clockTimer;
     private bool _sitesLoaded;
+
+    /// <summary>Last rendered tile set, kept so the tiles can be rebuilt on a
+    /// theme change without another database round-trip.</summary>
+    private List<TopSiteEntry>? _lastSites;
     private (int Trackers, int Blocked, int Sites) _lastStats;
     // v2.4.50 — Cache of favicon bytes per host, populated once when LoadTopSitesAsync runs.
     // Lookups are O(1) and Empty when the host has no cached favicon yet — BuildTile falls
@@ -33,12 +38,6 @@ public partial class NewTabPage : UserControl
     private const int MaxTilesPerRow = 4;
     private const int MaxTiles       = 8;
 
-    // Accent colours cycling for letter tiles
-    private static readonly string[] TileColors =
-    [
-        "#FF00BCD4", "#FF7C4DFF", "#FF4CAF50", "#FFFF9800",
-        "#FFE91E63", "#FF2196F3", "#FFFF5722", "#FF009688",
-    ];
 
     public NewTabPage()
     {
@@ -50,13 +49,25 @@ public partial class NewTabPage : UserControl
         UpdateClock();
         UpdateSearchPlaceholder();
 
+        ApplyThemeColours();
+
         LocalizationService.Current.LanguageChanged += UpdateSearchPlaceholder;
         LocalizationService.Current.LanguageChanged += () => UpdateStats(_lastStats.Trackers, _lastStats.Blocked, _lastStats.Sites);
+        ThemeService.ThemeChanged += ApplyThemeColours;
         Unloaded += (_, _) =>
         {
             LocalizationService.Current.LanguageChanged -= UpdateSearchPlaceholder;
+            ThemeService.ThemeChanged -= ApplyThemeColours;
             _clockTimer.Stop();
         };
+    }
+
+    /// <summary>Repaints what DynamicResource cannot reach: the animated glow's
+    /// colour and the shortcut tiles, which are built imperatively.</summary>
+    private void ApplyThemeColours()
+    {
+        SearchGlow.Color = ThemePalette.Color(ThemePalette.Keys.Accent);
+        if (_lastSites is not null) PopulateTiles(_lastSites);
     }
 
     // ── Public API ────────────────────────────────────────────────────────
@@ -127,6 +138,7 @@ public partial class NewTabPage : UserControl
 
     private void PopulateTiles(List<TopSiteEntry> sites)
     {
+        _lastSites = sites;
         TopSitesRow1.Children.Clear();
         TopSitesRow2.Children.Clear();
 
@@ -150,7 +162,7 @@ public partial class NewTabPage : UserControl
 
     private Border BuildTile(TopSiteEntry site, int index)
     {
-        var accentHex = TileColors[index % TileColors.Length];
+        var accentHex = DecorativePalette.Hues[index % DecorativePalette.Hues.Length];
         var accent    = (Color)ColorConverter.ConvertFromString(accentHex);
         var letter    = GetInitial(site.Host);
 
@@ -166,7 +178,7 @@ public partial class NewTabPage : UserControl
                 Width           = 44,
                 Height          = 44,
                 CornerRadius    = new CornerRadius(22),
-                Background      = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x2A)),
+                Background      = ThemePalette.Brush(ThemePalette.Keys.SurfaceRaised),
                 BorderBrush     = new SolidColorBrush(Color.FromArgb(60, accent.R, accent.G, accent.B)),
                 BorderThickness = new Thickness(1.5),
                 Margin          = new Thickness(0, 0, 0, 6),
@@ -202,7 +214,7 @@ public partial class NewTabPage : UserControl
         {
             Text                = TruncateHost(site.Host),
             FontSize            = 11,
-            Foreground          = new SolidColorBrush(Color.FromRgb(0xB0, 0xB0, 0xB0)),
+            Foreground          = ThemePalette.Brush(ThemePalette.Keys.TextSecondary),
             HorizontalAlignment = HorizontalAlignment.Center,
             TextTrimming        = TextTrimming.CharacterEllipsis,
             MaxWidth            = TileSize - 4,
@@ -224,8 +236,8 @@ public partial class NewTabPage : UserControl
             Width           = TileSize,
             Height          = TileSize,
             CornerRadius    = new CornerRadius(TileRadius),
-            Background      = new SolidColorBrush(Color.FromRgb(0x18, 0x18, 0x18)),
-            BorderBrush     = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A)),
+            Background      = ThemePalette.Brush(ThemePalette.Keys.SurfaceRaised),
+            BorderBrush     = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle),
             BorderThickness = new Thickness(1),
             Margin          = new Thickness(TileMargin),
             Cursor          = Cursors.Hand,
@@ -237,13 +249,13 @@ public partial class NewTabPage : UserControl
         // Hover highlight
         tile.MouseEnter += (_, _) =>
         {
-            tile.Background  = new SolidColorBrush(Color.FromRgb(0x22, 0x22, 0x22));
+            tile.Background  = ThemePalette.Brush(ThemePalette.Keys.SurfaceHover);
             tile.BorderBrush = new SolidColorBrush(Color.FromArgb(180, accent.R, accent.G, accent.B));
         };
         tile.MouseLeave += (_, _) =>
         {
-            tile.Background  = new SolidColorBrush(Color.FromRgb(0x18, 0x18, 0x18));
-            tile.BorderBrush = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x2A));
+            tile.Background  = ThemePalette.Brush(ThemePalette.Keys.SurfaceRaised);
+            tile.BorderBrush = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle);
         };
 
         tile.MouseLeftButtonUp += (_, _) =>
@@ -309,13 +321,13 @@ public partial class NewTabPage : UserControl
     private void SearchBox_GotFocus(object sender, RoutedEventArgs e)
     {
         AnimateGlow(toOpacity: 0.45, toBlur: 18);
-        SearchPill.BorderBrush = (Brush)FindResource("AccentPurpleLightBrush");
+        SearchPill.BorderBrush = ThemePalette.Brush(ThemePalette.Keys.AccentHover);
     }
 
     private void SearchBox_LostFocus(object sender, RoutedEventArgs e)
     {
         AnimateGlow(toOpacity: 0, toBlur: 0);
-        SearchPill.BorderBrush = (Brush)FindResource("BorderSubtleBrush");
+        SearchPill.BorderBrush = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle);
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)

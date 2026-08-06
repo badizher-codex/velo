@@ -11,33 +11,41 @@
             <ColumnDefinition Width="Auto"/>  <!-- Panel expandido -->
         </Grid.ColumnDefinitions>
 
-        <!-- ── Chip colapsado (32×120px) ──────────────────────────────────── -->
+        <!-- ── Chip colapsado ─────────────────────────────────────────────
+             v2.5.0 — the comment always said "32×120px" but no Height or
+             VerticalAlignment was ever set, so the Border stretched to fill
+             its row: what shipped was a 2 px red line running the full height
+             of the window, permanently, down the right edge of every page.
+             It reads as a rendering fault, not as a status chip. -->
         <Border x:Name="MiniTab"
                 Grid.Column="0"
-                Width="32"
-                Background="#14142A"
+                Width="34"
+                Height="76"
+                VerticalAlignment="Center"
+                Background="{DynamicResource SurfaceRaisedBrush}"
                 BorderBrush="{Binding ElementName=PanelBorder, Path=BorderBrush}"
                 BorderThickness="2,0,0,0"
-                CornerRadius="4,0,0,4"
+                CornerRadius="8,0,0,8"
+                Effect="{DynamicResource ShadowSm}"
                 Cursor="Hand"
                 Visibility="Collapsed"
                 MouseLeftButtonDown="MiniTab_Click"
-                AutomationProperties.Name="Abrir panel de seguridad"
-                AutomationProperties.HelpText="Haz clic para ver los detalles de las amenazas detectadas en esta sesión"
-                ToolTip="Ver amenazas detectadas">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,12">
+                AutomationProperties.Name="Open security panel"
+                AutomationProperties.HelpText="Click to see the threats detected in this session"
+                ToolTip="View detected threats">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,8">
                 <!-- Icono del último veredicto -->
                 <TextBlock x:Name="MiniIcon" Text="🔴" FontSize="14"
                            HorizontalAlignment="Center" Margin="0,0,0,4"/>
                 <!-- Contador de eventos en sesión -->
                 <Border x:Name="MiniBadge"
                         CornerRadius="8" MinWidth="18" Height="18"
-                        Background="#FF3D71"
+                        Background="{DynamicResource StatusDangerBrush}"
                         HorizontalAlignment="Center"
                         Margin="0,0,0,4">
                     <TextBlock x:Name="MiniBadgeCount"
                                Text="0" FontSize="10" FontWeight="Bold"
-                               Foreground="White"
+                               Foreground="{DynamicResource TextOnAccentBrush}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
                                Margin="3,0"/>
@@ -57,8 +65,8 @@
         <Border x:Name="PanelBorder"
                 Grid.Column="1"
                 Width="340"
-                Background="{StaticResource BackgroundLightBrush}"
-                BorderBrush="#FF3D71"
+                Background="{DynamicResource SurfaceOverlayBrush}"
+                BorderBrush="{DynamicResource StatusDangerBrush}"
                 BorderThickness="3,0,0,0"
                 CornerRadius="0,6,6,0"
                 Padding="16"
@@ -79,7 +87,7 @@
                     <TextBlock x:Name="VerdictLabel" Grid.Column="1"
                                FontSize="13" FontWeight="SemiBold"
                                VerticalAlignment="Center"
-                               Foreground="#FF3D71"
+                               Foreground="{DynamicResource StatusDangerBrush}"
                                Text="AMENAZA BLOQUEADA"/>
                     <Button x:Name="MinimizeButton" Grid.Column="2"
                             Style="{StaticResource IconButton}"
@@ -98,45 +106,45 @@
                 <!-- Dominio -->
                 <TextBlock x:Name="DomainLabel"
                            FontSize="12" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            TextWrapping="Wrap"
                            Margin="0,0,0,14"
                            Text="📍 dominio.ejemplo.com"/>
 
                 <!-- ── Sección: ¿Qué pasó? ──────────────────────────────── -->
                 <TextBlock x:Name="WhatHappenedHeader" Text="¿Qué pasó?" FontSize="11" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,0,0,4"/>
                 <TextBlock x:Name="WhatHappenedLabel"
                            FontSize="12" TextWrapping="Wrap"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            Margin="0,0,0,12"
                            Text=""/>
 
                 <!-- ── Sección: ¿Por qué lo bloqueé? ──────────────────── -->
                 <TextBlock x:Name="WhyBlockedHeader" Text="¿Por qué lo bloqueé?" FontSize="11" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,0,0,4"/>
                 <TextBlock x:Name="WhyBlockedLabel"
                            FontSize="12" TextWrapping="Wrap"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            Margin="0,0,0,12"
                            Text=""/>
 
                 <!-- ── Sección: ¿Qué significa para ti? ───────────────── -->
                 <TextBlock x:Name="WhatItMeansHeader" Text="¿Qué significa para ti?" FontSize="11" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="0,0,0,4"/>
                 <TextBlock x:Name="WhatItMeansLabel"
                            FontSize="12" TextWrapping="Wrap"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            Margin="0,0,0,8"
                            Text=""/>
 
                 <!-- Learn more link -->
                 <TextBlock x:Name="LearnMoreLink"
                            FontSize="11"
-                           Foreground="{StaticResource AccentBlueBrush}"
+                           Foreground="{DynamicResource AccentBrush}"
                            Cursor="Hand"
                            Margin="0,0,0,12"
                            Text="¿Cómo puedo aprender más? ↗"
@@ -147,7 +155,7 @@
                 <Expander x:Name="TechnicalDetails"
                           Header="Detalles técnicos"
                           FontSize="11"
-                          Foreground="{StaticResource TextMutedBrush}"
+                          Foreground="{DynamicResource TextMutedBrush}"
                           Margin="0,0,0,12"
                           IsExpanded="False">
                     <Grid Margin="0,8,0,0">
@@ -161,13 +169,13 @@
                             <RowDefinition/>
                             <RowDefinition/>
                         </Grid.RowDefinitions>
-                        <TextBlock x:Name="TypeHeader"       Grid.Row="0" Grid.Column="0" Text="Tipo:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="TypeHeader"       Grid.Row="0" Grid.Column="0" Text="Tipo:" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
                         <TextBlock x:Name="ThreatTypeLabel"   Grid.Row="0" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                        <TextBlock x:Name="SourceHeader"     Grid.Row="1" Grid.Column="0" Text="Fuente:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="SourceHeader"     Grid.Row="1" Grid.Column="0" Text="Fuente:" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
                         <TextBlock x:Name="SourceLabel"       Grid.Row="1" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                        <TextBlock x:Name="ConfidenceHeader" Grid.Row="2" Grid.Column="0" Text="Confianza:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ConfidenceHeader" Grid.Row="2" Grid.Column="0" Text="Confianza:" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
                         <TextBlock x:Name="ConfidenceLabel"   Grid.Row="2" Grid.Column="1" FontSize="10" Margin="8,2"/>
-                        <TextBlock x:Name="ScoreHeader"       Grid.Row="3" Grid.Column="0" Text="Score:" Foreground="{StaticResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
+                        <TextBlock x:Name="ScoreHeader"       Grid.Row="3" Grid.Column="0" Text="Score:" Foreground="{DynamicResource TextMutedBrush}" FontSize="10" Margin="0,2"/>
                         <TextBlock x:Name="ScoreLabel"        Grid.Row="3" Grid.Column="1" FontSize="10" Margin="8,2"/>
                     </Grid>
                 </Expander>
@@ -177,7 +185,7 @@
                 <!-- ── Falso positivo ──────────────────────────────────── -->
                 <TextBlock x:Name="FalsePositiveLink"
                            FontSize="11"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            Cursor="Hand"
                            Margin="0,0,0,10"
                            Text="✋ ¿Fue un error? Reportar falso positivo"
@@ -201,7 +209,7 @@
 
                 <!-- Auto-close countdown -->
                 <TextBlock x:Name="CountdownLabel"
-                           FontSize="9" Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="9" Foreground="{DynamicResource TextMutedBrush}"
                            HorizontalAlignment="Right"/>
 
             </StackPanel>

@@ -1,3 +1,4 @@
+using VELO.Core.Localization;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -40,7 +41,16 @@ public partial class CommandBar : UserControl
     {
         InitializeComponent();
         ResultsList.ItemsSource = _results;
+
+        // The placeholder was a hardcoded Spanish literal, so the Ctrl+K
+        // palette prompted in Spanish no matter the UI language.
+        ApplyLanguage();
+        LocalizationService.Current.LanguageChanged += ApplyLanguage;
+        Unloaded += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
     }
+
+    private void ApplyLanguage()
+        => PlaceholderText.Text = LocalizationService.Current.T("palette.placeholder");
 
     // ── Public API ────────────────────────────────────────────────────────
 

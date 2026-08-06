@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using VELO.UI.Themes;
 
 namespace VELO.App.Controllers;
 
@@ -144,7 +145,7 @@ public sealed class CouncilLayoutController
         // (#FF2A2A3A — same colour the existing _panesSplitter uses). Keeping
         // them visually consistent for now; Phase 5 palette migration can
         // happen as a follow-up if maintainer wants the seams brighter.
-        var seamBrush = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x3A));
+        var seamBrush = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle);
 
         _verticalSplitter = new GridSplitter
         {

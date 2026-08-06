@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using VELO.Core.Localization;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -16,11 +17,11 @@ public sealed class PermissionPrompt : Window
 {
     public readonly record struct Decision(bool Allow, bool Remember);
 
-    private static readonly Brush _bg      = new SolidColorBrush(Color.FromRgb(0x16, 0x16, 0x26));
-    private static readonly Brush _fg      = new SolidColorBrush(Color.FromRgb(0xEA, 0xEA, 0xF2));
-    private static readonly Brush _muted   = new SolidColorBrush(Color.FromRgb(0x9A, 0x9A, 0xB0));
-    private static readonly Brush _accent  = new SolidColorBrush(Color.FromRgb(0x7C, 0x4D, 0xFF));
-    private static readonly Brush _btnBg   = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x40));
+    private static readonly Brush _bg      = ThemePalette.Brush(ThemePalette.Keys.SurfaceRaised);
+    private static readonly Brush _fg      = ThemePalette.Brush(ThemePalette.Keys.TextPrimary);
+    private static readonly Brush _muted   = ThemePalette.Brush(ThemePalette.Keys.TextSecondary);
+    private static readonly Brush _accent  = ThemePalette.Brush(ThemePalette.Keys.Accent);
+    private static readonly Brush _btnBg   = ThemePalette.Brush(ThemePalette.Keys.SurfaceHover);
 
     private readonly CheckBox _remember;
     private bool _allow;

@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using VELO.Core.Localization;
 using VELO.Core.Navigation;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -20,14 +21,6 @@ public partial class TabBar : UserControl
     private readonly ObservableCollection<TabInfo> _tabs = [];
     private string? _activeTabId;
 
-    private static readonly (string Id, string Label, string Color)[] Containers =
-    [
-        ("none",     "Sin container", "#808080"),
-        ("personal", "Personal",      "#00E5FF"),
-        ("work",     "Trabajo",       "#7FFF5F"),
-        ("banking",  "Banca",         "#FF3D71"),
-        ("shopping", "Compras",       "#FFB300"),
-    ];
 
     public TabBar()
     {
@@ -86,16 +79,20 @@ public partial class TabBar : UserControl
 
         var menu = new ContextMenu();
 
-        foreach (var (id, label, color) in Containers)
+        foreach (var id in ContainerPalette.Ids)
         {
             var dot = new Ellipse
             {
                 Width = 10, Height = 10,
-                Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)),
+                Fill = ThemePalette.Brush(ContainerPalette.KeyFor(id)),
                 Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            var text = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center };
+            var text = new TextBlock
+            {
+                Text = LocalizationService.Current.T($"sidebar.container.{id}"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
             var panel = new StackPanel { Orientation = Orientation.Horizontal };
             panel.Children.Add(dot);
             panel.Children.Add(text);

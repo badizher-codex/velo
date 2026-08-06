@@ -11,6 +11,7 @@ using VELO.Core.Downloads;
 using VELO.Security.AI;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -993,11 +994,11 @@ public partial class BrowserTab
 
     // ── Context menu (dark WPF theme) ────────────────────────────────────
 
-    private static readonly Color _menuBg     = Color.FromRgb(0x1E, 0x1E, 0x2E);
-    private static readonly Color _menuBorder = Color.FromRgb(0x3A, 0x3A, 0x55);
-    private static readonly Color _menuFg     = Color.FromRgb(0xE0, 0xE0, 0xFF);
-    private static readonly Color _menuHover  = Color.FromRgb(0x2A, 0x2A, 0x45);
-    private static readonly Color _menuMuted  = Color.FromRgb(0x70, 0x70, 0x90);
+    private static readonly Color _menuBg     = ThemePalette.Color(ThemePalette.Keys.SurfaceRaised);
+    private static readonly Color _menuBorder = ThemePalette.Color(ThemePalette.Keys.BorderStrong);
+    private static readonly Color _menuFg     = ThemePalette.Color(ThemePalette.Keys.TextPrimary);
+    private static readonly Color _menuHover  = ThemePalette.Color(ThemePalette.Keys.SurfaceHover);
+    private static readonly Color _menuMuted  = ThemePalette.Color(ThemePalette.Keys.TextMuted);
 
     private void OnContextMenuRequested(object? sender, CoreWebView2ContextMenuRequestedEventArgs e)
     {

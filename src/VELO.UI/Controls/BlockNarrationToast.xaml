@@ -7,12 +7,12 @@
              AutomationProperties.Name="Block narration">
 
     <!-- Phase 5.2 re-skin — purple accent (block narration is AI-generated). -->
-    <Border Background="{StaticResource SurfaceDarkBrush}"
-            BorderBrush="{StaticResource AccentPurpleBrush}"
+    <Border Background="{DynamicResource SurfaceBaseBrush}"
+            BorderBrush="{DynamicResource AccentBrush}"
             BorderThickness="1"
             CornerRadius="12"
             Padding="16,14"
-            Effect="{StaticResource DropShadowEffect}">
+            Effect="{DynamicResource ShadowMd}">
 
         <StackPanel>
             <!-- Header -->
@@ -21,7 +21,7 @@
                 <TextBlock x:Name="TitleLabel"
                            Text="VELO blocked something"
                            FontSize="13" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
             </StackPanel>
 
@@ -29,7 +29,7 @@
             <TextBlock x:Name="HostLabel"
                        Text="example.com — Tracker"
                        FontSize="11.5"
-                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        Margin="22,0,0,8"
                        TextTrimming="CharacterEllipsis"/>
 
@@ -37,7 +37,7 @@
             <TextBlock x:Name="BodyLabel"
                        Text=""
                        FontSize="12.5"
-                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
                        Opacity="0.85"
                        TextWrapping="Wrap"
                        Margin="22,0,0,8"

@@ -5,8 +5,8 @@
         Title="Descargas — VELO"
         Width="640" Height="560"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource BackgroundDarkestBrush}"
-        Foreground="{StaticResource TextPrimaryBrush}">
+        Background="{DynamicResource SurfaceCanvasBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
     <Window.Resources>
         <conv:LocalizeKeyConverter x:Key="L"/>
@@ -23,7 +23,7 @@
         <!-- Header -->
         <TextBlock x:Name="HeaderLabel" Grid.Row="0"
                    FontSize="22" FontWeight="SemiBold"
-                   Foreground="{StaticResource TextPrimaryBrush}"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
                    Margin="0,0,0,18"/>
 
         <!-- Body: empty state OR download list -->
@@ -46,25 +46,22 @@
 
                 <Border Width="92" Height="92" CornerRadius="46"
                         HorizontalAlignment="Center"
-                        Background="{StaticResource SurfaceLightBrush}"
-                        BorderBrush="{StaticResource AccentPurpleBrush}"
+                        Background="{DynamicResource SurfaceOverlayBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
                         BorderThickness="2"
-                        Margin="0,0,0,20">
-                    <Border.Effect>
-                        <DropShadowEffect Color="#7C5CFF" Opacity="0.45"
-                                          BlurRadius="32" ShadowDepth="0"/>
-                    </Border.Effect>
+                        Margin="0,0,0,20"
+                        Effect="{DynamicResource ShadowAccent}">
                     <TextBlock Text="⬇" FontSize="40"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 
                 <TextBlock x:Name="EmptyTitle"
                            FontSize="18" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            HorizontalAlignment="Center" Margin="0,0,0,6"/>
                 <TextBlock x:Name="EmptySubtitle"
                            FontSize="12.5"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            HorizontalAlignment="Center" TextAlignment="Center"
                            TextWrapping="Wrap"/>
             </StackPanel>
@@ -74,8 +71,8 @@
                 <ItemsControl x:Name="DownloadList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="{StaticResource SurfaceMidBrush}"
-                                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                            <Border Background="{DynamicResource SurfaceRaisedBrush}"
+                                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                                     BorderThickness="1" CornerRadius="12"
                                     Margin="0,0,0,8" Padding="16,14">
                                 <Grid>
@@ -98,19 +95,19 @@
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="Text" Value="⬇"/>
-                                                        <Setter Property="Foreground" Value="{StaticResource AccentPurpleLightBrush}"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource AccentHoverBrush}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding State}" Value="Completed">
                                                                 <Setter Property="Text" Value="✓"/>
-                                                                <Setter Property="Foreground" Value="{StaticResource BadgeGreenBrush}"/>
+                                                                <Setter Property="Foreground" Value="{DynamicResource StatusSuccessTextBrush}"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding State}" Value="Cancelled">
                                                                 <Setter Property="Text" Value="✕"/>
-                                                                <Setter Property="Foreground" Value="{StaticResource BadgeRedBrush}"/>
+                                                                <Setter Property="Foreground" Value="{DynamicResource StatusDangerTextBrush}"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding State}" Value="Interrupted">
                                                                 <Setter Property="Text" Value="⚠"/>
-                                                                <Setter Property="Foreground" Value="{StaticResource BadgeAmberBrush}"/>
+                                                                <Setter Property="Foreground" Value="{DynamicResource StatusWarningTextBrush}"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -118,7 +115,7 @@
                                             </TextBlock>
                                             <TextBlock Text="{Binding FileName}"
                                                        FontSize="13.5" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                                        TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center"/>
                                         </StackPanel>
@@ -175,8 +172,8 @@
                                                  Maximum="100"
                                                  Height="4"
                                                  Margin="0,10,0,4"
-                                                 Background="{StaticResource BackgroundDarkestBrush}"
-                                                 Foreground="{StaticResource AccentPurpleBrush}"
+                                                 Background="{DynamicResource SurfaceCanvasBrush}"
+                                                 Foreground="{DynamicResource AccentBrush}"
                                                  BorderThickness="0">
                                         <ProgressBar.Style>
                                             <Style TargetType="ProgressBar">
@@ -194,7 +191,7 @@
                                     <TextBlock Grid.Row="2"
                                                Text="{Binding StatusText}"
                                                FontSize="11"
-                                               Foreground="{StaticResource TextMutedBrush}"/>
+                                               Foreground="{DynamicResource TextMutedBrush}"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -210,7 +207,7 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="CountLabel"
-                       Foreground="{StaticResource TextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        FontSize="12" VerticalAlignment="Center"/>
             <Button x:Name="ClearBtn" Grid.Column="1"
                     Style="{StaticResource GhostButton}"

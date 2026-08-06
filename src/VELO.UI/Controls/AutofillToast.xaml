@@ -7,12 +7,12 @@
              AutomationProperties.Name="Autofill prompt">
 
     <!-- Phase 5.2 re-skin — purple accent. -->
-    <Border Background="{StaticResource SurfaceDarkBrush}"
-            BorderBrush="{StaticResource AccentPurpleBrush}"
+    <Border Background="{DynamicResource SurfaceBaseBrush}"
+            BorderBrush="{DynamicResource AccentBrush}"
             BorderThickness="1"
             CornerRadius="12"
             Padding="16,14"
-            Effect="{StaticResource DropShadowEffect}">
+            Effect="{DynamicResource ShadowMd}">
 
         <StackPanel>
             <!-- Header -->
@@ -21,7 +21,7 @@
                 <TextBlock x:Name="TitleLabel"
                            Text="Use saved password?"
                            FontSize="13" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
             </StackPanel>
 
@@ -29,15 +29,15 @@
             <TextBlock x:Name="DetailLabel"
                        Text="user@example.com — example.com"
                        FontSize="12"
-                       Foreground="{StaticResource TextSecondaryBrush}"
+                       Foreground="{DynamicResource TextSecondaryBrush}"
                        Margin="22,0,0,10"
                        TextTrimming="CharacterEllipsis"/>
 
             <!-- Optional breach warning -->
             <Border x:Name="BreachBanner"
                     Style="{StaticResource StatusPill}"
-                    Background="{StaticResource BadgeRedBgBrush}"
-                    BorderBrush="{StaticResource BadgeRedBrush}"
+                    Background="{DynamicResource StatusDangerSoftBrush}"
+                    BorderBrush="{DynamicResource StatusDangerTextBrush}"
                     BorderThickness="1"
                     HorizontalAlignment="Stretch"
                     Padding="10,6"
@@ -47,7 +47,7 @@
                 <TextBlock x:Name="BreachLabel"
                            Text="⚠ This password appears in known breaches."
                            FontSize="11"
-                           Foreground="{StaticResource BadgeRedBrush}"
+                           Foreground="{DynamicResource StatusDangerTextBrush}"
                            TextWrapping="Wrap"/>
             </Border>
 

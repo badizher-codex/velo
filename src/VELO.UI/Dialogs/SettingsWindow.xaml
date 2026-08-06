@@ -1,6 +1,7 @@
 <Window x:Class="VELO.UI.Dialogs.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:themes="clr-namespace:VELO.UI.Themes"
         Title="VELO — Configuración"
         Width="720" Height="560"
         MinWidth="620" MinHeight="460"
@@ -9,28 +10,41 @@
 
     <Window.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-
-            <!-- Sidebar nav button -->
+            <!-- Sidebar nav button.
+                 The icon comes from themes:IconAssist.Data, not from Content:
+                 ApplyLanguage() overwrites Content on every language change,
+                 which is why the emoji used to be concatenated into the
+                 translated string. Content is now text only. -->
             <Style x:Key="NavButton" TargetType="Button">
                 <Setter Property="Background"      Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="Foreground"      Value="{StaticResource TextSecondaryBrush}"/>
+                <Setter Property="Foreground"      Value="{DynamicResource TextSecondaryBrush}"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
-                <Setter Property="Padding"         Value="16,10"/>
+                <Setter Property="Padding"         Value="12,9"/>
+                <Setter Property="FontSize"        Value="{StaticResource FontSizeBody}"/>
                 <Setter Property="Cursor"          Value="Hand"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bg" Background="{TemplateBinding Background}"
-                                    CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter/>
+                                    CornerRadius="{StaticResource RadiusMd}"
+                                    Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="26"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Path Grid.Column="0"
+                                          Style="{StaticResource NavIcon}"
+                                          Data="{Binding Path=(themes:IconAssist.Data), RelativeSource={RelativeSource TemplatedParent}}"
+                                          HorizontalAlignment="Left"/>
+                                    <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bg" Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                    <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -38,13 +52,14 @@
                 </Setter>
             </Style>
             <Style x:Key="NavButtonActive" TargetType="Button" BasedOn="{StaticResource NavButton}">
-                <Setter Property="Background" Value="{StaticResource SurfaceLightBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource AccentPurpleLightBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
             </Style>
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid Background="{StaticResource BackgroundDarkestBrush}">
+    <Grid Background="{DynamicResource SurfaceCanvasBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="180"/>
             <ColumnDefinition Width="*"/>
@@ -56,36 +71,48 @@
 
         <!-- Sidebar -->
         <Border Grid.Column="0" Grid.RowSpan="2"
-                Background="{StaticResource SurfaceDarkBrush}"
-                BorderBrush="{StaticResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
+                Background="{DynamicResource SurfaceBaseBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,1,0">
             <StackPanel Margin="8,16,8,8">
                 <TextBlock Text="VELO" FontSize="20" FontWeight="SemiBold"
-                           Foreground="{StaticResource AccentPurpleLightBrush}"
+                           Foreground="{DynamicResource AccentHoverBrush}"
                            Margin="16,0,0,22"/>
 
-                <Button x:Name="NavPrivacidad" Content="🔒  Privacidad"
+                <Button x:Name="NavPrivacidad" Content="Privacidad"
                         Style="{StaticResource NavButtonActive}"
+                        themes:IconAssist.Data="{StaticResource IconLock}"
                         Click="Nav_Click" Tag="Privacidad"/>
-                <Button x:Name="NavDns" Content="🌐  DNS"
+                <Button x:Name="NavDns" Content="DNS"
                         Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconGlobe}"
                         Click="Nav_Click" Tag="DNS" Margin="0,2"/>
-                <Button x:Name="NavIA" Content="🧠  Inteligencia Artificial"
+                <Button x:Name="NavIA" Content="Inteligencia Artificial"
                         Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconChip}"
                         Click="Nav_Click" Tag="IA" Margin="0,2"/>
-                <Button x:Name="NavBusqueda" Content="🔍  Búsqueda"
+                <Button x:Name="NavBusqueda" Content="Búsqueda"
                         Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconSearch}"
                         Click="Nav_Click" Tag="Busqueda" Margin="0,2"/>
-                <Button x:Name="NavVault" Content="🔑  Vault"
+                <Button x:Name="NavVault" Content="Vault"
                         Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconKey}"
                         Click="Nav_Click" Tag="Vault" Margin="0,2"/>
-                <Button x:Name="NavCouncil" Content="🤝  Council"
+                <Button x:Name="NavCouncil" Content="Council"
                         Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconPeople}"
                         Click="Nav_Click" Tag="Council" Margin="0,2"/>
-                <Button x:Name="NavIdioma" Content="🌍  Idioma"
+                <Button x:Name="NavAppearance" Content="Appearance"
                         Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconContrast}"
+                        Click="Nav_Click" Tag="Appearance" Margin="0,2"/>
+                <Button x:Name="NavIdioma" Content="Idioma"
+                        Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconTranslate}"
                         Click="Nav_Click" Tag="Idioma" Margin="0,2"/>
-                <Button x:Name="NavGeneral" Content="⚙️  General"
+                <Button x:Name="NavGeneral" Content="General"
                         Style="{StaticResource NavButton}"
+                        themes:IconAssist.Data="{StaticResource IconSliders}"
                         Click="Nav_Click" Tag="General" Margin="0,2"/>
             </StackPanel>
         </Border>
@@ -105,21 +132,21 @@
                         <StackPanel>
                             <TextBlock x:Name="SecNormalTitle" Text="Normal" FontWeight="SemiBold"/>
                             <TextBlock x:Name="SecNormalDesc" Text="Bloquea rastreadores y anuncios. Uso diario."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="SecParanoid" GroupName="SecMode" Margin="0,0,0,6">
                         <StackPanel>
                             <TextBlock x:Name="SecParanoidTitle" Text="Paranoid" FontWeight="SemiBold"/>
                             <TextBlock x:Name="SecParanoidDesc" Text="Bloqueo agresivo. Historial borrado al salir."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="SecBunker" GroupName="SecMode" Margin="0,0,0,16">
                         <StackPanel>
                             <TextBlock x:Name="SecBunkerTitle" Text="Bunker" FontWeight="SemiBold"/>
                             <TextBlock x:Name="SecBunkerDesc" Text="Máxima privacidad. Sin historial, sin cookies persistentes."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
 
@@ -130,14 +157,14 @@
                         <StackPanel>
                             <TextBlock x:Name="FpAggressiveTitle" Text="Agresivo" FontWeight="SemiBold"/>
                             <TextBlock x:Name="FpAggressiveDesc" Text="Canvas, WebGL, AudioContext, hardware spoof."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="FpBalanced" GroupName="Fingerprint" Margin="0,0,0,6">
                         <StackPanel>
                             <TextBlock x:Name="FpBalancedTitle" Text="Balanceado (Recomendado)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="FpBalancedDesc" Text="Protección básica. Menos riesgo de romper sitios."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="FpOff" GroupName="Fingerprint" Margin="0,0,0,16">
@@ -151,14 +178,14 @@
                         <StackPanel>
                             <TextBlock x:Name="WrtcRelayTitle" Text="Solo relay (Recomendado)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="WrtcRelayDesc" Text="Oculta tu IP real usando solo servidores TURN."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="WrtcDisabled" GroupName="WebRTC" Margin="0,0,0,6">
                         <StackPanel>
                             <TextBlock x:Name="WrtcDisabledTitle" Text="Desactivado" FontWeight="SemiBold"/>
                             <TextBlock x:Name="WrtcDisabledDesc" Text="Elimina RTCPeerConnection. Puede romper videollamadas."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="WrtcOff" GroupName="WebRTC" Margin="0,0,0,16">
@@ -171,14 +198,14 @@
                         <StackPanel>
                             <TextBlock x:Name="HistorySaveTitle" Text="Guardar historial de navegación" FontWeight="SemiBold"/>
                             <TextBlock x:Name="HistorySaveDesc" Text="Desactiva en modo Paranoid/Bunker automáticamente."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </CheckBox>
                     <CheckBox x:Name="ClearOnExitCheck">
                         <StackPanel>
                             <TextBlock x:Name="HistoryClearTitle" Text="Borrar historial al salir" FontWeight="SemiBold"/>
                             <TextBlock x:Name="HistoryClearDesc" Text="Siempre activo en modo Paranoid y Bunker."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </CheckBox>
 
@@ -188,7 +215,7 @@
                         <StackPanel>
                             <TextBlock x:Name="AutoUpdateTitle" Text="Buscar actualizaciones automáticamente" FontWeight="SemiBold"/>
                             <TextBlock x:Name="AutoUpdateDesc" Text="VELO consultará GitHub cada 24h. Desactivado por defecto — la única conexión saliente que hace VELO sin tu acción."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
@@ -201,7 +228,7 @@
                             <TextBlock x:Name="CtLogTitle" Text="Verificar Transparencia de Certificados (crt.sh)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="CtLogDesc"
                                        Text="Consulta crt.sh para cada dominio que visitás y avisa si falta en los CT logs públicos. Apagado por defecto: al activarlo, cada dominio visitado se envía a crt.sh."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
@@ -211,34 +238,34 @@
                 <StackPanel x:Name="PanelDns" Visibility="Collapsed">
                     <TextBlock x:Name="DnsTitle" Text="DNS Privado (DoH)" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <TextBlock x:Name="DnsIntro" Text="Tu ISP puede ver qué sitios visitas con DNS normal. VELO usa DNS encriptado sobre HTTPS."
-                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                     <RadioButton x:Name="DnsQuad9" GroupName="DNS" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock x:Name="DnsQuad9Title" Text="Quad9 (Recomendado)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="DnsQuad9Desc" Text="Sin logs · Bloquea malware · Con sede en Suiza"
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="DnsCloudflare" GroupName="DNS" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock Text="Cloudflare 1.1.1.1" FontWeight="SemiBold"/>
                             <TextBlock x:Name="DnsCloudflareDesc" Text="Ultra rápido · Política de privacidad limitada a 24h"
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="DnsNextDns" GroupName="DNS" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock Text="NextDNS" FontWeight="SemiBold"/>
                             <TextBlock x:Name="DnsNextDnsDesc" Text="Filtrado personalizable · Requiere cuenta gratuita"
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="DnsCustom" GroupName="DNS" Margin="0,0,0,4">
                         <TextBlock x:Name="DnsCustomLabel" Text="Personalizado"/>
                     </RadioButton>
-                    <TextBlock x:Name="DnsUrlLabel" Text="URL DoH:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                    <TextBlock x:Name="DnsUrlLabel" Text="URL DoH:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                Margin="20,4,0,2"/>
                     <TextBox x:Name="DnsCustomUrl" Margin="20,0,0,0" IsEnabled="False"
                              Tag="https://dns.example.com/dns-query"/>
@@ -248,24 +275,24 @@
                 <StackPanel x:Name="PanelIA" Visibility="Collapsed">
                     <TextBlock x:Name="AiTitle" Text="Inteligencia Artificial" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <TextBlock x:Name="AiIntro" Text="VELO analiza URLs y recursos en tiempo real para detectar amenazas."
-                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                     <RadioButton x:Name="AiOffline" GroupName="AIMode" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock x:Name="AiOfflineTitle" Text="Offline (Recomendado)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="AiOfflineDesc" Text="100% local. Sin API key. Reglas heurísticas."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="AiClaude" GroupName="AIMode" Margin="0,0,0,6">
                         <StackPanel>
                             <TextBlock x:Name="AiClaudeTitle" Text="Claude (Mejor detección)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="AiClaudeDesc" Text="Requiere API key de Anthropic."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
-                    <TextBlock x:Name="AiApiKeyLabel" Text="API Key:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                    <TextBlock x:Name="AiApiKeyLabel" Text="API Key:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                Margin="20,4,0,2"/>
                     <TextBox x:Name="ApiKeyField" Margin="20,0,0,12" IsEnabled="False"
                              Tag="sk-ant-..."/>
@@ -274,14 +301,14 @@
                         <StackPanel>
                             <TextBlock x:Name="AiCustomTitle" Text="LLM Personalizado (Ollama)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="AiCustomDesc" Text="Cualquier endpoint compatible con OpenAI API."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
-                    <TextBlock x:Name="AiEndpointLabel" Text="Endpoint:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                    <TextBlock x:Name="AiEndpointLabel" Text="Endpoint:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                Margin="20,4,0,2"/>
                     <TextBox x:Name="CustomEndpointField" Margin="20,0,0,4" IsEnabled="False"
                              Tag="http://localhost:11434"/>
-                    <TextBlock x:Name="AiModelLabel" Text="Modelo:" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                    <TextBlock x:Name="AiModelLabel" Text="Modelo:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                Margin="20,0,0,2"/>
                     <TextBox x:Name="CustomModelField" Margin="20,0,0,8" IsEnabled="False"
                              Tag="llama3"/>
@@ -292,12 +319,12 @@
                                FontSize="11" Visibility="Collapsed" TextWrapping="Wrap"/>
 
                     <!-- v2.4.18 — Sprint 9B: BookmarkAI auto-tag -->
-                    <Border Background="{StaticResource BorderBrush}" Height="1" Margin="0,20,0,16"/>
+                    <Border Background="{DynamicResource BorderSubtleBrush}" Height="1" Margin="0,20,0,16"/>
                     <CheckBox x:Name="BookmarkAutoTagCheck" Margin="0,0,0,4">
                         <StackPanel>
                             <TextBlock x:Name="BookmarkAutoTagTitle" Text="Auto-etiquetar marcadores con IA" FontWeight="SemiBold"/>
                             <TextBlock x:Name="BookmarkAutoTagDesc" Text="Genera 3-5 etiquetas temáticas al guardar un marcador."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
@@ -308,7 +335,7 @@
                             <TextBlock x:Name="DomainAgeTitle" Text="Verificar edad del dominio (RDAP)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="DomainAgeDesc"
                                        Text="Consulta IANA RDAP en páginas ya marcadas como sospechosas para detectar dominios recién registrados. Cero lookups en sites buenos."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
@@ -320,7 +347,7 @@
                         <StackPanel>
                             <TextBlock x:Name="YouTubeAdBlockTitle" Text="Bloquear anuncios en YouTube" FontWeight="SemiBold"/>
                             <TextBlock x:Name="YouTubeAdBlockDesc" Text="Salta pre-roll + mid-roll + overlay + cards patrocinadas en home/sidebar/search. Neutraliza el modal 'los bloqueadores no están permitidos'. El cambio aplica a pestañas nuevas — refrescá tabs YouTube ya abiertos para que tome efecto."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
@@ -330,18 +357,18 @@
                          checkbox is the shadow→enforce opt-in and stays off by
                          default until S-E has compared a release worth of
                          verdicts against real field logs. -->
-                    <Border Background="{StaticResource BorderBrush}" Height="1" Margin="0,20,0,16"/>
+                    <Border Background="{DynamicResource BorderSubtleBrush}" Height="1" Margin="0,20,0,16"/>
                     <TextBlock x:Name="SentinelTitle" Text="VELO Sentinel (clasificador local)"
                                FontWeight="SemiBold" Margin="0,0,0,4"/>
                     <TextBlock x:Name="SentinelDesc"
                                Text="Modelo de seguridad incrustado: clasifica dominios sin conexión, sin servidor y sin enviar nada. Complementa las listas de bloqueo — no las reemplaza."
-                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap" Margin="0,0,0,8"/>
                     <TextBlock x:Name="SentinelStatus" Text="Estado: —"
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap" Margin="0,0,0,4"/>
                     <TextBlock x:Name="SentinelPath" Text=""
-                               FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="10" Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap" Margin="0,0,0,8"/>
                     <!-- S-D — explicit, user-initiated download. Never automatic:
                          same privacy gate as updates.auto_check. -->
@@ -355,7 +382,7 @@
                             <TextBlock x:Name="SentinelEnforceTitle" Text="Aplicar los veredictos de Sentinel" FontWeight="SemiBold"/>
                             <TextBlock x:Name="SentinelEnforceDesc"
                                        Text="Desactivado, Sentinel solo registra lo que habría bloqueado (modo sombra). Activalo cuando confíes en el modelo: recién entonces puede cancelar pedidos."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
@@ -369,21 +396,21 @@
                         <StackPanel>
                             <TextBlock x:Name="SearchDdgTitle" Text="DuckDuckGo (Recomendado)" FontWeight="SemiBold"/>
                             <TextBlock x:Name="SearchDdgDesc" Text="Sin rastreo · Sin perfil de usuario"
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="SearchBrave" GroupName="Search" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock Text="Brave Search" FontWeight="SemiBold"/>
                             <TextBlock x:Name="SearchBraveDesc" Text="Índice propio · Sin Google"
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="SearchSearx" GroupName="Search" Margin="0,0,0,8">
                         <StackPanel>
                             <TextBlock Text="SearxNG" FontWeight="SemiBold"/>
                             <TextBlock x:Name="SearchSearxDesc" Text="Meta-buscador open source · Auto-hospedado"
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </RadioButton>
                     <RadioButton x:Name="SearchCustom" GroupName="Search" Margin="0,0,0,8">
@@ -391,7 +418,7 @@
                     </RadioButton>
                     <TextBox x:Name="SearchCustomUrl" Margin="20,0,0,0" IsEnabled="False"/>
                     <TextBlock x:Name="SearchUrlHint" Text="Usa {query} como marcador. Ej: https://mi-searx.com/search?q={query}"
-                               FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                Margin="20,4,0,0"/>
                 </StackPanel>
 
@@ -399,7 +426,7 @@
                 <StackPanel x:Name="PanelVault" Visibility="Collapsed">
                     <TextBlock x:Name="VaultPanelTitle" Text="Password Vault" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <TextBlock x:Name="VaultIntro" Text="Gestor de contraseñas encriptado con AES-256-GCM. La master password nunca se almacena."
-                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                     <TextBlock x:Name="AutoLockLabel" Text="Bloqueo automático" FontWeight="SemiBold" Margin="0,0,0,8"/>
@@ -418,18 +445,18 @@
                     <TextBlock x:Name="NewPassLabel" Text="Nueva master password:" Margin="0,0,0,4"/>
                     <PasswordBox x:Name="NewMasterPwd" Width="300" HorizontalAlignment="Left"
                                  Padding="8,6"
-                                 Background="{StaticResource BackgroundLightBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
+                                 Background="{DynamicResource SurfaceOverlayBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  BorderThickness="1"/>
                     <TextBlock x:Name="ConfirmPassLabel" Text="Confirmar:" Margin="0,8,0,4"/>
                     <PasswordBox x:Name="ConfirmMasterPwd" Width="300" HorizontalAlignment="Left"
                                  Padding="8,6"
-                                 Background="{StaticResource BackgroundLightBrush}"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 BorderBrush="{StaticResource BorderBrush}"
+                                 Background="{DynamicResource SurfaceOverlayBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  BorderThickness="1"/>
-                    <TextBlock x:Name="VaultError" Text="" Foreground="{StaticResource VerdictBlockBrush}"
+                    <TextBlock x:Name="VaultError" Text="" Foreground="{DynamicResource StatusDangerBrush}"
                                FontSize="11" Margin="0,6,0,0" Visibility="Collapsed"/>
                     <Button x:Name="ChangePassBtn" Content="Cambiar password" Margin="0,10,0,0"
                             HorizontalAlignment="Left" Padding="14,7"
@@ -442,7 +469,7 @@
 
                     <TextBlock x:Name="DefBrowserTitle" Text="Navegador predeterminado" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <TextBlock x:Name="DefBrowserHelp" TextWrapping="Wrap" FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,12"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12"
                                Text="VELO se abrirá cuando hagas clic en enlaces desde email, apps y documentos. Windows 11 requiere que confirmes el cambio en Configuración del sistema."/>
                     <Button x:Name="SetDefaultBrowserButton"
                             Content="Establecer VELO como navegador predeterminado"
@@ -454,13 +481,13 @@
                                FontSize="11" Visibility="Collapsed" TextWrapping="Wrap"/>
 
                     <!-- v2.4.23 — clipboard history toggle -->
-                    <Border Background="{StaticResource BorderBrush}" Height="1" Margin="0,20,0,16"/>
+                    <Border Background="{DynamicResource BorderSubtleBrush}" Height="1" Margin="0,20,0,16"/>
                     <CheckBox x:Name="ClipboardHistoryCheck" Margin="0,0,0,4">
                         <StackPanel>
                             <TextBlock x:Name="ClipboardHistoryTitle" Text="Historial del portapapeles" FontWeight="SemiBold"/>
                             <TextBlock x:Name="ClipboardHistoryDesc"
                                        Text="Captura los últimos 20 textos copiados. Solo en memoria; se borra al cerrar VELO. Atajo: Ctrl+Shift+V."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </CheckBox>
@@ -470,11 +497,70 @@
                 <StackPanel x:Name="PanelIdioma" Visibility="Collapsed">
                     <TextBlock x:Name="LangTitle" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <TextBlock x:Name="LangSubtitle" FontSize="12" Margin="0,0,0,24"
-                               TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}"/>
+                               TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                     <TextBlock x:Name="LangChooseLabel" FontWeight="SemiBold" Margin="0,0,0,10"/>
                     <ComboBox x:Name="LanguagePicker" Width="220" HorizontalAlignment="Left"
                               SelectionChanged="LanguagePicker_Changed"/>
+                </StackPanel>
+
+                <!-- ── APPEARANCE (v2.5.0) ─────────────────────────────────
+                     Applies on selection, not on Save: a theme is the one
+                     setting whose result you judge by looking at it. -->
+                <StackPanel x:Name="PanelAppearance" Visibility="Collapsed">
+                    <TextBlock x:Name="ThemeTitle" Style="{StaticResource TitleText}" Margin="0,0,0,4"/>
+                    <TextBlock x:Name="ThemeSubtitle" Style="{StaticResource SubtitleText}" Margin="0,0,0,22"/>
+
+                    <TextBlock x:Name="ThemeChooseLabel" Style="{StaticResource FieldLabel}"/>
+
+                    <RadioButton x:Name="ThemeSystemRadio" GroupName="Theme"
+                                 Margin="0,0,0,12" Checked="Theme_Checked" Tag="System">
+                        <StackPanel>
+                            <TextBlock x:Name="ThemeSystemTitle" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ThemeSystemHint" Style="{StaticResource CaptionText}"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="ThemeLightRadio" GroupName="Theme"
+                                 Margin="0,0,0,12" Checked="Theme_Checked" Tag="Light">
+                        <StackPanel>
+                            <TextBlock x:Name="ThemeLightTitle" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ThemeLightHint" Style="{StaticResource CaptionText}"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="ThemeDarkRadio" GroupName="Theme"
+                                 Margin="0,0,0,22" Checked="Theme_Checked" Tag="Dark">
+                        <StackPanel>
+                            <TextBlock x:Name="ThemeDarkTitle" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="ThemeDarkHint" Style="{StaticResource CaptionText}"/>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <!-- Swatch strip: shows the tokens the rest of the app is
+                         painted with, so the choice is judged on the actual
+                         surfaces rather than on the word "dark". -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock x:Name="ThemePreviewLabel" Style="{StaticResource FieldLabel}"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="42" Height="42" CornerRadius="{StaticResource RadiusMd}" Margin="0,0,8,0"
+                                        Background="{DynamicResource SurfaceCanvasBrush}"
+                                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"/>
+                                <Border Width="42" Height="42" CornerRadius="{StaticResource RadiusMd}" Margin="0,0,8,0"
+                                        Background="{DynamicResource SurfaceRaisedBrush}"
+                                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"/>
+                                <Border Width="42" Height="42" CornerRadius="{StaticResource RadiusMd}" Margin="0,0,8,0"
+                                        Background="{DynamicResource AccentBrush}"/>
+                                <Border Width="42" Height="42" CornerRadius="{StaticResource RadiusMd}" Margin="0,0,8,0"
+                                        Background="{DynamicResource StatusSuccessBrush}"/>
+                                <Border Width="42" Height="42" CornerRadius="{StaticResource RadiusMd}" Margin="0,0,8,0"
+                                        Background="{DynamicResource StatusWarningBrush}"/>
+                                <Border Width="42" Height="42" CornerRadius="{StaticResource RadiusMd}"
+                                        Background="{DynamicResource StatusDangerBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- ── COUNCIL (Phase 4.0 — UI shell; runtime in v2.5.x) ── -->
@@ -482,14 +568,14 @@
                     <TextBlock Text="Council Mode" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
                     <TextBlock Text="Cuatro modelos IA en paralelo. Síntesis 100% local."
                                FontSize="12.5"
-                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                Margin="0,0,0,22"/>
 
                     <!-- v2.4.40 — Backend selector + guide. Council's local moderator runs in
                          Ollama OR LM Studio OR any OpenAI-compatible server; user picks. -->
                     <TextBlock Text="SERVIDOR LOCAL DE SÍNTESIS"
                                FontSize="10.5" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                Margin="0,0,0,8"/>
                     <RadioButton x:Name="CouncilBackendOllamaRadio" GroupName="CouncilBackend"
                                  Content="Ollama (canónico, /api/tags)"
@@ -505,37 +591,37 @@
                                  Checked="CouncilBackend_Checked" Tag="OpenAICompat"/>
 
                     <TextBlock Text="ENDPOINT" FontSize="10.5" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                Margin="0,0,0,6"/>
                     <TextBox x:Name="CouncilOllamaEndpointBox"
-                             Style="{StaticResource ModernTextBox}"
+                            
                              Tag="http://localhost:11434"
                              Margin="0,0,0,12"/>
 
                     <TextBlock Text="NOMBRE DEL MODELO MODERATOR"
                                FontSize="10.5" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                Margin="0,0,0,6"/>
                     <TextBox x:Name="CouncilModeratorModelBox"
-                             Style="{StaticResource ModernTextBox}"
+                            
                              Tag="qwen3:32b"
                              Margin="0,0,0,4"/>
                     <TextBlock Text="Tip: para LM Studio usá el identificador exacto que aparece en 'API Model Identifier' (ej. qwen3.6-35b-a3b). Para Ollama, el tag (ej. qwen3:32b). Recomendado: cualquier modelo qwen-family con ≥16k de contexto."
                                FontSize="11"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,14"/>
 
                     <!-- Guía rápida — collapsible so it doesn't dominate the panel -->
                     <Expander Header="¿Cómo configuro mi servidor? (guía rápida)"
-                              Foreground="{StaticResource TextSecondaryBrush}"
+                              Foreground="{DynamicResource TextSecondaryBrush}"
                               Margin="0,0,0,16">
                         <StackPanel Margin="0,8,0,0">
                             <TextBlock Text="OLLAMA" FontSize="10.5" FontWeight="SemiBold"
-                                       Foreground="{StaticResource AccentPurpleLightBrush}"
+                                       Foreground="{DynamicResource AccentHoverBrush}"
                                        Margin="0,4,0,4"/>
                             <TextBlock TextWrapping="Wrap" FontSize="11.5"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        Margin="0,0,0,10">
                                 <Run Text="1) Instalá Ollama desde ollama.com. "/>
                                 <LineBreak/>
@@ -553,10 +639,10 @@
                             </TextBlock>
 
                             <TextBlock Text="LM STUDIO" FontSize="10.5" FontWeight="SemiBold"
-                                       Foreground="{StaticResource AccentPurpleLightBrush}"
+                                       Foreground="{DynamicResource AccentHoverBrush}"
                                        Margin="0,4,0,4"/>
                             <TextBlock TextWrapping="Wrap" FontSize="11.5"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        Margin="0,0,0,10">
                                 <Run Text="1) Descargá LM Studio desde lmstudio.ai. "/>
                                 <LineBreak/>
@@ -571,10 +657,10 @@
 
                             <TextBlock Text="OTRO (llama.cpp server, text-generation-webui, vllm…)"
                                        FontSize="10.5" FontWeight="SemiBold"
-                                       Foreground="{StaticResource AccentPurpleLightBrush}"
+                                       Foreground="{DynamicResource AccentHoverBrush}"
                                        Margin="0,4,0,4"/>
                             <TextBlock TextWrapping="Wrap" FontSize="11.5"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                        Margin="0,0,0,4">
                                 <Run Text="1) Cualquier servidor que exponga "/>
                                 <Run FontFamily="Consolas" Text="/v1/models"/>
@@ -596,13 +682,13 @@
                     <!-- Status banner: refreshed via CheckCouncilStatus_Click -->
                     <Border x:Name="CouncilStatusBanner"
                             Style="{StaticResource Card}"
-                            Background="{StaticResource SurfaceDarkBrush}"
+                            Background="{DynamicResource SurfaceBaseBrush}"
                             Padding="14,12" Margin="0,0,0,20">
                         <StackPanel>
                             <TextBlock x:Name="CouncilStatusHeader"
                                        Text="ESTADO DEL SERVIDOR"
                                        FontSize="10.5" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
                                        Margin="0,0,0,8"/>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="CouncilStatusIcon" Text="?" FontSize="16"
@@ -610,7 +696,7 @@
                                 <TextBlock x:Name="CouncilStatusText"
                                            Text="Comprobá con el botón de abajo si el servidor y el modelo están listos."
                                            FontSize="12"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            TextWrapping="Wrap"
                                            VerticalAlignment="Center"
                                            MaxWidth="320"/>
@@ -631,7 +717,7 @@
                          correspondientes + 2x2 layout + bar/overlays. -->
                     <TextBlock Text="PROVEEDORES"
                                FontSize="10.5" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                Margin="0,0,0,10"/>
 
                     <CheckBox x:Name="CouncilEnabledClaudeCheck"
@@ -639,7 +725,7 @@
                         <StackPanel>
                             <TextBlock Text="Claude (Anthropic)" FontWeight="SemiBold"/>
                             <TextBlock Text="Vía claude.ai. Tu prompt llega a Anthropic."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </CheckBox>
 
@@ -648,7 +734,7 @@
                         <StackPanel>
                             <TextBlock Text="ChatGPT (OpenAI)" FontWeight="SemiBold"/>
                             <TextBlock Text="Vía chat.openai.com. Tu prompt entra al pipeline de OpenAI."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </CheckBox>
 
@@ -657,7 +743,7 @@
                         <StackPanel>
                             <TextBlock Text="Grok (xAI)" FontWeight="SemiBold"/>
                             <TextBlock Text="Vía grok.com. Necesita sesión activa de X/Twitter."
-                                       FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </CheckBox>
 
@@ -666,15 +752,15 @@
                         <StackPanel>
                             <TextBlock Text="Local (Ollama / LM Studio)" FontWeight="SemiBold"/>
                             <TextBlock Text="100% local. También corre la síntesis final."
-                                       FontSize="11" Foreground="{StaticResource BadgeGreenBrush}"/>
+                                       FontSize="11" Foreground="{DynamicResource StatusSuccessTextBrush}"/>
                         </StackPanel>
                     </CheckBox>
 
-                    <Border Background="{StaticResource BorderSubtleBrush}" Height="1" Margin="0,12,0,16"/>
+                    <Border Background="{DynamicResource BorderSubtleBrush}" Height="1" Margin="0,12,0,16"/>
 
                     <TextBlock x:Name="CouncilDisclaimerStatus"
                                FontSize="11.5"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap"/>
                     <Button x:Name="CouncilResetDisclaimerButton"
                             Style="{StaticResource GhostButton}"
@@ -690,17 +776,17 @@
 
         <!-- Bottom bar -->
         <Border Grid.Column="1" Grid.Row="1"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,1,0,0"
                 Padding="32,12">
             <Grid>
                 <TextBlock x:Name="StatusText" Text=""
-                           Foreground="{StaticResource VerdictSafeBrush}"
+                           Foreground="{DynamicResource StatusSuccessBrush}"
                            VerticalAlignment="Center"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button x:Name="CancelButton" Content="Cancelar" Padding="16,8" Margin="0,0,8,0"
                             Click="Cancel_Click"/>
                     <Button x:Name="SaveButton" Content="Guardar" Padding="16,8"
-                            Style="{StaticResource AccentButton}"
+                            Style="{StaticResource PrimaryButton}"
                             Click="Save_Click"/>
                 </StackPanel>
             </Grid>

@@ -4,6 +4,7 @@ using System.Windows.Media;
 using VELO.Core.Localization;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -48,7 +49,7 @@ public partial class BookmarksWindow : Window
             BookmarkList.Children.Add(new TextBlock
             {
                 Text = LocalizationService.Current.T("bookmarks.empty"),
-                Foreground = (Brush)FindResource("TextMutedBrush"),
+                Foreground = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
                 Margin = new Thickness(0, 24, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
@@ -58,8 +59,8 @@ public partial class BookmarksWindow : Window
     {
         var card = new Border
         {
-            Background      = (Brush)FindResource("BackgroundLightBrush"),
-            BorderBrush     = (Brush)FindResource("BorderBrush"),
+            Background      = ThemePalette.Brush(ThemePalette.Keys.SurfaceOverlay),
+            BorderBrush     = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(6),
             Margin          = new Thickness(0, 0, 0, 6),
@@ -77,14 +78,14 @@ public partial class BookmarksWindow : Window
         {
             Text       = b.Title,
             FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)FindResource("TextPrimaryBrush"),
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.TextPrimary),
             TextTrimming = TextTrimming.CharacterEllipsis
         });
         info.Children.Add(new TextBlock
         {
             Text       = b.Url,
             FontSize   = 11,
-            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
             TextTrimming = TextTrimming.CharacterEllipsis,
             Margin     = new Thickness(0, 2, 0, 0)
         });
@@ -137,8 +138,8 @@ public partial class BookmarksWindow : Window
         {
             var chip = new Border
             {
-                Background      = (Brush)FindResource("BackgroundDarkBrush"),
-                BorderBrush     = (Brush)FindResource("BorderBrush"),
+                Background      = ThemePalette.Brush(ThemePalette.Keys.SurfaceBase),
+                BorderBrush     = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle),
                 BorderThickness = new Thickness(1),
                 CornerRadius    = new CornerRadius(8),
                 Padding         = new Thickness(7, 1, 7, 2),
@@ -147,7 +148,7 @@ public partial class BookmarksWindow : Window
                 {
                     Text       = tag,
                     FontSize   = 10,
-                    Foreground = (Brush)FindResource("TextMutedBrush")
+                    Foreground = ThemePalette.Brush(ThemePalette.Keys.TextMuted)
                 }
             };
             chipsPanel.Children.Add(chip);

@@ -138,47 +138,133 @@ public sealed class LocalizationService
         // ── Settings sidebar nav ──────────────────────────────────────────
         ["nav.privacy"] = new()
         {
-            ["es"] = "🔒  Privacidad",
-            ["en"] = "🔒  Privacy",
-            ["pt"] = "🔒  Privacidade",
-            ["fr"] = "🔒  Confidentialité",
-            ["de"] = "🔒  Datenschutz",
-            ["zh"] = "🔒  隐私",
-            ["ru"] = "🔒  Конфиденциальность",
-            ["ja"] = "🔒  プライバシー",
+            ["es"] = "Privacidad",
+            ["en"] = "Privacy",
+            ["pt"] = "Privacidade",
+            ["fr"] = "Confidentialité",
+            ["de"] = "Datenschutz",
+            ["zh"] = "隐私",
+            ["ru"] = "Конфиденциальность",
+            ["ja"] = "プライバシー",
         },
         ["nav.ai"] = new()
         {
-            ["es"] = "🧠  Inteligencia Artificial",
-            ["en"] = "🧠  Artificial Intelligence",
-            ["pt"] = "🧠  Inteligência Artificial",
-            ["fr"] = "🧠  Intelligence Artificielle",
-            ["de"] = "🧠  Künstliche Intelligenz",
-            ["zh"] = "🧠  人工智能",
-            ["ru"] = "🧠  Искусственный интеллект",
-            ["ja"] = "🧠  人工知能",
+            ["es"] = "Inteligencia Artificial",
+            ["en"] = "Artificial Intelligence",
+            ["pt"] = "Inteligência Artificial",
+            ["fr"] = "Intelligence Artificielle",
+            ["de"] = "Künstliche Intelligenz",
+            ["zh"] = "人工智能",
+            ["ru"] = "Искусственный интеллект",
+            ["ja"] = "人工知能",
         },
         ["nav.search"] = new()
         {
-            ["es"] = "🔍  Búsqueda",
-            ["en"] = "🔍  Search",
-            ["pt"] = "🔍  Pesquisa",
-            ["fr"] = "🔍  Recherche",
-            ["de"] = "🔍  Suche",
-            ["zh"] = "🔍  搜索",
-            ["ru"] = "🔍  Поиск",
-            ["ja"] = "🔍  検索",
+            ["es"] = "Búsqueda",
+            ["en"] = "Search",
+            ["pt"] = "Pesquisa",
+            ["fr"] = "Recherche",
+            ["de"] = "Suche",
+            ["zh"] = "搜索",
+            ["ru"] = "Поиск",
+            ["ja"] = "検索",
         },
         ["nav.language"] = new()
         {
-            ["es"] = "🌍  Idioma",
-            ["en"] = "🌍  Language",
-            ["pt"] = "🌍  Idioma",
-            ["fr"] = "🌍  Langue",
-            ["de"] = "🌍  Sprache",
-            ["zh"] = "🌍  语言",
-            ["ru"] = "🌍  Язык",
-            ["ja"] = "🌍  言語",
+            ["es"] = "Idioma",
+            ["en"] = "Language",
+            ["pt"] = "Idioma",
+            ["fr"] = "Langue",
+            ["de"] = "Sprache",
+            ["zh"] = "语言",
+            ["ru"] = "Язык",
+            ["ja"] = "言語",
+        },
+
+        // ── Appearance / theme (v2.5.0) ───────────────────────────────────
+        ["nav.appearance"] = new()
+        {
+            ["es"] = "Apariencia",  ["en"] = "Appearance",  ["pt"] = "Aparência",
+            ["fr"] = "Apparence",   ["de"] = "Darstellung", ["zh"] = "外观",
+            ["ru"] = "Внешний вид", ["ja"] = "外観",
+        },
+        ["settings.theme.title"] = new()
+        {
+            ["es"] = "Apariencia",  ["en"] = "Appearance",  ["pt"] = "Aparência",
+            ["fr"] = "Apparence",   ["de"] = "Darstellung", ["zh"] = "外观",
+            ["ru"] = "Внешний вид", ["ja"] = "外観",
+        },
+        ["settings.theme.subtitle"] = new()
+        {
+            ["es"] = "El tema se aplica al instante, sin reiniciar VELO.",
+            ["en"] = "The theme applies instantly, with no restart.",
+            ["pt"] = "O tema é aplicado na hora, sem reiniciar.",
+            ["fr"] = "Le thème s'applique immédiatement, sans redémarrage.",
+            ["de"] = "Das Design wird sofort angewendet, ohne Neustart.",
+            ["zh"] = "主题立即生效，无需重启。",
+            ["ru"] = "Тема применяется сразу, без перезапуска.",
+            ["ja"] = "テーマは再起動なしで即座に適用されます。",
+        },
+        ["settings.theme.choose"] = new()
+        {
+            ["es"] = "TEMA",   ["en"] = "THEME", ["pt"] = "TEMA",  ["fr"] = "THÈME",
+            ["de"] = "DESIGN", ["zh"] = "主题",  ["ru"] = "ТЕМА",  ["ja"] = "テーマ",
+        },
+        ["settings.theme.system"] = new()
+        {
+            ["es"] = "Seguir a Windows",  ["en"] = "Follow Windows", ["pt"] = "Seguir o Windows",
+            ["fr"] = "Suivre Windows",    ["de"] = "Windows folgen", ["zh"] = "跟随 Windows",
+            ["ru"] = "Как в Windows",     ["ja"] = "Windows に合わせる",
+        },
+        ["settings.theme.system.desc"] = new()
+        {
+            ["es"] = "Cambia solo cuando cambias el tema del sistema.",
+            ["en"] = "Switches by itself when you change the system theme.",
+            ["pt"] = "Muda sozinho quando você troca o tema do sistema.",
+            ["fr"] = "Change tout seul quand vous changez le thème système.",
+            ["de"] = "Wechselt automatisch mit dem Systemdesign.",
+            ["zh"] = "随系统主题自动切换。",
+            ["ru"] = "Меняется вместе с темой системы.",
+            ["ja"] = "システムのテーマに合わせて切り替わります。",
+        },
+        ["settings.theme.light"] = new()
+        {
+            ["es"] = "Claro",  ["en"] = "Light", ["pt"] = "Claro",   ["fr"] = "Clair",
+            ["de"] = "Hell",   ["zh"] = "浅色",  ["ru"] = "Светлая", ["ja"] = "ライト",
+        },
+        ["settings.theme.light.desc"] = new()
+        {
+            ["es"] = "Para luz de día y pantallas brillantes.",
+            ["en"] = "For daylight and bright screens.",
+            ["pt"] = "Para luz do dia e telas brilhantes.",
+            ["fr"] = "Pour la lumière du jour et les écrans lumineux.",
+            ["de"] = "Für Tageslicht und helle Bildschirme.",
+            ["zh"] = "适合白天与高亮度屏幕。",
+            ["ru"] = "Для дневного света и ярких экранов.",
+            ["ja"] = "日中や明るい画面向け。",
+        },
+        ["settings.theme.dark"] = new()
+        {
+            ["es"] = "Oscuro", ["en"] = "Dark",  ["pt"] = "Escuro", ["fr"] = "Sombre",
+            ["de"] = "Dunkel", ["zh"] = "深色",  ["ru"] = "Тёмная", ["ja"] = "ダーク",
+        },
+        ["settings.theme.dark.desc"] = new()
+        {
+            ["es"] = "Para trabajar de noche o con poca luz.",
+            ["en"] = "For night work and dim rooms.",
+            ["pt"] = "Para trabalhar à noite ou com pouca luz.",
+            ["fr"] = "Pour travailler la nuit ou en faible lumière.",
+            ["de"] = "Für Nachtarbeit und dunkle Räume.",
+            ["zh"] = "适合夜间与暗光环境。",
+            ["ru"] = "Для работы ночью и при слабом свете.",
+            ["ja"] = "夜間や暗い場所向け。",
+        },
+        ["settings.theme.preview"] = new()
+        {
+            ["es"] = "SUPERFICIES Y ESTADOS",  ["en"] = "SURFACES AND STATES",
+            ["pt"] = "SUPERFÍCIES E ESTADOS",  ["fr"] = "SURFACES ET ÉTATS",
+            ["de"] = "FLÄCHEN UND ZUSTÄNDE",   ["zh"] = "表面与状态",
+            ["ru"] = "ПОВЕРХНОСТИ И СТАТУСЫ",  ["ja"] = "表面と状態",
         },
 
         // ── Clear Data dialog ─────────────────────────────────────────────
@@ -681,9 +767,9 @@ public sealed class LocalizationService
         ["security.events_grouped"]   = new() { ["es"]="🔴 {0} eventos similares bloqueados de {1} en los últimos 30 segundos.",["en"]="🔴 {0} similar events blocked from {1} in the last 30 seconds.",["pt"]="🔴 {0} eventos similares bloqueados de {1} nos últimos 30 segundos.",["fr"]="🔴 {0} événements similaires bloqués depuis {1} ces 30 dernières secondes.",["de"]="🔴 {0} ähnliche Ereignisse von {1} in den letzten 30 Sekunden blockiert.",["zh"]="🔴 过去30秒内已阻止来自 {1} 的 {0} 个类似事件。",["ru"]="🔴 За последние 30 секунд заблокировано {0} похожих событий от {1}.",["ja"]="🔴 過去30秒間に {1} から {0} 件の類似イベントをブロックしました。" },
 
         // ── Settings nav buttons (v2.0.5.3) ─────────────────────────────
-        ["nav.dns"]      = new() { ["es"]="🌐  DNS",["en"]="🌐  DNS",["pt"]="🌐  DNS",["fr"]="🌐  DNS",["de"]="🌐  DNS",["zh"]="🌐  DNS",["ru"]="🌐  DNS",["ja"]="🌐  DNS" },
-        ["nav.vault"]    = new() { ["es"]="🔑  Vault",["en"]="🔑  Vault",["pt"]="🔑  Vault",["fr"]="🔑  Coffre",["de"]="🔑  Tresor",["zh"]="🔑  密码库",["ru"]="🔑  Хранилище",["ja"]="🔑  保管庫" },
-        ["nav.general"]  = new() { ["es"]="⚙️  General",["en"]="⚙️  General",["pt"]="⚙️  Geral",["fr"]="⚙️  Général",["de"]="⚙️  Allgemein",["zh"]="⚙️  常规",["ru"]="⚙️  Общие",["ja"]="⚙️  一般" },
+        ["nav.dns"]      = new() { ["es"]="DNS",["en"]="DNS",["pt"]="DNS",["fr"]="DNS",["de"]="DNS",["zh"]="DNS",["ru"]="DNS",["ja"]="DNS" },
+        ["nav.vault"]    = new() { ["es"]="Vault",["en"]="Vault",["pt"]="Vault",["fr"]="Coffre",["de"]="Tresor",["zh"]="密码库",["ru"]="Хранилище",["ja"]="保管庫" },
+        ["nav.general"]  = new() { ["es"]="General",["en"]="General",["pt"]="Geral",["fr"]="Général",["de"]="Allgemein",["zh"]="常规",["ru"]="Общие",["ja"]="一般" },
 
         // ── Settings: Privacy section ────────────────────────────────────
         ["settings.privacy.title"]      = new() { ["es"]="Privacidad",["en"]="Privacy",["pt"]="Privacidade",["fr"]="Confidentialité",["de"]="Datenschutz",["zh"]="隐私",["ru"]="Конфиденциальность",["ja"]="プライバシー" },
@@ -859,6 +945,7 @@ public sealed class LocalizationService
         ["onboarding.s4.mismatch"]      = new() { ["es"]="Las passwords no coinciden.",["en"]="Passwords do not match.",["pt"]="As senhas não coincidem.",["fr"]="Les mots de passe ne correspondent pas.",["de"]="Passwörter stimmen nicht überein.",["zh"]="密码不匹配。",["ru"]="Пароли не совпадают.",["ja"]="パスワードが一致しません。" },
 
         // ── Find bar (Ctrl+F) ─────────────────────────────────────────────
+        ["palette.placeholder"]         = new() { ["es"]="Buscar pestañas, comandos, historial…",["en"]="Search tabs, commands, history…",["pt"]="Buscar abas, comandos, histórico…",["fr"]="Rechercher onglets, commandes, historique…",["de"]="Tabs, Befehle, Verlauf suchen…",["zh"]="搜索标签页、命令、历史记录…",["ru"]="Поиск вкладок, команд, истории…",["ja"]="タブ・コマンド・履歴を検索…" },
         ["find.label"]                  = new() { ["es"]="Buscar:",["en"]="Find:",["pt"]="Buscar:",["fr"]="Rechercher :",["de"]="Suchen:",["zh"]="查找：",["ru"]="Найти:",["ja"]="検索：" },
         ["find.prev"]                   = new() { ["es"]="Anterior (Shift+Enter)",["en"]="Previous (Shift+Enter)",["pt"]="Anterior (Shift+Enter)",["fr"]="Précédent (Shift+Entrée)",["de"]="Zurück (Shift+Enter)",["zh"]="上一个（Shift+Enter）",["ru"]="Назад (Shift+Enter)",["ja"]="前へ（Shift+Enter）" },
         ["find.next"]                   = new() { ["es"]="Siguiente (Enter)",["en"]="Next (Enter)",["pt"]="Próximo (Enter)",["fr"]="Suivant (Entrée)",["de"]="Weiter (Enter)",["zh"]="下一个（Enter）",["ru"]="Дальше (Enter)",["ja"]="次へ（Enter）" },
@@ -886,6 +973,10 @@ public sealed class LocalizationService
         ["urlbar.ai.ready"]             = new() { ["es"]="IA activa · {0}\nAnalizando amenazas en tiempo real",["en"]="AI active · {0}\nAnalysing threats in real time",["pt"]="IA ativa · {0}\nAnalisando ameaças em tempo real",["fr"]="IA active · {0}\nAnalyse des menaces en temps réel",["de"]="KI aktiv · {0}\nBedrohungen werden in Echtzeit analysiert",["zh"]="AI 活动 · {0}\n实时分析威胁",["ru"]="ИИ активен · {0}\nАнализ угроз в реальном времени",["ja"]="AI動作中 · {0}\nリアルタイムで脅威を分析" },
         ["urlbar.ai.connecting"]        = new() { ["es"]="IA conectando…",["en"]="AI connecting…",["pt"]="IA conectando…",["fr"]="IA en connexion…",["de"]="KI verbindet…",["zh"]="AI 连接中…",["ru"]="ИИ подключается…",["ja"]="AI接続中…" },
         ["urlbar.ai.error"]             = new() { ["es"]="IA no disponible · {0}\nRevisa que Ollama esté corriendo: ollama serve",["en"]="AI unavailable · {0}\nMake sure Ollama is running: ollama serve",["pt"]="IA indisponível · {0}\nVerifique se o Ollama está rodando: ollama serve",["fr"]="IA indisponible · {0}\nVérifiez qu'Ollama est en cours d'exécution : ollama serve",["de"]="KI nicht verfügbar · {0}\nStellen Sie sicher, dass Ollama läuft: ollama serve",["zh"]="AI 不可用 · {0}\n请确认 Ollama 正在运行：ollama serve",["ru"]="ИИ недоступен · {0}\nУбедитесь, что Ollama запущен: ollama serve",["ja"]="AI利用不可 · {0}\nOllamaが起動しているか確認：ollama serve" },
+        // Two-letter chip in the URL bar. Shipped hardcoded as "IA" (Spanish)
+        // in an otherwise-English UI, so English users saw an abbreviation for
+        // nothing.
+        ["urlbar.ai.chip"]              = new() { ["es"]="IA",["en"]="AI",["pt"]="IA",["fr"]="IA",["de"]="KI",["zh"]="AI",["ru"]="ИИ",["ja"]="AI" },
         ["urlbar.ai.offline"]           = new() { ["es"]="IA offline · Análisis heurístico local activo",["en"]="AI offline · Local heuristic analysis active",["pt"]="IA offline · Análise heurística local ativa",["fr"]="IA hors ligne · Analyse heuristique locale active",["de"]="KI offline · Lokale heuristische Analyse aktiv",["zh"]="AI 离线 · 本地启发式分析已启用",["ru"]="ИИ офлайн · Локальный эвристический анализ активен",["ja"]="AIオフライン · ローカルヒューリスティック分析が有効" },
 
         // ── TabSidebar / Downloads tooltips / History badges / Inspector buttons / Malwaredex empty

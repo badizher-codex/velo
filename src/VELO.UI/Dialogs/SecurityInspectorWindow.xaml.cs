@@ -6,6 +6,7 @@ using System.Windows.Media;
 using Microsoft.Win32;
 using VELO.Core.Localization;
 using VELO.Security.Models;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -175,9 +176,9 @@ public partial class SecurityInspectorWindow : Window
 
         ReasonsPanel.Children.Clear();
         foreach (var r in d.ReasonsPositive)
-            AddRow(ReasonsPanel, "✅", "", r, foreground: "#FF2EB54F", wrap: true);
+            AddRow(ReasonsPanel, "✅", "", r, foreground: ThemePalette.Hex(ThemePalette.Keys.StatusSuccessText), wrap: true);
         foreach (var r in d.ReasonsNegative)
-            AddRow(ReasonsPanel, "⚠️", "", r, foreground: "#FFF0B429", wrap: true);
+            AddRow(ReasonsPanel, "⚠️", "", r, foreground: ThemePalette.Hex(ThemePalette.Keys.StatusWarningText), wrap: true);
     }
 
     // ── Row factory ──────────────────────────────────────────────────────
@@ -201,7 +202,7 @@ public partial class SecurityInspectorWindow : Window
             {
                 Text = label + ": ",
                 FontSize = 13,
-                Foreground = Brush("#FFB0B0B0"),
+                Foreground = ThemePalette.Brush(ThemePalette.Keys.TextSecondary),
                 MinWidth = 150,
                 VerticalAlignment = VerticalAlignment.Top
             });
@@ -211,7 +212,7 @@ public partial class SecurityInspectorWindow : Window
         {
             Text = value,
             FontSize = 13,
-            Foreground = foreground != null ? Brush(foreground) : Brush("#FFFFFFFF"),
+            Foreground = foreground != null ? Brush(foreground) : ThemePalette.Brush(ThemePalette.Keys.TextPrimary),
             TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
             MaxWidth = 380,
             VerticalAlignment = VerticalAlignment.Top
@@ -222,13 +223,15 @@ public partial class SecurityInspectorWindow : Window
 
     // ── Colour helpers ───────────────────────────────────────────────────
 
+    private static string H(string tokenKey) => ThemePalette.Hex(tokenKey);
+
     private static (string Bg, string Border, string Fg) ShieldColors(SafetyLevel level) => level switch
     {
-        SafetyLevel.Gold      => ("#FF2A2208", "#FFD4AF37", "#FFD4AF37"),
-        SafetyLevel.Green     => ("#FF0E2410", "#FF2EB54F", "#FF2EB54F"),
-        SafetyLevel.Yellow    => ("#FF2A2008", "#FFF0B429", "#FFF0B429"),
-        SafetyLevel.Red       => ("#FF2A0808", "#FFE53E3E", "#FFE53E3E"),
-        _                     => ("#FF1A1A1A", "#FF555555", "#FF888888"),
+        SafetyLevel.Gold   => (H(ThemePalette.Keys.SurfaceRaised),      H(ThemePalette.Keys.ShieldGold),    H(ThemePalette.Keys.ShieldGold)),
+        SafetyLevel.Green  => (H(ThemePalette.Keys.StatusSuccessSoft), H(ThemePalette.Keys.ShieldGreen),   H(ThemePalette.Keys.StatusSuccessText)),
+        SafetyLevel.Yellow => (H(ThemePalette.Keys.StatusWarningSoft), H(ThemePalette.Keys.ShieldYellow),  H(ThemePalette.Keys.StatusWarningText)),
+        SafetyLevel.Red    => (H(ThemePalette.Keys.StatusDangerSoft),  H(ThemePalette.Keys.ShieldRed),     H(ThemePalette.Keys.StatusDangerText)),
+        _                  => (H(ThemePalette.Keys.SurfaceRaised),      H(ThemePalette.Keys.ShieldNeutral), H(ThemePalette.Keys.TextSecondary)),
     };
 
     private static string ShieldIcon_(SafetyLevel level) => level switch

@@ -10,7 +10,7 @@
              font; same look on every Windows version. Geometry inspired
              by Lucide (MIT). -->
         <Style x:Key="NavIconPath" TargetType="Path">
-            <Setter Property="Stroke"             Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="Stroke"             Value="{DynamicResource TextSecondaryBrush}"/>
             <Setter Property="StrokeThickness"    Value="2"/>
             <Setter Property="StrokeLineJoin"     Value="Round"/>
             <Setter Property="StrokeStartLineCap" Value="Round"/>
@@ -28,8 +28,8 @@
 
         <!-- Toolbar -->
         <Border Grid.Row="0"
-                Background="{StaticResource SurfaceDarkBrush}"
-                BorderBrush="{StaticResource BorderSubtleBrush}"
+                Background="{DynamicResource SurfaceBaseBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="4,0">
             <Grid>
@@ -110,25 +110,17 @@
                      v2.4.37 — soft purple focus ring when keyboard focus
                      is inside the pill (typing in UrlField). -->
                 <Border Grid.Column="4"
-                        Background="{StaticResource SurfaceMidBrush}"
+                        Background="{DynamicResource SurfaceRaisedBrush}"
                         BorderThickness="1"
                         CornerRadius="10"
                         Margin="6,5,6,5"
                         Padding="4,0">
                     <Border.Style>
                         <Style TargetType="Border">
-                            <Setter Property="BorderBrush" Value="{StaticResource BorderEmphasisBrush}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource BorderStrongBrush}"/>
                             <Style.Triggers>
                                 <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentPurpleBrush}"/>
-                                    <Setter Property="Effect">
-                                        <Setter.Value>
-                                            <DropShadowEffect Color="#7C5CFF"
-                                                              Opacity="0.45"
-                                                              BlurRadius="14"
-                                                              ShadowDepth="0"/>
-                                        </Setter.Value>
-                                    </Setter>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                 </Trigger>
                             </Style.Triggers>
                         </Style>
@@ -154,9 +146,9 @@
                                  BorderThickness="0"
                                  VerticalAlignment="Center"
                                  FontSize="13"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 CaretBrush="{StaticResource AccentPurpleBrush}"
-                                 SelectionBrush="{StaticResource AccentPurpleBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 CaretBrush="{DynamicResource AccentBrush}"
+                                 SelectionBrush="{DynamicResource AccentBrush}"
                                  Padding="4,0"
                                  KeyDown="UrlField_KeyDown"
                                  GotFocus="UrlField_GotFocus"
@@ -175,9 +167,9 @@
                              v2.4.34 — adopts the BadgeBlue token pair from Phase 5.0. -->
                         <Button x:Name="TldrBadge" Grid.Column="3"
                                 FontSize="11" Padding="7,3"
-                                Background="{StaticResource BadgeBlueBgBrush}"
-                                Foreground="{StaticResource BadgeBlueBrush}"
-                                BorderBrush="{StaticResource BadgeBlueBrush}"
+                                Background="{DynamicResource StatusInfoSoftBrush}"
+                                Foreground="{DynamicResource StatusInfoTextBrush}"
+                                BorderBrush="{DynamicResource StatusInfoTextBrush}"
                                 BorderThickness="1"
                                 Margin="2,0,4,0" Cursor="Hand"
                                 Visibility="Collapsed"
@@ -226,11 +218,11 @@
                              Width="8" Height="8"
                              VerticalAlignment="Center"
                              Margin="0,0,4,0"
-                             Fill="#555566"/>
+                             Fill="{DynamicResource TextMutedBrush}"/>
                     <TextBlock x:Name="AiLabel"
-                               Text="IA" FontSize="11" FontWeight="SemiBold"
+                               Text="AI" FontSize="11" FontWeight="SemiBold"
                                VerticalAlignment="Center"
-                               Foreground="{StaticResource TextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>
 
                 <Ellipse x:Name="ContainerIndicator" Grid.Column="6"
@@ -244,9 +236,9 @@
                         Click="MenuButton_Click"
                         ToolTip="Menú">
                     <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <Ellipse Width="3" Height="3" Fill="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
-                        <Ellipse Width="3" Height="3" Fill="{StaticResource TextSecondaryBrush}" Margin="0,0,0,3"/>
-                        <Ellipse Width="3" Height="3" Fill="{StaticResource TextSecondaryBrush}"/>
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,3"/>
+                        <Ellipse Width="3" Height="3" Fill="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </Button>
             </Grid>
@@ -260,9 +252,9 @@
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
                         <GradientStop Color="Transparent"  Offset="0"/>
-                        <GradientStop Color="#7C5CFF"      Offset="0.3"/>
-                        <GradientStop Color="#A48BFF"      Offset="0.5"/>
-                        <GradientStop Color="#7C5CFF"      Offset="0.7"/>
+                        <GradientStop Color="{DynamicResource Accent}"      Offset="0.3"/>
+                        <GradientStop Color="{DynamicResource AccentHover}" Offset="0.5"/>
+                        <GradientStop Color="{DynamicResource Accent}"      Offset="0.7"/>
                         <GradientStop Color="Transparent"  Offset="1"/>
                     </LinearGradientBrush>
                 </Rectangle.Fill>

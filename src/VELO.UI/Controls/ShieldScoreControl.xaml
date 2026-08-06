@@ -20,7 +20,7 @@
     <Grid>
         <Border x:Name="BadgeBorder"
                 Style="{StaticResource ShieldBadge}"
-                Background="#FF333344">
+                Background="{DynamicResource SurfaceActiveBrush}">
 
             <TextBlock x:Name="IconLabel"
                        Text="🛡"

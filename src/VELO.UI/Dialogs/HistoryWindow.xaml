@@ -4,8 +4,8 @@
         Title="History — VELO"
         Width="760" Height="640"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource BackgroundDarkestBrush}"
-        Foreground="{StaticResource TextPrimaryBrush}">
+        Background="{DynamicResource SurfaceCanvasBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
 
     <!-- Phase 5.1 re-skin — frame 4. Same data, new look. -->
     <DockPanel Margin="20">
@@ -21,7 +21,7 @@
             <TextBlock Grid.Column="0" x:Name="HeaderLabel"
                        Text="History"
                        FontSize="24" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
                        VerticalAlignment="Center"/>
 
             <Button Grid.Column="1" x:Name="ReloadButton"
@@ -36,16 +36,16 @@
                     Style="{StaticResource GhostButton}"
                     Padding="14,8"
                     FontSize="12"
-                    Foreground="{StaticResource BadgeRedBrush}"
-                    BorderBrush="{StaticResource BadgeRedBrush}"
+                    Foreground="{DynamicResource StatusDangerTextBrush}"
+                    BorderBrush="{DynamicResource StatusDangerTextBrush}"
                     Click="Clear_Click"/>
         </Grid>
 
         <!-- Search box -->
         <Border DockPanel.Dock="Top" Margin="0,0,0,14"
-                Background="{StaticResource SurfaceLightBrush}"
+                Background="{DynamicResource SurfaceOverlayBrush}"
                 CornerRadius="10"
-                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -53,14 +53,14 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="🔍" FontSize="14"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            VerticalAlignment="Center"
                            Margin="14,0,8,0"/>
                 <TextBox x:Name="SearchBox" Grid.Column="1"
                          Background="Transparent"
-                         Foreground="{StaticResource TextPrimaryBrush}"
-                         CaretBrush="{StaticResource AccentPurpleBrush}"
-                         SelectionBrush="{StaticResource AccentPurpleBrush}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         CaretBrush="{DynamicResource AccentBrush}"
+                         SelectionBrush="{DynamicResource AccentBrush}"
                          BorderThickness="0"
                          Padding="0,11,12,11" FontSize="13"
                          TextChanged="SearchBox_TextChanged"/>
@@ -74,10 +74,10 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" x:Name="StatusLabel"
-                       Foreground="{StaticResource TextMutedBrush}" FontSize="12"
+                       Foreground="{DynamicResource TextMutedBrush}" FontSize="12"
                        VerticalAlignment="Center"/>
             <TextBlock Grid.Column="1" x:Name="DiagLabel"
-                       Foreground="{StaticResource TextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        Opacity="0.55"
                        FontSize="10"
                        HorizontalAlignment="Right"
@@ -95,8 +95,8 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Margin="0,0,0,6" Padding="14,12"
-                                Background="{StaticResource SurfaceMidBrush}"
-                                BorderBrush="{StaticResource BorderSubtleBrush}"
+                                Background="{DynamicResource SurfaceRaisedBrush}"
+                                BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Cursor="Hand"
@@ -117,7 +117,7 @@
                                                    Visibility="{Binding MonsterVisibility}"
                                                    VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding Title}"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
                                                    FontSize="13.5" FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis"
                                                    VerticalAlignment="Center"/>
@@ -125,7 +125,7 @@
 
                                     <!-- URL row -->
                                     <TextBlock Text="{Binding Url}"
-                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
                                                FontSize="11"
                                                TextTrimming="CharacterEllipsis"
                                                Margin="0,3,0,0"/>
@@ -135,47 +135,47 @@
 
                                         <!-- Blocked count (red) -->
                                         <Border Style="{StaticResource StatusPill}"
-                                                Background="{StaticResource BadgeRedBgBrush}"
+                                                Background="{DynamicResource StatusDangerSoftBrush}"
                                                 Padding="8,3"
                                                 Margin="0,0,6,0"
                                                 Visibility="{Binding BlockedBadgeVisibility}">
                                             <TextBlock Text="{Binding BlockedBadgeText}"
                                                        FontSize="10.5" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource BadgeRedBrush}"/>
+                                                       Foreground="{DynamicResource StatusDangerTextBrush}"/>
                                         </Border>
 
                                         <!-- Trackers (amber) -->
                                         <Border Style="{StaticResource StatusPill}"
-                                                Background="{StaticResource BadgeAmberBgBrush}"
+                                                Background="{DynamicResource StatusWarningSoftBrush}"
                                                 Padding="8,3"
                                                 Margin="0,0,6,0"
                                                 Visibility="{Binding TrackerBadgeVisibility}">
                                             <TextBlock Text="{Binding TrackerBadgeText}"
                                                        FontSize="10.5" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource BadgeAmberBrush}"/>
+                                                       Foreground="{DynamicResource StatusWarningTextBrush}"/>
                                         </Border>
 
                                         <!-- Malware (red, more emphatic) -->
                                         <Border Style="{StaticResource StatusPill}"
-                                                Background="{StaticResource BadgeRedBgBrush}"
-                                                BorderBrush="{StaticResource BadgeRedBrush}"
+                                                Background="{DynamicResource StatusDangerSoftBrush}"
+                                                BorderBrush="{DynamicResource StatusDangerTextBrush}"
                                                 BorderThickness="1"
                                                 Padding="8,3"
                                                 Margin="0,0,6,0"
                                                 Visibility="{Binding MalwareBadgeVisibility}">
                                             <TextBlock Text="{Binding MalwareBadgeText}"
                                                        FontSize="10.5" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource BadgeRedBrush}"/>
+                                                       Foreground="{DynamicResource StatusDangerTextBrush}"/>
                                         </Border>
 
                                         <!-- No threats (green) — only when all counts are zero -->
                                         <Border Style="{StaticResource StatusPill}"
-                                                Background="{StaticResource BadgeGreenBgBrush}"
+                                                Background="{DynamicResource StatusSuccessSoftBrush}"
                                                 Padding="8,3"
                                                 Visibility="{Binding NoThreatsVisibility}">
                                             <TextBlock Text="{Binding NoThreatsText}"
                                                        FontSize="10.5" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource BadgeGreenBrush}"/>
+                                                       Foreground="{DynamicResource StatusSuccessTextBrush}"/>
                                         </Border>
                                     </StackPanel>
                                 </StackPanel>
@@ -184,7 +184,7 @@
                                 <StackPanel Grid.Column="1" VerticalAlignment="Top"
                                             Margin="12,0,0,0">
                                     <TextBlock Text="{Binding VisitedAt, StringFormat='{}{0:dd/MM HH:mm}'}"
-                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
                                                FontSize="11"
                                                HorizontalAlignment="Right"/>
                                     <Button Content="✕" FontSize="10"

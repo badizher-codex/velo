@@ -8,15 +8,7 @@
         WindowStyle="SingleBorderWindow"
         Closing="Window_Closing">
 
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
-
-    <Grid Background="{StaticResource BackgroundDarkestBrush}">
+    <Grid Background="{DynamicResource SurfaceCanvasBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>   <!-- Header -->
             <RowDefinition Height="*"/>      <!-- Content -->
@@ -27,12 +19,12 @@
         <StackPanel Grid.Row="0" Margin="32,28,32,0">
             <TextBlock Text="VELO"
                        FontSize="28" FontWeight="Light"
-                       Foreground="{StaticResource AccentPurpleLightBrush}"
+                       Foreground="{DynamicResource AccentHoverBrush}"
                        HorizontalAlignment="Center"/>
             <TextBlock x:Name="StepIndicator"
                        Text="Paso 1 de 4"
                        FontSize="11"
-                       Foreground="{StaticResource TextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        HorizontalAlignment="Center"
                        Margin="0,4,0,0"/>
         </StackPanel>
@@ -50,7 +42,7 @@
                     <StackPanel>
                         <TextBlock x:Name="OfflineTitle" Text="Offline (Recomendado)" FontWeight="SemiBold"/>
                         <TextBlock x:Name="OfflineDesc" Text="100% local. Sin API key. Seguro para uso diario."
-                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
 
@@ -58,7 +50,7 @@
                     <StackPanel>
                         <TextBlock x:Name="ClaudeTitle" Text="Claude (Mejor detección)" FontWeight="SemiBold"/>
                         <TextBlock x:Name="ClaudeDesc" Text="Requiere API key de Anthropic. Análisis más profundo."
-                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
 
@@ -70,7 +62,7 @@
                     <StackPanel>
                         <TextBlock x:Name="CustomTitle" Text="LLM Personalizado" FontWeight="SemiBold"/>
                         <TextBlock x:Name="CustomDesc" Text="Ollama u otro endpoint compatible."
-                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
 
@@ -87,14 +79,14 @@
                 <TextBlock x:Name="Step2Title" Text="DNS Privado"
                            FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                 <TextBlock x:Name="Step2Intro" Text="Tu ISP puede ver qué sitios visitas con DNS normal. VELO usa DNS encriptado (DoH)."
-                           FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                 <RadioButton x:Name="DnsQuad9" GroupName="DNS" IsChecked="True" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock x:Name="Quad9Title" Text="Quad9 (Recomendado)" FontWeight="SemiBold"/>
                         <TextBlock x:Name="Quad9Desc" Text="Sin logs · Bloquea malware · Suiza"
-                                   FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     </StackPanel>
                 </RadioButton>
                 <RadioButton x:Name="DnsCloudflare" GroupName="DNS" Margin="0,0,0,12">
@@ -116,19 +108,19 @@
                 <TextBlock x:Name="Step3Title" Text="Protección de Identidad"
                            FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                 <TextBlock x:Name="Step3Intro" Text="Los sitios pueden identificarte sin cookies usando tu 'huella digital' del navegador."
-                           FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                 <TextBlock x:Name="AlreadyOn" Text="VELO ya tiene activada:" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                <TextBlock x:Name="ProtCanvas"   Text="✓ Protección Canvas" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
-                <TextBlock x:Name="ProtHardware" Text="✓ Spoof de hardware" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
-                <TextBlock x:Name="ProtUa"       Text="✓ Rotación de User Agent" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
-                <TextBlock x:Name="ProtWebrtc"   Text="✓ Protección WebRTC" Foreground="{StaticResource BadgeGreenBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtCanvas"   Text="✓ Protección Canvas" Foreground="{DynamicResource StatusSuccessTextBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtHardware" Text="✓ Spoof de hardware" Foreground="{DynamicResource StatusSuccessTextBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtUa"       Text="✓ Rotación de User Agent" Foreground="{DynamicResource StatusSuccessTextBrush}" Margin="0,4"/>
+                <TextBlock x:Name="ProtWebrtc"   Text="✓ Protección WebRTC" Foreground="{DynamicResource StatusSuccessTextBrush}" Margin="0,4"/>
 
                 <TextBlock x:Name="LevelLine" Text="Nivel: BALANCEADO (privado y compatible)" FontWeight="SemiBold"
-                           Foreground="{StaticResource AccentPurpleLightBrush}" Margin="0,16,0,0"/>
+                           Foreground="{DynamicResource AccentHoverBrush}" Margin="0,16,0,0"/>
                 <TextBlock x:Name="ChangeableLine" Text="Puedes cambiarlo en Settings en cualquier momento."
-                           FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,4"/>
+                           FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4"/>
             </StackPanel>
 
             <!-- Step 4: Master Password -->
@@ -136,21 +128,21 @@
                 <TextBlock x:Name="Step4Title" Text="Password Vault"
                            FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
                 <TextBlock x:Name="Step4Intro" Text="VELO incluye un gestor de contraseñas encriptado. Elige una master password para protegerlo."
-                           FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                            TextWrapping="Wrap" Margin="0,0,0,20"/>
 
                 <TextBlock x:Name="MasterLabel" Text="Master password (mínimo 8 caracteres):" Margin="0,0,0,6"/>
                 <PasswordBox x:Name="MasterPasswordField"
-                             Style="{StaticResource ModernPasswordBox}"
+                            
                              Margin="0,0,0,12"/>
 
                 <TextBlock x:Name="ConfirmLabel" Text="Confirmar password:" Margin="0,0,0,6"/>
                 <PasswordBox x:Name="ConfirmPasswordField"
-                             Style="{StaticResource ModernPasswordBox}"/>
+                            />
 
                 <TextBlock x:Name="PasswordError"
                            Text=""
-                           Foreground="{StaticResource BadgeRedBrush}"
+                           Foreground="{DynamicResource StatusDangerTextBrush}"
                            FontSize="11"
                            Margin="0,8,0,0"
                            Visibility="Collapsed"/>

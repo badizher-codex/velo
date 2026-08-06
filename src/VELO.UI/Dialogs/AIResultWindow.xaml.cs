@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -38,16 +39,16 @@ public partial class AIResultWindow : Window
         // makes "this query left your device" loud-and-clear.
         if (isCloud)
         {
-            AdapterChip.Background  = new SolidColorBrush(Color.FromRgb(0x3A, 0x2A, 0x10));
-            AdapterChip.BorderBrush = new SolidColorBrush(Color.FromRgb(0xF0, 0xB4, 0x29));
-            AdapterChipText.Foreground = new SolidColorBrush(Color.FromRgb(0xF0, 0xB4, 0x29));
+            AdapterChip.Background  = ThemePalette.Brush(ThemePalette.Keys.StatusWarningSoft);
+            AdapterChip.BorderBrush = ThemePalette.Brush(ThemePalette.Keys.StatusWarningText);
+            AdapterChipText.Foreground = ThemePalette.Brush(ThemePalette.Keys.StatusWarningText);
             AdapterChip.ToolTip = "Esta consulta salió de tu dispositivo. Puedes desactivar la nube en Settings → IA.";
         }
         else
         {
-            AdapterChip.Background  = new SolidColorBrush(Color.FromRgb(0x1A, 0x3A, 0x20));
-            AdapterChip.BorderBrush = new SolidColorBrush(Color.FromRgb(0x2E, 0xB5, 0x4F));
-            AdapterChipText.Foreground = new SolidColorBrush(Color.FromRgb(0x2E, 0xB5, 0x4F));
+            AdapterChip.Background  = ThemePalette.Brush(ThemePalette.Keys.StatusSuccessSoft);
+            AdapterChip.BorderBrush = ThemePalette.Brush(ThemePalette.Keys.StatusSuccessText);
+            AdapterChipText.Foreground = ThemePalette.Brush(ThemePalette.Keys.StatusSuccessText);
             AdapterChip.ToolTip = "Procesado localmente. Tus datos no salieron del dispositivo.";
         }
 
@@ -92,7 +93,7 @@ public partial class AIResultWindow : Window
         catch (Exception ex)
         {
             ResultText.Text         = "Error: " + ex.Message;
-            ResultText.Foreground   = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
+            ResultText.Foreground   = ThemePalette.Brush(ThemePalette.Keys.StatusDangerText);
             ResultText.Visibility   = Visibility.Visible;
             LoadingPanel.Visibility = Visibility.Collapsed;
         }

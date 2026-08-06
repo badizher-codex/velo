@@ -8,8 +8,8 @@
         <conv:StringToBrushConverter x:Key="StringToBrush"/>
     </UserControl.Resources>
 
-    <Border Background="{StaticResource BackgroundMidBrush}"
-            BorderBrush="{StaticResource BorderBrush}"
+    <Border Background="{DynamicResource SurfaceRaisedBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="0,0,0,1">
         <ScrollViewer HorizontalScrollBarVisibility="Auto"
                       VerticalScrollBarVisibility="Disabled">
@@ -36,13 +36,13 @@
                                     Tag="{Binding Id}">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="Background" Value="{StaticResource BackgroundMidBrush}"/>
+                                        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="Background" Value="{StaticResource BackgroundLightBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource SurfaceOverlayBrush}"/>
                                             </DataTrigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="{StaticResource BackgroundHoverBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}"/>
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
@@ -58,10 +58,10 @@
                                                FontSize="12">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>

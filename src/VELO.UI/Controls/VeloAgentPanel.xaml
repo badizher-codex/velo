@@ -8,8 +8,8 @@
              AutomationProperties.Name="VeloAgent — Asistente de privacidad">
 
     <!-- Phase 5.2 re-skin — frames 1 + 2. Layout/contract unchanged. -->
-    <Border Background="{StaticResource BackgroundDarkestBrush}"
-            BorderBrush="{StaticResource BorderSubtleBrush}"
+    <Border Background="{DynamicResource SurfaceCanvasBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1,0,0,0">
 
         <Grid>
@@ -22,8 +22,8 @@
 
             <!-- ── Header ───────────────────────────────────────────────── -->
             <Border Grid.Row="0"
-                    Background="{StaticResource SurfaceDarkBrush}"
-                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    Background="{DynamicResource SurfaceBaseBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="14,10">
                 <Grid>
@@ -37,11 +37,11 @@
                         <StackPanel>
                             <TextBlock Text="VeloAgent"
                                        FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock x:Name="BackendLabel"
                                        Text="Sin modelo"
                                        FontSize="10"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </StackPanel>
 
@@ -84,12 +84,12 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="VeloAgent está pensando"
                                FontSize="11" FontStyle="Italic"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                VerticalAlignment="Center"/>
                     <TextBlock x:Name="TypingDots"
                                Text="…"
                                FontSize="11"
-                               Foreground="{StaticResource AccentPurpleLightBrush}"
+                               Foreground="{DynamicResource AccentHoverBrush}"
                                VerticalAlignment="Center"
                                Margin="2,0,0,0"/>
                 </StackPanel>
@@ -97,8 +97,8 @@
 
             <!-- ── Input area ────────────────────────────────────────────── -->
             <Border Grid.Row="3"
-                    Background="{StaticResource SurfaceDarkBrush}"
-                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    Background="{DynamicResource SurfaceBaseBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,0"
                     Padding="10">
                 <Grid>
@@ -107,17 +107,17 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Border Background="{StaticResource SurfaceLightBrush}"
-                            BorderBrush="{StaticResource BorderEmphasisBrush}"
+                    <Border Background="{DynamicResource SurfaceOverlayBrush}"
+                            BorderBrush="{DynamicResource BorderStrongBrush}"
                             BorderThickness="1"
                             CornerRadius="10"
                             Padding="10,7">
                         <TextBox x:Name="InputBox"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 Foreground="{StaticResource TextPrimaryBrush}"
-                                 CaretBrush="{StaticResource AccentPurpleBrush}"
-                                 SelectionBrush="{StaticResource AccentPurpleBrush}"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 CaretBrush="{DynamicResource AccentBrush}"
+                                 SelectionBrush="{DynamicResource AccentBrush}"
                                  FontSize="13"
                                  TextWrapping="Wrap"
                                  AcceptsReturn="False"
@@ -134,8 +134,8 @@
                             FontSize="18"
                             Width="38" Height="38"
                             Margin="8,0,0,0"
-                            Background="{StaticResource AccentPurpleGradientBrush}"
-                            Foreground="White"
+                            Background="{DynamicResource AccentGradientBrush}"
+                            Foreground="{DynamicResource TextOnAccentBrush}"
                             BorderThickness="0"
                             FontWeight="Bold"
                             Cursor="Hand"
@@ -151,11 +151,8 @@
                                                     Background="{TemplateBinding Background}"
                                                     CornerRadius="19"
                                                     Width="{TemplateBinding Width}"
-                                                    Height="{TemplateBinding Height}">
-                                                <Border.Effect>
-                                                    <DropShadowEffect Color="#7C5CFF" Opacity="0.35"
-                                                                      BlurRadius="14" ShadowDepth="0"/>
-                                                </Border.Effect>
+                                                    Height="{TemplateBinding Height}"
+                                                    Effect="{DynamicResource ShadowAccent}">
                                                 <ContentPresenter HorizontalAlignment="Center"
                                                                   VerticalAlignment="Center"/>
                                             </Border>

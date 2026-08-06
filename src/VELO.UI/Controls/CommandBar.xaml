@@ -5,7 +5,7 @@
              AutomationProperties.Name="Paleta de comandos">
 
     <!-- Full-overlay backdrop — click outside to dismiss -->
-    <Grid Background="#99000000"
+    <Grid Background="{DynamicResource ScrimBrush}"
           MouseLeftButtonDown="Backdrop_Click">
 
         <!-- Palette popup — centred, fixed width, auto height -->
@@ -15,16 +15,13 @@
                 VerticalAlignment="Top"
                 Margin="0,80,0,0"
                 HorizontalAlignment="Center"
-                Background="#FF0F0F1E"
-                BorderBrush="#FF3A3A5A"
+                Background="{DynamicResource SurfaceOverlayBrush}"
+                BorderBrush="{DynamicResource BorderStrongBrush}"
                 BorderThickness="1"
-                CornerRadius="8">
+                CornerRadius="12"
+                Effect="{DynamicResource ShadowLg}">
 
             <!-- Prevent backdrop click from reaching through the popup -->
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="32" ShadowDepth="0"
-                                  Color="#000000" Opacity="0.7"/>
-            </Border.Effect>
             <Border MouseLeftButtonDown="Palette_StopBubble">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -42,14 +39,14 @@
                         <TextBlock Grid.Column="0"
                                    Text="⌕"
                                    FontSize="18"
-                                   Foreground="#FF5555AA"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Center"
                                    Margin="0,0,10,0"/>
                         <TextBox x:Name="SearchBox"
                                  Grid.Column="1"
                                  Background="Transparent"
-                                 Foreground="#FFE0E0FF"
-                                 CaretBrush="#FFE0E0FF"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 CaretBrush="{DynamicResource TextPrimaryBrush}"
                                  BorderThickness="0"
                                  FontSize="15"
                                  VerticalAlignment="Center"
@@ -57,9 +54,9 @@
                                  TextChanged="SearchBox_TextChanged"/>
                         <TextBlock x:Name="PlaceholderText"
                                    Grid.Column="1"
-                                   Text="Buscar pestañas, comandos, historial…"
+                                   Text="Search tabs, commands, history…"
                                    FontSize="15"
-                                   Foreground="#FF444466"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Center"
                                    IsHitTestVisible="False"/>
                     </Grid>
@@ -67,7 +64,7 @@
                     <!-- Separator -->
                     <Border Grid.Row="1"
                             Height="1"
-                            Background="#FF2A2A3A"
+                            Background="{DynamicResource BorderSubtleBrush}"
                             Margin="0,0,0,4"/>
 
                     <!-- ── Results list ───────────────────────────────── -->
@@ -90,34 +87,29 @@
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
+                                            <!-- Plain triggers, not a VisualStateManager.
+                                                 The VSM version animated
+                                                 (Background).(SolidColorBrush.Color) to a
+                                                 literal, and a ColorAnimation target cannot
+                                                 take a DynamicResource — a Storyboard is
+                                                 frozen. Any state painted that way stays the
+                                                 same colour after a theme swap. -->
                                             <Border x:Name="ItemBorder"
                                                     Background="Transparent"
-                                                    CornerRadius="5"
+                                                    CornerRadius="{StaticResource RadiusSm}"
                                                     Padding="10,7">
                                                 <ContentPresenter/>
-                                                <VisualStateManager.VisualStateGroups>
-                                                    <VisualStateGroup x:Name="SelectionStates">
-                                                        <VisualState x:Name="Selected">
-                                                            <Storyboard>
-                                                                <ColorAnimation Storyboard.TargetName="ItemBorder"
-                                                                                Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                                                                To="#FF1E1E3A" Duration="0"/>
-                                                            </Storyboard>
-                                                        </VisualState>
-                                                        <VisualState x:Name="Unselected"/>
-                                                    </VisualStateGroup>
-                                                    <VisualStateGroup x:Name="CommonStates">
-                                                        <VisualState x:Name="MouseOver">
-                                                            <Storyboard>
-                                                                <ColorAnimation Storyboard.TargetName="ItemBorder"
-                                                                                Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                                                                To="#FF181830" Duration="0"/>
-                                                            </Storyboard>
-                                                        </VisualState>
-                                                        <VisualState x:Name="Normal"/>
-                                                    </VisualStateGroup>
-                                                </VisualStateManager.VisualStateGroups>
                                             </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background"
+                                                            Value="{DynamicResource SurfaceHoverBrush}"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background"
+                                                            Value="{DynamicResource SurfaceSelectedBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
@@ -145,19 +137,19 @@
                                                 VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Title}"
                                                    FontSize="13"
-                                                   Foreground="#FFD0D0EE"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
                                                    TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="{Binding Subtitle}"
                                                    FontSize="11"
-                                                   Foreground="#FF555577"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
                                                    TextTrimming="CharacterEllipsis"
                                                    Visibility="{Binding HasSubtitle}"/>
                                     </StackPanel>
 
                                     <!-- Category badge -->
                                     <Border Grid.Column="2"
-                                            Background="#FF1A1A2E"
-                                            BorderBrush="#FF2A2A4A"
+                                            Background="{DynamicResource SurfaceRaisedBrush}"
+                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
                                             BorderThickness="1"
                                             CornerRadius="3"
                                             Padding="5,1"
@@ -165,7 +157,7 @@
                                             VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Badge}"
                                                    FontSize="10"
-                                                   Foreground="#FF4444AA"/>
+                                                   Foreground="{DynamicResource TextMutedBrush}"/>
                                     </Border>
                                 </Grid>
                             </DataTemplate>

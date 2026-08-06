@@ -47,22 +47,37 @@ public class TabInfo : INotifyPropertyChanged
         set
         {
             Set(ref _containerId, value);
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ContainerColor)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SubtleAccentColor)));
+            NotifyColorsChanged();
         }
     }
 
-    public string ContainerColor => _containerId switch
-    {
-        "personal" => "#00E5FF",
-        "work"     => "#7FFF5F",
-        "banking"  => "#FF3D71",
-        "shopping" => "#FFB300",
-        _          => "Transparent"
-    };
+    /// <summary>
+    /// Resolves a container id to an "#AARRGGBB" colour. Set once at startup by
+    /// the UI layer (VELO.UI.Themes.ContainerPalette) so the colour follows the
+    /// active theme; VELO.Core cannot reference VELO.UI, and hardcoding the
+    /// table here is what left four copies of it in the codebase.
+    /// The fallback keeps Core usable on its own — in tests, where no
+    /// Application and therefore no theme dictionary exists.
+    /// </summary>
+    public static Func<string, string>? ContainerColorResolver { get; set; }
 
-    // Eight muted accent tints — used when no container is assigned.
-    // Format: #AARRGGBB (10 % opacity = 0x1A).
+    public string ContainerColor =>
+        _containerId == "none"
+            ? "Transparent"
+            : ContainerColorResolver?.Invoke(_containerId) ?? "#FF6C6C80";
+
+    /// <summary>Re-raises the colour properties so bindings re-resolve after a
+    /// theme swap. The values are strings, not brushes, so DynamicResource
+    /// cannot reach them.</summary>
+    public void NotifyColorsChanged()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ContainerColor)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SubtleAccentColor)));
+    }
+
+    // Eight muted accent tints — used when no container is assigned. These are
+    // identity, not status: a tab keeps its hue across themes so the user keeps
+    // recognising it. Format #AARRGGBB, 10 % opacity (0x1A).
     private static readonly string[] _accentPalette =
     [
         "#1A4A7FC1", // cornflower blue
@@ -85,7 +100,14 @@ public class TabInfo : INotifyPropertyChanged
         get
         {
             if (_containerId != "none")
-                return $"#1A{ContainerColor.TrimStart('#')}";
+            {
+                // The resolver returns #AARRGGBB; prefixing "#1A" onto that
+                // would build a 10-digit string that WPF rejects outright,
+                // leaving the row untinted. Keep the RGB, replace the alpha.
+                var rgb = ContainerColor.TrimStart('#');
+                if (rgb.Length == 8) rgb = rgb[2..];
+                return $"#1A{rgb}";
+            }
 
             var idx = Math.Abs(Id.GetHashCode()) % _accentPalette.Length;
             return _accentPalette[idx];

@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using VELO.Core.Localization;
 using VELO.Security.Models;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -119,10 +120,10 @@ public partial class UrlBar : UserControl
         // but the values are now coherent with the rest of the dark palette.
         var brushKey = status switch
         {
-            AiStatus.Ready      => "BadgeGreenBrush",
-            AiStatus.Connecting => "BadgeAmberBrush",
-            AiStatus.Error      => "BadgeRedBrush",
-            _                   => "TextMutedBrush",
+            AiStatus.Ready      => ThemePalette.Keys.StatusSuccessText,
+            AiStatus.Connecting => ThemePalette.Keys.StatusWarningText,
+            AiStatus.Error      => ThemePalette.Keys.StatusDangerText,
+            _                   => ThemePalette.Keys.TextMuted,
         };
         var tooltip = status switch
         {
@@ -132,10 +133,13 @@ public partial class UrlBar : UserControl
             _                   => L.T("urlbar.ai.offline"),
         };
 
-        var brush = (Brush)FindResource(brushKey);
+        // Not FindResource: it throws on a missing key, and this runs on every
+        // AI status change. ThemePalette degrades to transparent instead of
+        // taking the window down.
+        var brush = ThemePalette.Brush(brushKey);
         AiDot.Fill         = brush;
         AiLabel.Foreground = brush;
-        AiLabel.Text       = "IA";
+        AiLabel.Text       = L.T("urlbar.ai.chip");
         AiRobot.Opacity    = status == AiStatus.Ready ? 1.0 : 0.4;
 
         // Update tooltip (it's on the parent StackPanel)
@@ -241,8 +245,8 @@ public partial class UrlBar : UserControl
         // v2.4.35 — amber for the active state via the Phase 5 badge token
         // (warmer/golder than the v2.4 #FFB300, still unambiguously "saved").
         BookmarkButton.Foreground = bookmarked
-            ? (Brush)FindResource("BadgeAmberBrush")
-            : (Brush)FindResource("TextMutedBrush");
+            ? ThemePalette.Brush(ThemePalette.Keys.StatusWarningText)
+            : ThemePalette.Brush(ThemePalette.Keys.TextMuted);
         var L = LocalizationService.Current;
         BookmarkButton.ToolTip    = bookmarked ? L.T("urlbar.bookmark.remove") : L.T("urlbar.bookmark.add");
     }

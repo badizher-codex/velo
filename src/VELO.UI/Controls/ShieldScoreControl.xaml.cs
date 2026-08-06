@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using VELO.Security.Models;
 using VELO.UI.ViewModels;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -45,32 +46,29 @@ public partial class ShieldScoreControl : UserControl
     {
         var (bg, border) = level switch
         {
-            SafetyLevel.Gold      => ("#FFD4AF37", "#FFD4AF37"),
-            SafetyLevel.Green     => ("#FF1A3A20", "#FF2EB54F"),
-            SafetyLevel.Yellow    => ("#FF3A2E10", "#FFF0B429"),
-            SafetyLevel.Red       => ("#FF3A0E0E", "#FFE53E3E"),
-            SafetyLevel.Analyzing => ("#FF1A1A2E", "#FF555566"),
-            _                     => ("#FF1A1A2E", "#FF555566"),
+            SafetyLevel.Gold   => (ThemePalette.Keys.SurfaceRaised,     ThemePalette.Keys.ShieldGold),
+            SafetyLevel.Green  => (ThemePalette.Keys.StatusSuccessSoft, ThemePalette.Keys.ShieldGreen),
+            SafetyLevel.Yellow => (ThemePalette.Keys.StatusWarningSoft, ThemePalette.Keys.ShieldYellow),
+            SafetyLevel.Red    => (ThemePalette.Keys.StatusDangerSoft,  ThemePalette.Keys.ShieldRed),
+            _                  => (ThemePalette.Keys.SurfaceRaised,     ThemePalette.Keys.ShieldNeutral),
         };
 
-        BadgeBorder.Background   = new SolidColorBrush((Color)ColorConverter.ConvertFromString(bg));
-        BadgeBorder.BorderBrush  = new SolidColorBrush((Color)ColorConverter.ConvertFromString(border));
+        BadgeBorder.Background   = ThemePalette.Brush(bg);
+        BadgeBorder.BorderBrush  = ThemePalette.Brush(border);
         BadgeBorder.BorderThickness = new Thickness(1.5);
         IconLabel.Text = _vm.Icon;
     }
 
     private void PlayPulse(SafetyLevel level)
     {
-        var colorHex = level switch
+        PulseRing.BorderBrush = ThemePalette.Brush(level switch
         {
-            SafetyLevel.Gold   => "#FFD4AF37",
-            SafetyLevel.Green  => "#FF2EB54F",
-            SafetyLevel.Yellow => "#FFF0B429",
-            SafetyLevel.Red    => "#FFE53E3E",
-            _                  => "#FF555566",
-        };
-
-        PulseRing.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorHex));
+            SafetyLevel.Gold   => ThemePalette.Keys.ShieldGold,
+            SafetyLevel.Green  => ThemePalette.Keys.ShieldGreen,
+            SafetyLevel.Yellow => ThemePalette.Keys.ShieldYellow,
+            SafetyLevel.Red    => ThemePalette.Keys.ShieldRed,
+            _                  => ThemePalette.Keys.ShieldNeutral,
+        });
 
         var fadeIn  = new DoubleAnimation(0, 0.8, TimeSpan.FromMilliseconds(150));
         var fadeOut = new DoubleAnimation(0.8, 0, TimeSpan.FromMilliseconds(400));

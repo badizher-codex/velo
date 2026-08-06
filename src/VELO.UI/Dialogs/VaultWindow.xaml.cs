@@ -6,6 +6,7 @@ using VELO.Core.Localization;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
 using VELO.Vault;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -136,7 +137,7 @@ public partial class VaultWindow : Window
             EntryList.Children.Add(new TextBlock
             {
                 Text       = LocalizationService.Current.T("vault.empty"),
-                Foreground = (Brush)FindResource("TextMutedBrush"),
+                Foreground = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
                 Margin     = new Thickness(0, 24, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center
             });
@@ -147,8 +148,8 @@ public partial class VaultWindow : Window
     {
         var card = new Border
         {
-            Background      = (Brush)FindResource("BackgroundLightBrush"),
-            BorderBrush     = (Brush)FindResource("BorderBrush"),
+            Background      = ThemePalette.Brush(ThemePalette.Keys.SurfaceOverlay),
+            BorderBrush     = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(6),
             Margin          = new Thickness(0, 0, 0, 6),
@@ -165,20 +166,20 @@ public partial class VaultWindow : Window
         {
             Text       = entry.SiteName,
             FontWeight = FontWeights.SemiBold,
-            Foreground = (Brush)FindResource("TextPrimaryBrush")
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.TextPrimary)
         });
         info.Children.Add(new TextBlock
         {
             Text       = entry.Username,
             FontSize   = 11,
-            Foreground = (Brush)FindResource("TextSecondaryBrush"),
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.TextSecondary),
             Margin     = new Thickness(0, 2, 0, 0)
         });
         info.Children.Add(new TextBlock
         {
             Text       = "••••••••",
             FontSize   = 11,
-            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
             Margin     = new Thickness(0, 1, 0, 0)
         });
         Grid.SetColumn(info, 0);
@@ -260,7 +261,7 @@ public partial class VaultWindow : Window
 
     // ── Field validation helpers ──────────────────────────────────────────
 
-    private static readonly SolidColorBrush _errorBrush = new(Color.FromRgb(0xEE, 0x55, 0x55));
+    private static readonly SolidColorBrush _errorBrush = new(ThemePalette.Color(ThemePalette.Keys.StatusDangerText));
 
     private void SetFieldError(TextBox field, TextBlock label)
     {
@@ -374,9 +375,9 @@ public partial class VaultWindow : Window
         if (pwd.Any(char.IsDigit)) score++;
         if (pwd.Any(c => !char.IsLetterOrDigit(c))) score++;
 
-        var color = score <= 1 ? "#FF3D71"
-                  : score <= 3 ? "#FFB300"
-                  : "#7FFF5F";
+        var color = ThemePalette.Hex(score <= 1 ? ThemePalette.Keys.StatusDangerText
+                                    : score <= 3 ? ThemePalette.Keys.StatusWarningText
+                                    : ThemePalette.Keys.StatusSuccessText);
 
         StrengthBar.Fill  = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
         StrengthBar.Width = (StrengthBar.Parent as Grid)?.ActualWidth * score / 5.0 ?? 0;

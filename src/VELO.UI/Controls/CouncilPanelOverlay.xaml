@@ -19,8 +19,8 @@
          brings it up alongside the 2×2 layout. Visibility=Collapsed by
          default so a stray instance can't break the UI. -->
 
-    <Border Background="{StaticResource SurfaceMidBrush}"
-            BorderBrush="{StaticResource BorderSubtleBrush}"
+    <Border Background="{DynamicResource SurfaceRaisedBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="1"
             CornerRadius="8"
             Padding="6,4"
@@ -37,7 +37,7 @@
             <!-- Provider chip — set via SetProvider(...) in code-behind. -->
             <Border x:Name="ProviderChip"
                     CornerRadius="6"
-                    Background="{StaticResource AccentPurpleLightBrush}"
+                    Background="{DynamicResource AccentHoverBrush}"
                     Padding="6,2"
                     Margin="0,0,6,0"
                     VerticalAlignment="Center">
@@ -45,7 +45,7 @@
                            Text="Provider"
                            FontSize="10.5"
                            FontWeight="SemiBold"
-                           Foreground="#FFFFFFFF"
+                           Foreground="{DynamicResource TextOnAccentBrush}"
                            VerticalAlignment="Center"/>
             </Border>
 

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -27,9 +28,9 @@ public static class InputDialog
         var root = new Border
         {
             Background      = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0x0D, 0x0D, 0x1A)),
+                                  ThemePalette.Color(ThemePalette.Keys.SurfaceOverlay)),
             BorderBrush     = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0x2A, 0x2A, 0x3A)),
+                                  ThemePalette.Color(ThemePalette.Keys.BorderSubtle)),
             BorderThickness = new Thickness(1),
         };
 
@@ -39,7 +40,7 @@ public static class InputDialog
         {
             Text       = prompt,
             Foreground = new System.Windows.Media.SolidColorBrush(
-                             System.Windows.Media.Color.FromRgb(0xA0, 0xA0, 0xC0)),
+                             ThemePalette.Color(ThemePalette.Keys.TextSecondary)),
             FontSize   = 13,
             Margin     = new Thickness(0, 0, 0, 8),
         };
@@ -48,11 +49,11 @@ public static class InputDialog
         {
             Text            = defaultValue,
             Background      = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0x12, 0x12, 0x2A)),
+                                  ThemePalette.Color(ThemePalette.Keys.SurfaceInput)),
             Foreground      = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0xE0, 0xE0, 0xFF)),
+                                  ThemePalette.Color(ThemePalette.Keys.TextPrimary)),
             BorderBrush     = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0x3A, 0x3A, 0x60)),
+                                  ThemePalette.Color(ThemePalette.Keys.BorderStrong)),
             BorderThickness = new Thickness(1),
             Padding         = new Thickness(6, 4, 6, 4),
             FontSize        = 13,
@@ -73,12 +74,12 @@ public static class InputDialog
             Padding         = new Thickness(16, 4, 16, 4),
             Margin          = new Thickness(0, 0, 8, 0),
             Background      = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0x1A, 0x1A, 0x2E)),
+                                  ThemePalette.Color(ThemePalette.Keys.SurfaceRaised)),
             Foreground      = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0xD0, 0xD0, 0xFF)),
+                                  ThemePalette.Color(ThemePalette.Keys.TextPrimary)),
             BorderThickness = new Thickness(1),
             BorderBrush     = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0x44, 0x44, 0x88)),
+                                  ThemePalette.Color(ThemePalette.Keys.TextMuted)),
             IsDefault       = true,
         };
         okBtn.Click += (_, _) => { result = input.Text.Trim(); dialog.DialogResult = true; };
@@ -89,7 +90,7 @@ public static class InputDialog
             Padding         = new Thickness(16, 4, 16, 4),
             Background      = System.Windows.Media.Brushes.Transparent,
             Foreground      = new System.Windows.Media.SolidColorBrush(
-                                  System.Windows.Media.Color.FromRgb(0x66, 0x66, 0x88)),
+                                  ThemePalette.Color(ThemePalette.Keys.TextMuted)),
             BorderThickness = new Thickness(0),
             IsCancel        = true,
         };

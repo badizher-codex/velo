@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using VELO.Core.Localization;
 using VELO.Core.Navigation;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -75,14 +76,6 @@ public partial class TabSidebar : UserControl
     /// in the process; differs between processes.</summary>
     private readonly string _sidebarId = Guid.NewGuid().ToString("N");
 
-    private static readonly (string Id, string Color)[] ContainerDefs =
-    [
-        ("none",     "#808080"),
-        ("personal", "#00E5FF"),
-        ("work",     "#7FFF5F"),
-        ("banking",  "#FF3D71"),
-        ("shopping", "#FFB300"),
-    ];
 
     /// <summary>Number of workspaces currently registered (used for name/color cycling).</summary>
     public int WorkspaceCount => _workspaces.Count;
@@ -91,11 +84,11 @@ public partial class TabSidebar : UserControl
     public void SetSplitActive(bool active)
     {
         SplitBtn.Background = active
-            ? new SolidColorBrush(Color.FromArgb(0x33, 0x00, 0xE5, 0xFF))
+            ? ThemePalette.Brush(ThemePalette.Keys.AccentSoft)
             : Brushes.Transparent;
         SplitBtn.Foreground = active
-            ? new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF))
-            : new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x77));
+            ? ThemePalette.Brush(ThemePalette.Keys.Accent)
+            : ThemePalette.Brush(ThemePalette.Keys.TextMuted);
     }
 
     public TabSidebar()
@@ -105,7 +98,20 @@ public partial class TabSidebar : UserControl
         CollapsedTabList.ItemsSource = _visibleTabs;
         ApplyLanguage();
         LocalizationService.Current.LanguageChanged += ApplyLanguage;
-        Unloaded += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
+        ThemeService.ThemeChanged += ApplyTheme;
+        Unloaded += (_, _) =>
+        {
+            LocalizationService.Current.LanguageChanged -= ApplyLanguage;
+            ThemeService.ThemeChanged -= ApplyTheme;
+        };
+    }
+
+    /// <summary>Row tints are strings on TabInfo, not brushes, so a theme swap
+    /// does not reach them through DynamicResource. Re-raise them by hand.</summary>
+    private void ApplyTheme()
+    {
+        foreach (var tab in _visibleTabs) tab.NotifyColorsChanged();
+        RebuildWorkspaceStrip();
     }
 
     // ── Language ──────────────────────────────────────────────────────────
@@ -421,16 +427,12 @@ public partial class TabSidebar : UserControl
         var containerHeader = new MenuItem { Header = L.T("sidebar.container.assign"), IsEnabled = false };
         menu.Items.Add(containerHeader);
 
-        foreach (var (id, color) in ContainerDefs)
+        foreach (var id in ContainerPalette.Ids)
         {
-            Color c;
-            try   { c = (Color)ColorConverter.ConvertFromString(color); }
-            catch { c = Colors.Gray; }
-
             var dot = new Ellipse
             {
                 Width = 10, Height = 10,
-                Fill = new SolidColorBrush(c),
+                Fill = ThemePalette.Brush(ContainerPalette.KeyFor(id)),
                 Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             };

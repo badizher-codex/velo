@@ -28,6 +28,7 @@ using VELO.Security.Sentinel;
 using VELO.UI.Controls;
 using VELO.UI.Dialogs;
 using InputDialog = VELO.UI.Dialogs.InputDialog;
+using VELO.UI.Themes;
 
 namespace VELO.App;
 
@@ -1553,8 +1554,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(name)) return;
 
         // Pick a color cycling through a preset palette
-        var palette = new[] { "#7FFF5F", "#FFB300", "#FF3D71", "#A259FF", "#00E5FF", "#FF6B35" };
-        var color   = palette[TabSidebarControl.WorkspaceCount % palette.Length];
+        var color = DecorativePalette.At(TabSidebarControl.WorkspaceCount);
 
         var ws = new Workspace { Name = name, Color = color };
         TabSidebarControl.AddWorkspace(ws);
@@ -2511,14 +2511,8 @@ public partial class MainWindow : Window
         catch { return false; }
     }
 
-    private static string ContainerColor(string containerId) => containerId switch
-    {
-        "personal" => "#00E5FF",
-        "work"     => "#7FFF5F",
-        "banking"  => "#FF3D71",
-        "shopping" => "#FFB300",
-        _          => "#808080"
-    };
+    private static string ContainerColor(string containerId) =>
+        ContainerPalette.HexFor(containerId);
 
     // ── Keyboard shortcuts ───────────────────────────────────────────────
 
@@ -3049,7 +3043,7 @@ public partial class MainWindow : Window
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment   = VerticalAlignment.Stretch,
             Background          = new System.Windows.Media.SolidColorBrush(
-                                      System.Windows.Media.Color.FromRgb(0x2A, 0x2A, 0x3A)),
+                                      ThemePalette.Color(ThemePalette.Keys.BorderSubtle)),
             ResizeBehavior      = GridResizeBehavior.PreviousAndNext,
             ResizeDirection     = GridResizeDirection.Columns,
         };
@@ -3586,7 +3580,7 @@ public partial class MainWindow : Window
         FindStatusText.Text = found ? "" : VELO.Core.Localization.LocalizationService.Current.T("find.notfound");
         FindStatusText.Foreground = found
             ? System.Windows.Media.Brushes.Transparent
-            : System.Windows.Media.Brushes.OrangeRed;
+            : VELO.UI.Themes.ThemePalette.Brush(VELO.UI.Themes.ThemePalette.Keys.StatusDangerText);
     }
 
     private void CloseFindBar()

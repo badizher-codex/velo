@@ -10,6 +10,7 @@ using VELO.Core.Localization;
 using VELO.Data.Models;
 using VELO.Data.Repositories;
 using VELO.Vault;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -86,6 +87,7 @@ public partial class SettingsWindow : Window
         {
             await LoadSettingsAsync();
             LoadLanguagePicker();
+            LoadThemeSelection();
             ApplyNavLanguage();
         };
         LocalizationService.Current.LanguageChanged += ApplyNavLanguage;
@@ -114,8 +116,21 @@ public partial class SettingsWindow : Window
         NavIA.Content         = L.T("nav.ai");
         NavBusqueda.Content   = L.T("nav.search");
         NavVault.Content      = L.T("nav.vault");
+        NavAppearance.Content = L.T("nav.appearance");
         NavIdioma.Content     = L.T("nav.language");
         NavGeneral.Content    = L.T("nav.general");
+
+        // Appearance panel
+        ThemeTitle.Text        = L.T("settings.theme.title");
+        ThemeSubtitle.Text     = L.T("settings.theme.subtitle");
+        ThemeChooseLabel.Text  = L.T("settings.theme.choose");
+        ThemeSystemTitle.Text  = L.T("settings.theme.system");
+        ThemeSystemHint.Text   = L.T("settings.theme.system.desc");
+        ThemeLightTitle.Text   = L.T("settings.theme.light");
+        ThemeLightHint.Text    = L.T("settings.theme.light.desc");
+        ThemeDarkTitle.Text    = L.T("settings.theme.dark");
+        ThemeDarkHint.Text     = L.T("settings.theme.dark.desc");
+        ThemePreviewLabel.Text = L.T("settings.theme.preview");
 
         // Privacy panel
         PrivacyTitle.Text     = L.T("settings.privacy.title");
@@ -234,6 +249,35 @@ public partial class SettingsWindow : Window
         if (LanguagePicker.SelectedValue is not string lang) return;
         LocalizationService.Current.SetLanguage(lang);
         await _settings.SetAsync(SettingKeys.Language, lang);
+    }
+
+    // ── Appearance (v2.5.0) ──────────────────────────────────────────────
+
+    private bool _themeLoading;
+
+    /// <summary>Applies on selection rather than on Save. A theme is judged by
+    /// looking at it, so making the user commit before seeing it inverts the
+    /// feedback loop — and the swap is free to undo.</summary>
+    private async void Theme_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_themeLoading) return;
+        if (sender is not RadioButton rb || rb.Tag is not string tag) return;
+
+        var mode = ThemeService.Parse(tag);
+        ThemeService.Apply(mode);
+        await _settings.SetAsync(SettingKeys.Theme, ThemeService.Serialize(mode));
+    }
+
+    private void LoadThemeSelection()
+    {
+        _themeLoading = true;
+        try
+        {
+            ThemeSystemRadio.IsChecked = ThemeService.Mode == ThemeMode.System;
+            ThemeLightRadio.IsChecked  = ThemeService.Mode == ThemeMode.Light;
+            ThemeDarkRadio.IsChecked   = ThemeService.Mode == ThemeMode.Dark;
+        }
+        finally { _themeLoading = false; }
     }
 
     private async Task LoadSettingsAsync()
@@ -597,8 +641,8 @@ public partial class SettingsWindow : Window
     {
         OllamaTestResult.Text       = (success ? "✓ " : "✗ ") + message;
         OllamaTestResult.Foreground = success
-            ? new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50))   // green
-            : new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));   // red
+            ? ThemePalette.Brush(ThemePalette.Keys.StatusSuccessText)   // green
+            : ThemePalette.Brush(ThemePalette.Keys.StatusDangerText);   // red
         OllamaTestResult.Visibility = Visibility.Visible;
     }
 
@@ -626,7 +670,7 @@ public partial class SettingsWindow : Window
             catch (Exception ex)
             {
                 DefaultBrowserStatus.Text = string.Format(LocalizationService.Current.T("settings.defbrowser.openerr"), ex.Message);
-                DefaultBrowserStatus.Foreground = new SolidColorBrush(Color.FromRgb(0xF4, 0x43, 0x36));
+                DefaultBrowserStatus.Foreground = ThemePalette.Brush(ThemePalette.Keys.StatusDangerText);
                 DefaultBrowserStatus.Visibility = Visibility.Visible;
             }
         }
@@ -644,6 +688,7 @@ public partial class SettingsWindow : Window
         NavBusqueda.Style   = (Style)Resources["NavButton"];
         NavVault.Style      = (Style)Resources["NavButton"];
         NavCouncil.Style    = (Style)Resources["NavButton"];
+        NavAppearance.Style = (Style)Resources["NavButton"];
         NavIdioma.Style     = (Style)Resources["NavButton"];
         NavGeneral.Style    = (Style)Resources["NavButton"];
 
@@ -657,6 +702,7 @@ public partial class SettingsWindow : Window
         PanelBusqueda.Visibility   = tag == "Busqueda"   ? Visibility.Visible : Visibility.Collapsed;
         PanelVault.Visibility      = tag == "Vault"      ? Visibility.Visible : Visibility.Collapsed;
         PanelCouncil.Visibility    = tag == "Council"    ? Visibility.Visible : Visibility.Collapsed;
+        PanelAppearance.Visibility = tag == "Appearance" ? Visibility.Visible : Visibility.Collapsed;
         PanelIdioma.Visibility     = tag == "Idioma"     ? Visibility.Visible : Visibility.Collapsed;
         PanelGeneral.Visibility    = tag == "General"    ? Visibility.Visible : Visibility.Collapsed;
 
@@ -750,9 +796,9 @@ public partial class SettingsWindow : Window
         SentinelDownloadResult.Visibility = Visibility.Visible;
         SentinelDownloadResult.Foreground = ok switch
         {
-            true  => new SolidColorBrush(Color.FromRgb(0x4A, 0xDE, 0x80)),
-            false => new SolidColorBrush(Color.FromRgb(0xF8, 0x71, 0x71)),
-            null  => (Brush)FindResource("TextSecondaryBrush"),
+            true  => ThemePalette.Brush(ThemePalette.Keys.StatusSuccessText),
+            false => ThemePalette.Brush(ThemePalette.Keys.StatusDangerText),
+            null  => ThemePalette.Brush(ThemePalette.Keys.TextSecondary),
         };
     }
 

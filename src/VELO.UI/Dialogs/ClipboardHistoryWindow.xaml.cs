@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using VELO.Core.Clipboard;
 using VELO.Core.Localization;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Dialogs;
 
@@ -72,7 +73,7 @@ public partial class ClipboardHistoryWindow : Window
             EntryList.Children.Add(new TextBlock
             {
                 Text       = LocalizationService.Current.T("clipboard.empty"),
-                Foreground = (Brush)FindResource("TextMutedBrush"),
+                Foreground = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
                 Margin     = new Thickness(0, 24, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
@@ -82,8 +83,8 @@ public partial class ClipboardHistoryWindow : Window
     {
         var card = new Border
         {
-            Background      = (Brush)FindResource("BackgroundLightBrush"),
-            BorderBrush     = (Brush)FindResource("BorderBrush"),
+            Background      = ThemePalette.Brush(ThemePalette.Keys.SurfaceOverlay),
+            BorderBrush     = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(6),
             Margin          = new Thickness(0, 0, 0, 6),
@@ -113,7 +114,7 @@ public partial class ClipboardHistoryWindow : Window
         header.Children.Add(new TextBlock
         {
             Text       = preview,
-            Foreground = (Brush)FindResource("TextPrimaryBrush"),
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.TextPrimary),
             FontWeight = FontWeights.SemiBold,
             TextTrimming = TextTrimming.CharacterEllipsis,
         });
@@ -123,7 +124,7 @@ public partial class ClipboardHistoryWindow : Window
         {
             Text       = entry.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss"),
             FontSize   = 11,
-            Foreground = (Brush)FindResource("TextMutedBrush"),
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
             Margin     = new Thickness(0, 2, 0, 0),
         });
         Grid.SetColumn(info, 0);

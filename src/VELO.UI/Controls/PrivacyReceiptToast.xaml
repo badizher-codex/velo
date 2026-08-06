@@ -9,12 +9,12 @@
              AutomationProperties.HelpText="Resumen de privacidad de la pestaña cerrada">
 
     <!-- Phase 5.2 re-skin — green accent (session-closed privacy summary). -->
-    <Border Background="{StaticResource SurfaceDarkBrush}"
-            BorderBrush="{StaticResource BadgeGreenBrush}"
+    <Border Background="{DynamicResource SurfaceBaseBrush}"
+            BorderBrush="{DynamicResource StatusSuccessTextBrush}"
             BorderThickness="1"
             CornerRadius="12"
             Padding="14,12"
-            Effect="{StaticResource DropShadowEffect}">
+            Effect="{DynamicResource ShadowMd}">
 
         <Grid>
             <Grid.ColumnDefinitions>
@@ -33,14 +33,14 @@
                 <TextBlock x:Name="DomainLabel"
                            Text="ejemplo.com"
                            FontSize="13" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
             </StackPanel>
 
             <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="Privacy Receipt"
                        FontSize="10"
-                       Foreground="{StaticResource TextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        VerticalAlignment="Center"/>
 
             <!-- Stats row -->
@@ -48,38 +48,38 @@
                         Orientation="Horizontal"
                         Margin="0,8,0,4">
 
-                <Border Background="{StaticResource BadgeGreenBgBrush}"
+                <Border Background="{DynamicResource StatusSuccessSoftBrush}"
                         CornerRadius="6" Padding="8,4" Margin="0,0,6,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="TrackerCount" Text="0"
                                    FontSize="13" FontWeight="Bold"
-                                   Foreground="{StaticResource BadgeGreenBrush}"/>
+                                   Foreground="{DynamicResource StatusSuccessTextBrush}"/>
                         <TextBlock Text=" rastreadores" FontSize="11"
-                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Bottom"/>
                     </StackPanel>
                 </Border>
 
-                <Border Background="{StaticResource BadgeAmberBgBrush}"
+                <Border Background="{DynamicResource StatusWarningSoftBrush}"
                         CornerRadius="6" Padding="8,4" Margin="0,0,6,0">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="AdCount" Text="0"
                                    FontSize="13" FontWeight="Bold"
-                                   Foreground="{StaticResource BadgeAmberBrush}"/>
+                                   Foreground="{DynamicResource StatusWarningTextBrush}"/>
                         <TextBlock Text=" anuncios" FontSize="11"
-                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Bottom"/>
                     </StackPanel>
                 </Border>
 
-                <Border Background="{StaticResource BadgeRedBgBrush}"
+                <Border Background="{DynamicResource StatusDangerSoftBrush}"
                         CornerRadius="6" Padding="8,4">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="FingerprintCount" Text="0"
                                    FontSize="13" FontWeight="Bold"
-                                   Foreground="{StaticResource BadgeRedBrush}"/>
+                                   Foreground="{DynamicResource StatusDangerTextBrush}"/>
                         <TextBlock Text=" fingerprint" FontSize="11"
-                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Bottom"/>
                     </StackPanel>
                 </Border>
@@ -90,7 +90,7 @@
                        x:Name="FooterLabel"
                        Text="bloqueados en esta sesión"
                        FontSize="10"
-                       Foreground="{StaticResource TextMutedBrush}"
+                       Foreground="{DynamicResource TextMutedBrush}"
                        Opacity="0.7"/>
         </Grid>
     </Border>

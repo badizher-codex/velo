@@ -26,8 +26,8 @@
          visibility, sets DataContext, and wires the SendRequested
          event into the orchestrator.SynthesizeAsync path. -->
 
-    <Border Background="{StaticResource SurfaceDarkBrush}"
-            BorderBrush="{StaticResource BorderSubtleBrush}"
+    <Border Background="{DynamicResource SurfaceBaseBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
             BorderThickness="0,0,0,1"
             Padding="16,10">
         <Grid>
@@ -45,7 +45,7 @@
 
                 <TextBox x:Name="PromptBox"
                          Grid.Row="0"
-                         Style="{StaticResource ModernTextBox}"
+                        
                          Text="{Binding PromptText, UpdateSourceTrigger=PropertyChanged}"
                          AcceptsReturn="False"
                          FontSize="13"
@@ -62,7 +62,7 @@
                            Grid.Row="1"
                            Text="{Binding StatusText}"
                            FontSize="11"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            Margin="2,4,0,0"
                            TextTrimming="CharacterEllipsis"
                            ToolTip="{Binding StatusText}"/>
@@ -76,14 +76,14 @@
                 <!-- Captures badge — only visible when CaptureCount > 0 -->
                 <Border x:Name="CapturesBadge"
                         CornerRadius="10"
-                        Background="{StaticResource BadgeBlueBgBrush}"
+                        Background="{DynamicResource StatusInfoSoftBrush}"
                         Padding="8,3"
                         Margin="0,0,12,0"
                         VerticalAlignment="Center"
                         Visibility="{Binding CaptureCount,
                                               Converter={StaticResource ZeroToCollapsed}}">
                     <TextBlock FontSize="11"
-                               Foreground="{StaticResource BadgeBlueBrush}"
+                               Foreground="{DynamicResource StatusInfoTextBrush}"
                                VerticalAlignment="Center">
                         <Run Text="📎"/>
                         <Run Text="{Binding CaptureCount, Mode=OneWay}"/>

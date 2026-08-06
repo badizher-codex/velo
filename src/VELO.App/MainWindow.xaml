@@ -6,8 +6,8 @@
         MinWidth="800" MinHeight="600"
         Width="1200" Height="750"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BackgroundDarkestBrush}"
-        Foreground="{StaticResource TextPrimaryBrush}"
+        Background="{DynamicResource SurfaceCanvasBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         Closing="Window_Closing">
 
     <!-- Root: sidebar | main area -->
@@ -59,8 +59,8 @@
             <Border x:Name="FindBarPanel"
                     Grid.Row="1"
                     Visibility="Collapsed"
-                    Background="{StaticResource SurfaceDarkBrush}"
-                    BorderBrush="{StaticResource BorderSubtleBrush}"
+                    Background="{DynamicResource SurfaceBaseBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,1,0,1"
                     Padding="10,6">
                 <Grid>
@@ -75,14 +75,14 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock x:Name="FindLabel" Grid.Column="0" Text="Buscar:" VerticalAlignment="Center"
-                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" Margin="0,0,10,0"/>
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="0,0,10,0"/>
 
                     <TextBox x:Name="FindTextBox" Grid.Column="1"
-                             Background="{StaticResource SurfaceLightBrush}"
-                             Foreground="{StaticResource TextPrimaryBrush}"
-                             CaretBrush="{StaticResource AccentPurpleBrush}"
-                             SelectionBrush="{StaticResource AccentPurpleBrush}"
-                             BorderBrush="{StaticResource BorderEmphasisBrush}" BorderThickness="1"
+                             Background="{DynamicResource SurfaceOverlayBrush}"
+                             Foreground="{DynamicResource TextPrimaryBrush}"
+                             CaretBrush="{DynamicResource AccentBrush}"
+                             SelectionBrush="{DynamicResource AccentBrush}"
+                             BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"
                              Padding="8,5" FontSize="13"
                              VerticalAlignment="Center"
                              KeyDown="FindTextBox_KeyDown"
@@ -104,7 +104,7 @@
 
                     <TextBlock x:Name="FindStatusText" Grid.Column="4"
                                VerticalAlignment="Center" FontSize="12"
-                               Foreground="{StaticResource TextMutedBrush}" Margin="10,0"/>
+                               Foreground="{DynamicResource TextMutedBrush}" Margin="10,0"/>
 
                     <!-- spacer -->
                     <TextBlock Grid.Column="5"/>

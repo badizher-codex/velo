@@ -5,17 +5,9 @@
         Width="640" Height="720"
         MinWidth="560" MinHeight="600"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource BackgroundDarkestBrush}"
-        Foreground="{StaticResource TextPrimaryBrush}"
+        Background="{DynamicResource SurfaceCanvasBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         ResizeMode="NoResize">
-
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
 
     <!-- Phase 4.0 chunk G — Council first-run disclaimer.
          Shown the very first time the user activates Council Mode.
@@ -34,22 +26,19 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal"
                     HorizontalAlignment="Center" Margin="0,0,0,12">
             <Border Width="60" Height="60" CornerRadius="30"
-                    Background="{StaticResource BadgeVioletBgBrush}"
-                    BorderBrush="{StaticResource AccentPurpleBrush}"
+                    Background="{DynamicResource AccentSoftBrush}"
+                    BorderBrush="{DynamicResource AccentBrush}"
                     BorderThickness="1"
-                    Margin="0,0,16,0">
-                <Border.Effect>
-                    <DropShadowEffect Color="#7C5CFF" Opacity="0.55"
-                                      BlurRadius="22" ShadowDepth="0"/>
-                </Border.Effect>
+                    Margin="0,0,16,0"
+                    Effect="{DynamicResource ShadowAccent}">
                 <TextBlock Text="🤝" FontSize="28"
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Council Mode" FontSize="22" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="Primera activación" FontSize="12"
-                           Foreground="{StaticResource AccentPurpleLightBrush}"
+                           Foreground="{DynamicResource AccentHoverBrush}"
                            Margin="0,2,0,0"/>
             </StackPanel>
         </StackPanel>
@@ -58,7 +47,7 @@
         <TextBlock Grid.Row="1"
                    Text="Council consulta cuatro modelos de IA en paralelo y sintetiza la respuesta localmente. La pregunta que escribas se enviará a cada servicio que tengas habilitado."
                    FontSize="13"
-                   Foreground="{StaticResource TextSecondaryBrush}"
+                   Foreground="{DynamicResource TextSecondaryBrush}"
                    TextWrapping="Wrap"
                    TextAlignment="Center"
                    HorizontalAlignment="Center"
@@ -69,7 +58,7 @@
         <TextBlock Grid.Row="2"
                    Text="PROVEEDORES"
                    FontSize="10.5" FontWeight="SemiBold"
-                   Foreground="{StaticResource TextMutedBrush}"
+                   Foreground="{DynamicResource TextMutedBrush}"
                    Margin="0,0,0,10"/>
 
         <!-- Providers list -->
@@ -92,9 +81,9 @@
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="Claude" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="Anthropic — vía claude.ai. Datos cifrados en tránsito; tu prompt llega a sus servidores."
-                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,2,0,0"/>
                     </StackPanel>
                     <CheckBox x:Name="ChkClaude" Grid.Column="2"
@@ -122,9 +111,9 @@
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="ChatGPT" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="OpenAI — vía chat.openai.com. Tu prompt va a sus servidores y entra a su pipeline."
-                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,2,0,0"/>
                     </StackPanel>
                     <CheckBox x:Name="ChkChatGpt" Grid.Column="2"
@@ -152,9 +141,9 @@
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="Grok" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="xAI — vía grok.com. Necesita sesión activa de X/Twitter; los prompts entran a su pipeline."
-                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,2,0,0"/>
                     </StackPanel>
                     <CheckBox x:Name="ChkGrok" Grid.Column="2"
@@ -174,16 +163,16 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8"
-                            Background="{StaticResource BadgeVioletBgBrush}" Margin="0,0,12,0"
+                            Background="{DynamicResource AccentSoftBrush}" Margin="0,0,12,0"
                             VerticalAlignment="Center">
                         <TextBlock Text="🧠" FontSize="17"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="Ollama (local)" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="100% local. Tu prompt nunca sale del equipo. También se usa para la síntesis final."
-                                   FontSize="11" Foreground="{StaticResource BadgeGreenBrush}"
+                                   FontSize="11" Foreground="{DynamicResource StatusSuccessTextBrush}"
                                    TextWrapping="Wrap" Margin="0,2,0,0"/>
                     </StackPanel>
                     <CheckBox x:Name="ChkOllama" Grid.Column="2"
@@ -198,12 +187,12 @@
 
         <!-- Pre-flight status card -->
         <Border Grid.Row="4" Style="{StaticResource Card}"
-                Background="{StaticResource SurfaceDarkBrush}"
+                Background="{DynamicResource SurfaceBaseBrush}"
                 Padding="14,12" Margin="0,18,0,18">
             <StackPanel>
                 <TextBlock Text="SÍNTESIS LOCAL"
                            FontSize="10.5" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            Margin="0,0,0,8"/>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock x:Name="PreflightIcon" Text="⏳" FontSize="18"
@@ -211,7 +200,7 @@
                     <TextBlock x:Name="PreflightMessage"
                                Text="Comprobando Ollama y qwen3:32b…"
                                FontSize="12.5"
-                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                TextWrapping="Wrap"
                                VerticalAlignment="Center"/>
                 </StackPanel>

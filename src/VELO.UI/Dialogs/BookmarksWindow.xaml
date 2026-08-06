@@ -7,16 +7,8 @@
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize">
 
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../Themes/DarkTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
-
     <!-- Phase 5.1 re-skin — follows the History frame pattern. -->
-    <Grid Background="{StaticResource BackgroundDarkestBrush}">
+    <Grid Background="{DynamicResource SurfaceCanvasBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -26,13 +18,13 @@
         <!-- Header -->
         <Grid Grid.Row="0" Margin="22,20,22,0">
             <TextBlock x:Name="HeaderLabel" FontSize="22" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextPrimaryBrush}"/>
+                       Foreground="{DynamicResource TextPrimaryBrush}"/>
         </Grid>
 
         <!-- Search -->
         <Border Grid.Row="1" Margin="22,14,22,0"
-                Background="{StaticResource SurfaceLightBrush}"
-                BorderBrush="{StaticResource BorderSubtleBrush}"
+                Background="{DynamicResource SurfaceOverlayBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="1" CornerRadius="10">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -41,12 +33,12 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="🔍" FontSize="14"
                            VerticalAlignment="Center" Margin="14,0,8,0"
-                           Foreground="{StaticResource TextMutedBrush}"/>
+                           Foreground="{DynamicResource TextMutedBrush}"/>
                 <TextBox x:Name="SearchBox" Grid.Column="1"
                          Background="Transparent" BorderThickness="0"
-                         Foreground="{StaticResource TextPrimaryBrush}"
-                         CaretBrush="{StaticResource AccentPurpleBrush}"
-                         SelectionBrush="{StaticResource AccentPurpleBrush}"
+                         Foreground="{DynamicResource TextPrimaryBrush}"
+                         CaretBrush="{DynamicResource AccentBrush}"
+                         SelectionBrush="{DynamicResource AccentBrush}"
                          Padding="0,11,12,11" FontSize="13"
                          TextChanged="Search_Changed"/>
             </Grid>

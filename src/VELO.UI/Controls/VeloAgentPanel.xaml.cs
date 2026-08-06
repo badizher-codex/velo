@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using VELO.Agent;
 using VELO.Agent.Models;
+using VELO.UI.Themes;
 
 namespace VELO.UI.Controls;
 
@@ -119,7 +120,7 @@ public partial class VeloAgentPanel : UserControl
     {
         var border = new Border
         {
-            Background    = new SolidColorBrush(Color.FromRgb(0x1A, 0x2A, 0x3E)),
+            Background    = ThemePalette.Brush(ThemePalette.Keys.SurfaceRaised),
             CornerRadius  = new CornerRadius(12, 12, 2, 12),
             Padding       = new Thickness(10, 7, 10, 7),
             Margin        = new Thickness(40, 4, 8, 4),
@@ -128,7 +129,7 @@ public partial class VeloAgentPanel : UserControl
         border.Child = new TextBlock
         {
             Text             = text,
-            Foreground       = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xE8)),
+            Foreground       = ThemePalette.Brush(ThemePalette.Keys.TextPrimary),
             FontSize         = 13,
             TextWrapping     = TextWrapping.Wrap,
         };
@@ -140,8 +141,8 @@ public partial class VeloAgentPanel : UserControl
     {
         var border = new Border
         {
-            Background    = new SolidColorBrush(Color.FromRgb(0x11, 0x11, 0x22)),
-            BorderBrush   = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x3A)),
+            Background    = ThemePalette.Brush(ThemePalette.Keys.SurfaceRaised),
+            BorderBrush   = ThemePalette.Brush(ThemePalette.Keys.BorderSubtle),
             BorderThickness = new Thickness(1),
             CornerRadius  = new CornerRadius(12, 12, 12, 2),
             Padding       = new Thickness(10, 7, 10, 7),
@@ -155,13 +156,13 @@ public partial class VeloAgentPanel : UserControl
             Text         = "🤖 VeloAgent",
             FontSize     = 10,
             FontWeight   = FontWeights.SemiBold,
-            Foreground   = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF)),
+            Foreground   = ThemePalette.Brush(ThemePalette.Keys.Accent),
             Margin       = new Thickness(0, 0, 0, 4),
         });
         stack.Children.Add(new TextBlock
         {
             Text         = text,
-            Foreground   = new SolidColorBrush(Color.FromRgb(0xD0, 0xD0, 0xE8)),
+            Foreground   = ThemePalette.Brush(ThemePalette.Keys.TextPrimary),
             FontSize     = 13,
             TextWrapping = TextWrapping.Wrap,
         });
@@ -175,8 +176,8 @@ public partial class VeloAgentPanel : UserControl
     {
         var card = new Border
         {
-            Background      = new SolidColorBrush(Color.FromRgb(0x0D, 0x1A, 0x2E)),
-            BorderBrush     = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF)),
+            Background      = ThemePalette.Brush(ThemePalette.Keys.SurfaceRaised),
+            BorderBrush     = ThemePalette.Brush(ThemePalette.Keys.Accent),
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(8),
             Padding         = new Thickness(10, 8, 10, 8),
@@ -202,14 +203,14 @@ public partial class VeloAgentPanel : UserControl
             Text       = $"{icon} {action.Type}",
             FontSize   = 10,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF)),
+            Foreground = ThemePalette.Brush(ThemePalette.Keys.Accent),
             Margin     = new Thickness(0, 0, 0, 2),
         });
         stack.Children.Add(new TextBlock
         {
             Text         = action.Description,
             FontSize     = 12,
-            Foreground   = new SolidColorBrush(Color.FromRgb(0xC0, 0xC0, 0xD8)),
+            Foreground   = ThemePalette.Brush(ThemePalette.Keys.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
         });
 
@@ -218,7 +219,7 @@ public partial class VeloAgentPanel : UserControl
             {
                 Text         = action.Url,
                 FontSize     = 11,
-                Foreground   = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x88)),
+                Foreground   = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
                 TextWrapping = TextWrapping.Wrap,
                 Margin       = new Thickness(0, 2, 0, 0),
             });
@@ -230,8 +231,10 @@ public partial class VeloAgentPanel : UserControl
             Margin      = new Thickness(0, 6, 0, 0),
         };
 
-        var approveBtn = MakeActionButton("✓ Aprobar", "#FF2EB54F", action.Id, approve: true);
-        var rejectBtn  = MakeActionButton("✗ Rechazar", "#FFE53E3E", action.Id, approve: false);
+        var approveBtn = MakeActionButton("✓ Aprobar",
+            ThemePalette.Hex(ThemePalette.Keys.StatusSuccessText), action.Id, approve: true);
+        var rejectBtn  = MakeActionButton("✗ Rechazar",
+            ThemePalette.Hex(ThemePalette.Keys.StatusDangerText), action.Id, approve: false);
 
         buttons.Children.Add(approveBtn);
         buttons.Children.Add(rejectBtn);
@@ -275,8 +278,8 @@ public partial class VeloAgentPanel : UserControl
 
             var resultText = approve ? "✓ Aprobado" : "✗ Rechazado";
             var resultColor = approve
-                ? new SolidColorBrush(Color.FromRgb(0x2E, 0xB5, 0x4F))
-                : new SolidColorBrush(Color.FromRgb(0xE5, 0x3E, 0x3E));
+                ? ThemePalette.Brush(ThemePalette.Keys.StatusSuccessText)
+                : ThemePalette.Brush(ThemePalette.Keys.StatusDangerText);
 
             panel?.Children.Add(new TextBlock
             {
@@ -298,7 +301,7 @@ public partial class VeloAgentPanel : UserControl
             Text              = text,
             FontSize          = 11,
             FontStyle         = FontStyles.Italic,
-            Foreground        = new SolidColorBrush(Color.FromRgb(0x44, 0x44, 0x66)),
+            Foreground        = ThemePalette.Brush(ThemePalette.Keys.TextMuted),
             Margin            = new Thickness(8, 6, 8, 6),
             TextAlignment     = TextAlignment.Center,
             TextWrapping      = TextWrapping.Wrap,
