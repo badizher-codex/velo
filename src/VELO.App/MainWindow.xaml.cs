@@ -1932,48 +1932,49 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// v2.1.4 — Maximum tabs we restore eagerly. Above this we warn the user
-    /// and drop the oldest entries. Proper lazy-hydration with placeholder
-    /// rows in the sidebar (per spec § 6.4) is parked for Sprint 7's
-    /// MainWindow refactor; this cap keeps RAM sane in the meantime.
+    /// Opens what <see cref="VELO.Core.Sessions.SessionRestorePlanner"/> decided.
+    ///
+    /// The decision used to be made inline here and was wrong four ways: it
+    /// dropped the first tab of every snapshot (N tabs promised, N−1 opened),
+    /// reported the promised count in the log so nothing contradicted the
+    /// prompt, ignored the snapshot's ActiveTabId, and reshuffled the tab strip
+    /// whenever the cap kicked in. All four are now decided by a pure function
+    /// with tests; this method only carries the plan out.
     /// </summary>
-    private const int RestoreMaxTabs = 30;
-
     private void RestoreSnapshot(VELO.Core.Sessions.SessionSnapshot snap)
     {
-        // First window only for now; tear-off windows are session-only by design.
-        if (snap.Windows.Count == 0) return;
-        var win = snap.Windows[0];
+        var plan = VELO.Core.Sessions.SessionRestorePlanner.Plan(snap, _initialUrl);
 
-        var tabsToRestore = win.Tabs;
-        if (tabsToRestore.Count > RestoreMaxTabs)
+        var created = new List<VELO.Core.Navigation.TabInfo>(plan.Tabs.Count);
+        foreach (var tab in plan.Tabs)
+            created.Add(_tabManager.CreateTab(tab.Url, tab.ContainerId));
+
+        // Land on the tab the user was actually looking at. Restored tabs get
+        // fresh TabInfo ids, so the snapshot's ActiveTabId can only be mapped
+        // back by position.
+        if (plan.ActiveIndex >= 0 && plan.ActiveIndex < created.Count)
+            _tabManager.ActivateTab(created[plan.ActiveIndex].Id);
+
+        // A URL VELO was launched with opens last, so it ends up focused: the
+        // user clicked that link in another app and expects to land on it, not
+        // on whatever the session restored. Previously it was dropped outright
+        // whenever a session was restored, because the only call site that
+        // opened it was guarded on there being no tabs at all.
+        if (plan.LaunchUrl is not null)
         {
-            // Most recently active first — TabSnapshot.LastActiveAtUtc is set
-            // at snapshot time so the user keeps the tabs they actually use.
-            tabsToRestore = tabsToRestore
-                .OrderByDescending(t => t.LastActiveAtUtc)
-                .Take(RestoreMaxTabs)
-                .ToList();
-            Log.Warning("Session restore: snapshot had {Total} tabs; only the {Cap} most recent are restored",
-                win.Tabs.Count, RestoreMaxTabs);
+            _tabManager.CreateTab(plan.LaunchUrl);
+            _initialUrl = VELO.Core.Sessions.SessionRestorePlanner.NewTabUrl;
         }
 
-        var initialIdRemovedFromInitialUrl = false;
-        foreach (var tab in tabsToRestore)
-        {
-            // Skip the auto-created newtab if this is the very first tab —
-            // we want the snapshot's URL to be the initial one.
-            if (!initialIdRemovedFromInitialUrl && _browserTabs.Count == 0 && _initialUrl == "velo://newtab")
-            {
-                _initialUrl = tab.Url;
-                initialIdRemovedFromInitialUrl = true;
-                continue;
-            }
-            _tabManager.CreateTab(tab.Url, tab.ContainerId);
-        }
+        if (plan.DroppedByCap > 0)
+            Log.Warning("Session restore: snapshot had {Total} tabs; only the {Kept} most recent were restored",
+                snap.TotalTabs, plan.Tabs.Count);
 
-        Log.Information("Session restore: hydrated {Count} tabs from snapshot saved at {SavedAt}",
-            tabsToRestore.Count, snap.SavedAtUtc);
+        // Counts what was created, not what we meant to create. The old line
+        // logged the snapshot size, so it agreed with the restore prompt while
+        // both disagreed with the window.
+        Log.Information("Session restore: opened {Created} of {Promised} tabs from snapshot saved at {SavedAt}",
+            created.Count, snap.TotalTabs, snap.SavedAtUtc);
     }
 
     /// <summary>

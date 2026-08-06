@@ -11,6 +11,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased] — Session restore actually restores the session
+
+**"You had 3 tabs open last time" now opens 3 tabs.** It opened 2. The first tab of every saved session was silently dropped, and both the prompt and the log reported the number VELO *meant* to open, so nothing ever contradicted anything — the only place the truth showed up was the window.
+
+The cause was a special case left behind by an old ordering: restore stashed the first tab's URL aside for the startup tab to pick up, but startup had since moved to *before* restore and its "only if no tabs exist" guard was never true again. With exactly one saved tab it worked, which is why it survived for as long as it did.
+
+Three more defects were in the same twenty lines:
+
+- **A link clicked in another app was thrown away** when VELO was closed and a session was waiting. The URL took the same discarded path. Opening VELO from Bambu Studio or MakerWorld while already running was never affected — that goes through a different route.
+- **You always landed on the last tab.** The snapshot records which tab you were on, and `SessionService` even sanitises it, but restore never read it back.
+- **Over 30 tabs, the sidebar came back reshuffled.** The cap picked the most recently used tabs and then opened them in *recency* order rather than yours.
+
+The decision of what to open is now a pure function, `SessionRestorePlanner`, with 17 tests — the logic used to be tangled with WPF calls inside `MainWindow`, which is why nothing could check it. The log line counts what was opened instead of what was intended.
+
+---
+
 ## [Unreleased] — Light and dark themes
 
 **VELO can now be light.** Settings → Appearance offers Follow Windows (the new default), Light and Dark. The switch is instant — no restart, and no window reopens. Picking "Follow Windows" also means VELO changes on its own when you change the system theme.
