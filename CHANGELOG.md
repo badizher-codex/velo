@@ -11,7 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — Session restore actually restores the session
+## [2.5.0] — 2026-08-06 — Light and dark themes
+
+Two things in this release. VELO can be light now, which took rebuilding the colour layer rather than painting a second palette over the old one. And session restore finally restores the session — it had been quietly dropping a tab on every launch.
+
+### Session restore actually restores the session
 
 **"You had 3 tabs open last time" now opens 3 tabs.** It opened 2. The first tab of every saved session was silently dropped, and both the prompt and the log reported the number VELO *meant* to open, so nothing ever contradicted anything — the only place the truth showed up was the window.
 
@@ -25,9 +29,7 @@ Three more defects were in the same twenty lines:
 
 The decision of what to open is now a pure function, `SessionRestorePlanner`, with 17 tests — the logic used to be tangled with WPF calls inside `MainWindow`, which is why nothing could check it. The log line counts what was opened instead of what was intended.
 
----
-
-## [Unreleased] — Light and dark themes
+### Light and dark themes
 
 **VELO can now be light.** Settings → Appearance offers Follow Windows (the new default), Light and Dark. The switch is instant — no restart, and no window reopens. Picking "Follow Windows" also means VELO changes on its own when you change the system theme.
 
@@ -48,8 +50,13 @@ Fixed along the way:
 - **The settings nav used colour emoji** (🔒 🌐 🧠 🔍 🔑 🤝 🌍 ⚙️). Emoji ignore `Foreground`, so they stayed fully saturated against every theme and could not dim when disabled. They are monochrome vector icons now.
 - **The command palette prompted in Spanish** regardless of UI language, and the URL bar's AI chip read "IA" in English builds.
 - **The scrollbar** kept the stock WPF template under a 6 px width, so its arrows and track showed through on all 20 scroll views.
+- **Settings and the Vault opened with a light Windows title bar over dark content.** Only the main window carried the flip. The gap hid twice over: a light title bar looks right under the light theme, and switching themes repainted every open window — so the chrome was only ever wrong until the first toggle.
+- **The settings nav clipped "Artificial Intelligence" mid-letter.** The rail was two pixels too narrow for the label and had no ellipsis, so it read as a broken control rather than a truncated one. German, French and Russian were further over.
+- **Nine field captions read `Label:`** in three different sizes and colours across Settings, the Vault and onboarding — while the Council section beside them already used uppercase eyebrows. One treatment now.
 
-Four new smoke tests guard the result: the two theme dictionaries must define the same key set, every `DynamicResource` must resolve, `Controls.xaml` may not reach a colour through `StaticResource`, and no view may hardcode a hex colour.
+Five new smoke tests guard the result: the two theme dictionaries must define the same key set, every `DynamicResource` must resolve, `Controls.xaml` may not reach a colour through `StaticResource`, no view may hardcode a hex colour, and no C# resource lookup may name a key that no longer exists.
+
+That last one exists because it caught a real failure. Rewriting the XAML left twelve resource keys living as C# string literals, pointing at names that had just been deleted: the build was clean, all 721 tests passed, and VELO died on launch. Those call sites go through typed constants now, so a rename is a compile error instead of a runtime cast exception.
 
 ---
 
