@@ -38,7 +38,17 @@
                                           Style="{StaticResource NavIcon}"
                                           Data="{Binding Path=(themes:IconAssist.Data), RelativeSource={RelativeSource TemplatedParent}}"
                                           HorizontalAlignment="Left"/>
-                                    <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+                                    <!-- TextBlock, not a ContentPresenter: the
+                                         nav Content is always a string, and a
+                                         presenter has nowhere to put
+                                         TextTrimming. Without it WPF clips mid
+                                         glyph, which reads as broken rather
+                                         than truncated. -->
+                                    <TextBlock Grid.Column="1"
+                                               Text="{TemplateBinding Content}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{TemplateBinding Content}"/>
                                 </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -61,7 +71,11 @@
 
     <Grid Background="{DynamicResource SurfaceCanvasBrush}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="180"/>
+            <!-- 200, measured rather than guessed: 180 left 114px for the label
+                 after the StackPanel margin, the button padding and the icon
+                 column, and "Artificial Intelligence" renders at 116.3px at
+                 13px Segoe UI. French needs 126.4. 200 leaves 134. -->
+            <ColumnDefinition Width="200"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
