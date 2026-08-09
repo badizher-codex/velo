@@ -2,7 +2,7 @@
 
 **Request:** let the user download media they are viewing in VELO, after a verification step, with a choice between audio and video where that distinction exists.
 
-**Status:** analysis (§1–§5) and execution plan (§7), both complete. **No code written.** Decisions taken with the maintainer are in §6. Citations verified against HEAD `3e1a379`.
+**Status:** analysis (§1–§5), decisions (§6), execution plan (§7) and **P0 measurement results (§8)**. No production code written; the P0 instrumentation was reverted. Citations verified against HEAD `3e1a379`.
 
 ---
 
@@ -201,7 +201,7 @@ Rejected: reading the members-only badge out of YouTube's rendered DOM. The YouT
 
 Each phase states how it is verified. **No phase begins before its predecessor's verification passes.**
 
-### P0 — Measure OPEN-1, OPEN-2 and OPEN-3 🔴 gates everything
+### P0 — Measure OPEN-1, OPEN-2 and OPEN-3 🔴 gates everything ✅ **DONE — see §8**
 
 Throwaway instrumented build, no production code, discarded afterwards.
 
@@ -250,7 +250,70 @@ Only if the measured mix says video+audio matters. ffmpeg on demand per D-1.
 
 ---
 
-## 8. What is deliberately not in this plan
+## 8. P0 results — measured 2026-08-09
+
+Throwaway instrumented build (network log on every `WebResourceRequested` + a page-side probe hooking MSE, EME and media elements). **370 requests and 51 probe events captured, then fully reverted** — the tree is clean and no probe code survives.
+
+Reference set, all public, no accounts touched: a YouTube video · the dash.js reference player · a w3schools `<video>` page · the maintainer's own `velo-drm-check.html` · bitmovin's DRM demo.
+
+### OPEN-1 — RESOLVED ✅ Yes, but not where you would look
+
+| Case | Seen on the network? | `ResourceContext` |
+|---|---|---|
+| Progressive `<video>` (w3schools `mov_bbb.mp4`) | **yes**, the real URL | `Media` |
+| YouTube adaptive (`googlevideo.com/videoplayback?…`) | **yes**, the real stream URL | **`XmlHttpRequest`** |
+
+Two traps this measurement exposed, both of which would have produced a broken v1:
+
+1. **`ResourceContext == Media` is not the filter.** The only requests tagged `Media` on YouTube were four UI sound effects (`open.mp3`, `success.mp3`…). The actual video stream arrived as `XmlHttpRequest`.
+2. **URL extensions find nothing.** Zero requests in the whole capture matched `.m4s`, `.ts`, `.mpd` or `.m3u8`. YouTube serves a single `videoplayback?…` endpoint driven by HTTP Range headers, not discrete numbered segments. A classifier keyed on extension would report "no media" on the single most important site.
+
+Classification must therefore be by **response `Content-Type`**, not by extension and not by resource context.
+
+### Correction to §0 finding #1 — it is both layers, not one
+
+The analysis said the page-side detector *beats* the network sniffer. The measurement says it **needs** it:
+
+- The page tells you **what**: MSE in use, and the codecs — YouTube asked for `audio/webm; codecs="opus"` and `video/mp4; codecs="av01.0.09M.08"` as **two separate SourceBuffers**. This is the audio/video split the feature is built on, confirmed live.
+- The page cannot tell you **where**: the `<video>` element's `src` was `blob:https://www.youtube.com/80715dcd-…`. A blob URL is opaque; the real addresses only exist on the network layer.
+
+P1 must correlate the two: MSE codecs from the page, stream URLs from the network.
+
+### V-8 — VALIDATED ✅, with a refinement that matters
+
+The EME hook fired 34 times and correctly reported `com.widevine.alpha`, `com.microsoft.playready`, `com.apple.fairplay` and `org.w3.clearkey`.
+
+**But the refusal rule cannot be "the page called `requestMediaKeySystemAccess`".** bitmovin's page probed **13 different key systems** on load — pure capability detection, nothing protected playing. That rule would refuse downloads on any site that merely feature-detects.
+
+The signal must be *actual use*: a resolved access **plus** `setMediaKeys()` on the element, or an `encrypted` event. To be settled in P1.
+
+### OPEN-3 — RESOLVED ✅ The signed-URL theory holds, and there is a second failure mode
+
+| Test | Result |
+|---|---|
+| Anonymous GET of the captured YouTube stream URL | **HTTP 200** — the token in the URL replaces the session |
+| Anonymous GET of a public `.mp4`, no headers | **HTTP 403** |
+| Same, with a browser `User-Agent` | **HTTP 206** |
+
+So the check fails in *both* directions if applied naively to the media URL: it lets gated content through (200 on a signed URL) **and** it refuses ordinary public content (403 from hotlink/UA protection).
+
+**Confirms the design in D-2** — the check belongs on the **page**, not the media URL — and adds a hard requirement: **it must send browser-realistic headers**, or it will refuse content that is perfectly downloadable. The 403→206 flip came from the `User-Agent` alone.
+
+### OPEN-2 — partial
+
+Sample too small for a real mix (three content sites). What is established: progressive is trivially reachable, and YouTube's separate audio/video SourceBuffers make audio-only genuinely meaningful rather than a conversion. A wider sample should ride along with P1 rather than justify another instrumented build.
+
+### OPEN-4 — not tested
+
+Needs discrete audio segment URLs. YouTube does not expose them as separate files, so this waits for a real HLS/DASH source. The dash.js reference player loaded no stream without interaction.
+
+### Exit gate
+
+**Passed.** Both layers see what they need to, DRM is detectable, and the gating check has a workable shape. P1 may start.
+
+---
+
+## 9. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).
