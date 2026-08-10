@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using VELO.Core.Localization;
+using VELO.Core.Media;
 using VELO.Security.Models;
 using VELO.UI.Themes;
 
@@ -25,6 +26,12 @@ public partial class UrlBar : UserControl
     public event EventHandler? AgentChatRequested;
     /// <summary>v2.4.12 — Fired when the user clicks the TL;DR badge in the URL bar.</summary>
     public event EventHandler? TldrRequested;
+    /// <summary>
+    /// Phase 6 / P4 — the user clicked Download on a row of the media panel.
+    /// The host does the work: this control has no downloader, no guard and no
+    /// idea where files go, and should not grow one.
+    /// </summary>
+    public event EventHandler<MediaOffer>? MediaDownloadRequested;
 
     private bool _isLoading;
     private bool _isBookmarked;
@@ -32,6 +39,11 @@ public partial class UrlBar : UserControl
     public UrlBar()
     {
         InitializeComponent();
+        MediaPanelContent.DownloadRequested += (_, offer) =>
+        {
+            MediaPopup.IsOpen = false;
+            MediaDownloadRequested?.Invoke(this, offer);
+        };
         ApplyLanguage();
         LocalizationService.Current.LanguageChanged += ApplyLanguage;
         Unloaded += (_, _) => LocalizationService.Current.LanguageChanged -= ApplyLanguage;
@@ -97,6 +109,56 @@ public partial class UrlBar : UserControl
     /// <summary>v2.4.12 — Toggle TL;DR badge visibility based on TldrService.IsEligible.</summary>
     public void SetTldrAvailable(bool available)
         => TldrBadge.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// Phase 6 / P4 — updates the media chip from the active tab's inventory.
+    /// Pass null (or an empty inventory) to hide it.
+    ///
+    /// The chip carries the DRM verdict in its colour, so protected content is
+    /// visible before the panel is opened: green when something is available,
+    /// amber when the page is playing media VELO will decline.
+    /// </summary>
+    public void SetMediaInventory(MediaInventory? inventory)
+    {
+        var offers = inventory?.BuildOffers() ?? [];
+        if (offers.Count == 0)
+        {
+            MediaBadge.Visibility = Visibility.Collapsed;
+            MediaPopup.IsOpen = false;
+            return;
+        }
+
+        var isProtected = inventory!.IsProtected;
+        var actionable  = offers.Count(o => o.CanDownload);
+
+        MediaBadgeText.Text = isProtected ? "🔒 Media" : $"⬇ {offers.Count}";
+        MediaBadge.ToolTip  = isProtected
+            ? "Protected media — cannot be downloaded"
+            : actionable > 0
+                ? $"{actionable} of {offers.Count} available to download"
+                : $"{offers.Count} found on this page";
+
+        var soft = isProtected ? "StatusWarningSoftBrush" : "StatusSuccessSoftBrush";
+        var text = isProtected ? "StatusWarningTextBrush" : "StatusSuccessTextBrush";
+        MediaBadge.Background  = (Brush)FindResource(soft);
+        MediaBadge.Foreground  = (Brush)FindResource(text);
+        MediaBadge.BorderBrush = (Brush)FindResource(text);
+
+        MediaBadge.Visibility = Visibility.Visible;
+
+        // Always keep the latest snapshot: tracks grow while a video plays, and
+        // a panel opened from a stale list is worse than a closed one.
+        _latestOffers = offers;
+        if (MediaPopup.IsOpen) MediaPanelContent.Show(offers);
+    }
+
+    private IReadOnlyList<MediaOffer> _latestOffers = [];
+
+    private void MediaBadge_Click(object sender, RoutedEventArgs e)
+    {
+        MediaPanelContent.Show(_latestOffers);
+        MediaPopup.IsOpen = !MediaPopup.IsOpen;
+    }
 
     public void SetTlsStatus(TlsStatus status)
     {

@@ -95,7 +95,10 @@ public partial class BrowserTab
             // this. Only fires when the response actually contributed — the
             // reference capture had 765 responses and 9 contributors.
             if (Media.RecordResponse(signals) != MediaClass.NotMedia)
+            {
                 MediaProbeLog.RecordPage(_tabId, GetHost(signals.Url), Media.Describe());
+                RaiseMediaInventoryChanged();
+            }
 
             MediaProbeLog.Record(
                 _tabId,
@@ -320,6 +323,7 @@ public partial class BrowserTab
         // page: same family as the two resets above, and the one most visible
         // to the user because P4 puts it in the URL bar.
         Media.Reset();
+        RaiseMediaInventoryChanged();
 
         // Reset burst counter on user-initiated navigations (not iframes/subresources)
         if (e.IsUserInitiated && _downloadGuard != null)
@@ -497,6 +501,7 @@ public partial class BrowserTab
                 {
                     if (!MediaPageReport.TryParse(json ?? "", out var report)) break;
                     Media.ApplyPageReport(report);
+                    RaiseMediaInventoryChanged();
 
                     // The measurement log is P1's consumer. It is deliberately
                     // the only one: an event with no subscriber is the dormant

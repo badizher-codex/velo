@@ -64,6 +64,8 @@ public sealed class BrowserTabHost
         Action<string, (string Host, string Username, string Password)> OnAutofillFormSubmitted,
         Action<string, byte[]>                                        OnFaviconCaptured,
         Action<string, VELO.Core.Council.CouncilBridgeMessage>        OnCouncilBridgeMessage,
+        /// <summary>Phase 6 / P4 — the tab's media inventory changed (debounced).</summary>
+        Action<string>                                                OnMediaInventoryChanged,
         Action<string, (CoreWebView2NewWindowRequestedEventArgs Args, CoreWebView2Deferral Deferral)> OnPopupWindowRequested,
         Action<string>                                                OnCloseRequested);
 
@@ -118,6 +120,7 @@ public sealed class BrowserTabHost
         browserTab.AutofillFormSubmitted   += (_, payload) => handlers.OnAutofillFormSubmitted(tabId, payload);
         browserTab.FaviconCaptured         += (_, bytes)   => handlers.OnFaviconCaptured(tabId, bytes);
         browserTab.CouncilBridgeMessageReceived += (_, msg) => handlers.OnCouncilBridgeMessage(tabId, msg);
+        browserTab.MediaInventoryChanged   += (_, _)       => handlers.OnMediaInventoryChanged(tabId);
         // v2.4.60 F-2 — OAuth-capable popups + window.close() plumbing.
         browserTab.PopupWindowRequested    += (_, payload) => handlers.OnPopupWindowRequested(tabId, payload);
         browserTab.CloseRequested          += (_, _)       => handlers.OnCloseRequested(tabId);

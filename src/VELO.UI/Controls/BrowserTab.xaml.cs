@@ -48,6 +48,25 @@ public partial class BrowserTab : UserControl
     /// </summary>
     public MediaInventory Media { get; } = new();
 
+    /// <summary>
+    /// Phase 6 / P4 — the inventory gained or lost something worth showing.
+    ///
+    /// Debounced hard on purpose: the page reports every two seconds while a
+    /// video plays and every media response feeds the network side, so raising
+    /// this per change would rebuild the URL-bar chip hundreds of times a
+    /// minute for a label that says the same thing.
+    /// </summary>
+    public event EventHandler? MediaInventoryChanged;
+
+    private readonly VELO.UI.Utilities.DebouncedAction _mediaChanged = new(TimeSpan.FromMilliseconds(600));
+
+    private void RaiseMediaInventoryChanged() =>
+        _mediaChanged.Invoke(_ =>
+        {
+            Dispatcher.Invoke(() => MediaInventoryChanged?.Invoke(this, EventArgs.Empty));
+            return Task.CompletedTask;
+        });
+
     private bool _webViewInitialized;
     private CoreWebView2Environment? _env;
     private readonly List<string> _allowedOnce = [];
@@ -185,6 +204,25 @@ public partial class BrowserTab : UserControl
     // FillCredentialAsync, OpenDevTools, SetContainer live in BrowserTab.PublicApi.cs (v2.4.31).
 
     public string TabId => _tabId;
+
+    /// <summary>URL of the document currently loaded, as attested by navigation.</summary>
+    public string CurrentUrl => _currentPageUrl;
+
+    /// <summary>
+    /// Phase 6 / P4 — the User-Agent this WebView actually sends. Media
+    /// downloads must reuse it: OPEN-3 measured a public .mp4 answering 403
+    /// with no browser User-Agent and 206 with one, and this is the string the
+    /// site already served content to. Empty before the WebView initialises,
+    /// in which case the downloader falls back to its own constant.
+    /// </summary>
+    public string BrowserUserAgent
+    {
+        get
+        {
+            try { return WebView?.CoreWebView2?.Settings.UserAgent ?? ""; }
+            catch { return ""; }
+        }
+    }
 
     public BrowserTab()
     {

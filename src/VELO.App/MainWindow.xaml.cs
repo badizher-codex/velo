@@ -653,6 +653,11 @@ public partial class MainWindow : Window
                 // BrowserTab raised on, because the orchestrator is single-threaded
                 // and the UI subscribers (chunk F) need updates on the UI thread.
                 OnCouncilBridgeMessage:   (tabId, msg) => OnCouncilBridgeMessage(tabId, msg),
+                // Phase 6 / P4 — refresh the URL-bar media chip. Already
+                // debounced inside BrowserTab; only the active tab's inventory
+                // is on screen, so a background tab's changes are ignored here
+                // and picked up when it becomes active.
+                OnMediaInventoryChanged:  tabId => OnMediaInventoryChanged(tabId),
                 // v2.4.60 F-2 — OAuth-capable popups: materialize a real
                 // CoreWebView2 for the popup (preserves window.opener) and close
                 // the tab when its JS calls window.close().
@@ -959,6 +964,11 @@ public partial class MainWindow : Window
                     && tab.Url != "velo://newtab"
                     && tab.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase);
                 UrlBarControl.SetReaderModeAvailable(isRealPage);
+                // Phase 6 / P4 — the chip describes ONE tab. Without this the
+                // previous tab's media stays offered over the new page, which
+                // is the same class of bug the inventory's own Reset() prevents
+                // on navigation.
+                RefreshMediaChip();
                 UpdateAgentContext(e.TabId);
                 // Phase 3 / Sprint 6 — visual separator in the agent chat
                 // when the active tab changes (instead of resetting).
@@ -998,6 +1008,7 @@ public partial class MainWindow : Window
                 && tab.Url != "velo://newtab"
                 && tab.Url.StartsWith("http", StringComparison.OrdinalIgnoreCase);
             UrlBarControl.SetReaderModeAvailable(isRealPage);
+            RefreshMediaChip();
             UpdateAgentContext(_primaryTabId);
         }
 
@@ -2673,6 +2684,92 @@ public partial class MainWindow : Window
         // In split mode the "active" tab for keyboard shortcuts / URL bar is always the primary pane
         var id = _isSplitMode ? _primaryTabId : _tabManager.ActiveTab?.Id;
         return id != null && _browserTabs.TryGetValue(id, out var bt) ? bt : null;
+    }
+
+    // ── Phase 6 / P4 — media chip + download ──────────────────────────────
+
+    /// <summary>
+    /// Refreshes the URL-bar media chip. Only the active tab's inventory is on
+    /// screen; a background tab's changes are dropped and picked up when it
+    /// becomes active (see <see cref="RefreshMediaChip"/> call on tab switch).
+    /// </summary>
+    private void OnMediaInventoryChanged(string tabId)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            var activeId = _isSplitMode ? _primaryTabId : _tabManager.ActiveTab?.Id;
+            if (!string.Equals(tabId, activeId, StringComparison.Ordinal)) return;
+            RefreshMediaChip();
+        });
+    }
+
+    private void RefreshMediaChip()
+        => UrlBarControl.SetMediaInventory(ActiveBrowserTab()?.Media);
+
+    /// <summary>
+    /// The user clicked Download on a row of the media panel — the first place
+    /// in the whole feature where a real user action exists, which is why this
+    /// is where P3's guard lane is opened and P2a's engine is finally called.
+    /// </summary>
+    private async void UrlBar_MediaDownloadRequested(object? sender, VELO.Core.Media.MediaOffer offer)
+    {
+        if (!offer.CanDownload || string.IsNullOrEmpty(offer.Url)) return;
+        if (ActiveBrowserTab() is not { } tab) return;
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = offer.Title,
+            Title    = "Save media",
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var guard   = _services.GetRequiredService<DownloadGuard>();
+        var manager = _services.GetRequiredService<DownloadManager>();
+
+        // The lane. One slot is enough for a progressive file; a segmented job
+        // will ask for its real count when P2a-2 lands. Opened here and nowhere
+        // else, because here is where the click happened.
+        var job = guard.BeginUserInitiatedJob(tab.TabId, expectedDownloads: 1);
+        try
+        {
+            var verdict = guard.Evaluate(
+                tab.TabId, offer.Url, System.IO.Path.GetFileName(dialog.FileName), tab.CurrentUrl, job);
+
+            if (verdict.Action == DownloadAction.Block)
+            {
+                MessageBox.Show(this, verdict.Reason, "Download blocked",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var item = manager.StartDownload(
+                offer.Url, System.IO.Path.GetFileName(dialog.FileName), dialog.FileName, 0);
+
+            // The real WebView2 user agent, not the fallback constant: OPEN-3
+            // measured a public .mp4 answering 403 without a browser UA and 206
+            // with one, and this is the UA the site already served to.
+            var downloader = new VELO.Core.Media.MediaDownloader(
+                userAgent: tab.BrowserUserAgent);
+
+            var progress = new Progress<(long Received, long Total)>(p =>
+            {
+                item.TotalBytes    = p.Total;
+                item.ReceivedBytes = p.Received;
+            });
+
+            var result = await downloader.DownloadAsync(
+                offer.Url, dialog.FileName, tab.CurrentUrl, progress);
+
+            item.State = result.Success ? DownloadState.Completed : DownloadState.Interrupted;
+
+            if (!result.Success)
+                MessageBox.Show(this, result.Error ?? "Download failed", "Download failed",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            guard.EndUserInitiatedJob(job);
+        }
     }
 
     private void SwitchTabByOffset(int offset)

@@ -133,6 +133,19 @@ public class MediaDownloaderTests
         return dir;
     }
 
+    /// <summary>
+    /// Reports on the calling thread instead of posting to a synchronization
+    /// context. Progress&lt;T&gt; was the first choice and it made two tests
+    /// flaky under the full-solution run: its callbacks are posted, so they
+    /// arrive late and — because Post gives no ordering guarantee — the "last"
+    /// value seen can be an earlier one. Nothing here needs the marshalling
+    /// Progress&lt;T&gt; exists to provide.
+    /// </summary>
+    private sealed class SyncProgress<T>(Action<T> onReport) : IProgress<T>
+    {
+        public void Report(T value) => onReport(value);
+    }
+
     private const string Url = "https://cdn.example.com/movie.mp4";
 
     // ── The happy path ───────────────────────────────────────────────────
@@ -163,11 +176,10 @@ public class MediaDownloaderTests
         (long Received, long Total) last = (0, 0);
         var downloader = new MediaDownloader(new HttpClient(new MediaHandler(body)));
         await downloader.DownloadAsync(Url, dest,
-            progress: new Progress<(long, long)>(p => last = p));
+            progress: new SyncProgress<(long Received, long Total)>(p => last = p));
 
-        // Progress is posted asynchronously; poll briefly rather than sleep blind.
-        for (var i = 0; i < 50 && last.Received < body.Length; i++) await Task.Delay(10);
-
+        // Reported synchronously during the copy loop, so by the time the
+        // download has awaited to completion this is final. No polling.
         Assert.Equal(body.Length, last.Received);
         Assert.Equal(body.Length, last.Total);
     }
@@ -235,8 +247,20 @@ public class MediaDownloaderTests
         using var cts = new CancellationTokenSource();
         var downloader = new MediaDownloader(new HttpClient(new TricklingHandler(body)));
 
-        var task = downloader.DownloadAsync(Url, dest, ct: cts.Token);
-        await Task.Delay(200);          // let some bytes land
+        // Cancel once bytes have DEMONSTRABLY been read, not after a fixed
+        // delay. The first version slept 200 ms and failed once under the
+        // full-solution run, where six test assemblies compete for the
+        // scheduler. Progress fires per read, so it is a real signal — unlike
+        // the .part length, which stays 0 until the 64 KB FileStream buffer
+        // flushes on dispose.
+        var received = 0L;
+        var task = downloader.DownloadAsync(Url, dest,
+            progress: new SyncProgress<(long Received, long Total)>(p => Interlocked.Exchange(ref received, p.Received)),
+            ct: cts.Token);
+
+        for (var i = 0; i < 300 && Interlocked.Read(ref received) == 0; i++) await Task.Delay(10);
+        Assert.True(Interlocked.Read(ref received) > 0, "no bytes were read before cancelling");
+
         cts.Cancel();
         var result = await task;
 

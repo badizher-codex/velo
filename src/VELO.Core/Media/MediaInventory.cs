@@ -3,6 +3,27 @@ namespace VELO.Core.Media;
 /// <summary>A directly fetchable media file seen on the network.</summary>
 public sealed record ProgressiveItem(string Url, string ContentType, long TotalBytes);
 
+/// <summary>What a row in the media panel is.</summary>
+public enum MediaOfferKind { Protected, ProgressiveFile, AudioTrack, VideoTrack, Manifest }
+
+/// <summary>
+/// One row the panel renders. Built by <see cref="MediaInventory.BuildOffers"/>
+/// so the decisions — what is offered, what is refused, and why — are a pure
+/// function with tests, rather than logic living in XAML code-behind.
+///
+/// <paramref name="BlockedReason"/> is never null when
+/// <paramref name="CanDownload"/> is false. A row the user cannot act on must
+/// say why: a disabled control with no explanation is the failure mode P4 was
+/// written to avoid.
+/// </summary>
+public sealed record MediaOffer(
+    MediaOfferKind Kind,
+    string  Title,
+    string  Detail,
+    string? Url,
+    bool    CanDownload,
+    string? BlockedReason);
+
 /// <summary>An adaptive-streaming manifest seen on the network.</summary>
 public sealed record ManifestItem(string Url, MediaClass Kind);
 
@@ -128,6 +149,94 @@ public sealed class MediaInventory
             _page = MediaPageReport.Empty;
         }
     }
+
+    /// <summary>
+    /// Turns the inventory into the rows the panel shows.
+    ///
+    /// Order of decisions matters and is deliberate:
+    ///
+    ///   1. Protected content short-circuits everything. If the page is
+    ///      actually using encryption, no row is offered at all — offering a
+    ///      download that would produce encrypted, unplayable bytes is worse
+    ///      than offering nothing, and §5 settles that we decline rather than
+    ///      attempt.
+    ///   2. Progressive files are offered for real; the engine handles them today.
+    ///   3. Adaptive tracks and manifests are listed with an explicit reason,
+    ///      never as a dead control. The user can see VELO found the audio and
+    ///      the video separately even while neither can be fetched yet.
+    /// </summary>
+    public IReadOnlyList<MediaOffer> BuildOffers()
+    {
+        lock (_lock)
+        {
+            if (MediaClassifier.IsProtected(_page.Drm))
+            {
+                return
+                [
+                    new MediaOffer(
+                        MediaOfferKind.Protected,
+                        "Protected content",
+                        "This page plays DRM-protected media. VELO does not download it.",
+                        null, false,
+                        "Protected content cannot be downloaded."),
+                ];
+            }
+
+            var offers = new List<MediaOffer>();
+
+            foreach (var item in _progressive.Values.OrderByDescending(p => p.TotalBytes))
+            {
+                offers.Add(new MediaOffer(
+                    MediaOfferKind.ProgressiveFile,
+                    FileNameFor(item.Url),
+                    $"{item.ContentType} · {FormatBytes(item.TotalBytes)}",
+                    item.Url, true, null));
+            }
+
+            foreach (var track in _page.Tracks)
+            {
+                var kind = track.Kind == TrackKind.Audio
+                    ? MediaOfferKind.AudioTrack
+                    : MediaOfferKind.VideoTrack;
+
+                offers.Add(new MediaOffer(
+                    kind,
+                    track.Kind == TrackKind.Audio ? "Audio track" : "Video track",
+                    $"{(string.IsNullOrEmpty(track.Codecs) ? track.Mime : track.Codecs)} · {FormatBytes(track.Bytes)} buffered",
+                    null, false,
+                    "This stream is assembled inside the page. Capturing it is not implemented yet."));
+            }
+
+            foreach (var manifest in _manifests.Values)
+            {
+                offers.Add(new MediaOffer(
+                    MediaOfferKind.Manifest,
+                    manifest.Kind == MediaClass.HlsManifest ? "HLS stream" : "DASH stream",
+                    FileNameFor(manifest.Url),
+                    manifest.Url, false,
+                    "Segmented downloads are not implemented yet."));
+            }
+
+            return offers;
+        }
+    }
+
+    /// <summary>Last path segment, or the host when there is none.</summary>
+    public static string FileNameFor(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return url;
+
+        var name = uri.Segments.Length > 0 ? uri.Segments[^1].Trim('/') : "";
+        return string.IsNullOrEmpty(name) ? uri.Host : Uri.UnescapeDataString(name);
+    }
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824.0:F1} GB",
+        >= 1_048_576     => $"{bytes / 1_048_576.0:F1} MB",
+        >= 1_024         => $"{bytes / 1_024.0:F0} KB",
+        _                => $"{bytes} B",
+    };
 
     /// <summary>One-line summary for the measurement log and, later, the panel.</summary>
     public string Describe()

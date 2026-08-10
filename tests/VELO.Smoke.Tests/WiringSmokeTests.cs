@@ -634,6 +634,53 @@ public class WiringSmokeTests
     }
 
     [Fact]
+    public void The_media_ui_uses_only_theme_tokens_and_is_reachable_by_name()
+    {
+        // Lesson #57: a trait only visible in one theme has to be verified IN
+        // that theme, and a hardcoded colour looks perfect in whichever theme
+        // it was picked for. Rather than rely on catching that in a screenshot
+        // every time, assert the mechanical property that makes both themes
+        // work: every brush in the media UI is a DynamicResource role token.
+        //
+        // Also pins AutomationProperties on the chip. It is what a screen
+        // reader announces — and, incidentally, the only reason P4 could be
+        // driven and verified at runtime at all.
+
+        var repoRoot = LocateRepoRoot();
+        var panel    = File.ReadAllText(Path.Combine(repoRoot, "src", "VELO.UI", "Controls", "MediaPanel.xaml"));
+        var urlBar   = File.ReadAllText(Path.Combine(repoRoot, "src", "VELO.UI", "Controls", "UrlBar.xaml"));
+
+        // No hex literals anywhere in the panel.
+        var hardcoded = Regex.Matches(panel, @"=""#[0-9A-Fa-f]{3,8}""")
+            .Select(m => m.Value)
+            .ToList();
+        Assert.True(hardcoded.Count == 0,
+            "MediaPanel.xaml hardcodes " + hardcoded.Count + " colour(s), so it cannot follow the theme swap:\n  " +
+            string.Join("\n  ", hardcoded));
+
+        // And it really does use the role tokens.
+        foreach (var token in new[]
+        {
+            "SurfaceOverlayBrush", "SurfaceRaisedBrush", "BorderStrongBrush",
+            "TextPrimaryBrush", "TextSecondaryBrush", "TextMutedBrush",
+            "AccentBrush", "TextOnAccentBrush",
+        })
+        {
+            Assert.Contains($"DynamicResource {token}", panel);
+        }
+
+        // The chip: named for accessibility, and both status token pairs are
+        // referenced in code-behind so the DRM colour swap is not a literal.
+        Assert.Contains("AutomationProperties.AutomationId=\"MediaBadge\"", urlBar);
+        Assert.Contains("AutomationProperties.Name=", urlBar);
+
+        var urlBarCode = File.ReadAllText(
+            Path.Combine(repoRoot, "src", "VELO.UI", "Controls", "UrlBar.xaml.cs"));
+        Assert.Contains("StatusWarningSoftBrush",  urlBarCode);
+        Assert.Contains("StatusSuccessSoftBrush",  urlBarCode);
+    }
+
+    [Fact]
     public void CouncilAdapters_bundledJsonFiles_existWithRequiredFields()
     {
         // The four adapter JSON files are what makes the bridge generic

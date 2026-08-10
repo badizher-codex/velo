@@ -238,7 +238,7 @@ An explicit user-initiated lane in `DownloadGuard`, keyed to a job the user actu
 
 **Verification:** tests in both directions — a synthetic drive-by burst still Blocks; a user-initiated segmented job runs through hundreds of requests untouched. This is the guard that most needs a negative test (lesson #44).
 
-### P4 — UI, and the DRM refusal
+### P4 — UI, and the DRM refusal ✅ **DONE — see §14**
 
 Chip in the URL bar when the inventory is non-empty (same pattern as the shield chip) → panel listing what was found, with the audio/video choice where it applies. DRM-protected items render as an explicit "protected content — cannot be downloaded", never as a disabled row with no explanation.
 
@@ -602,7 +602,54 @@ Existing callers pass no token, so their behaviour is bit-for-bit unchanged.
 
 ---
 
-## 14. What is deliberately not in this plan
+## 14. P4 — the panel and the refusal, done 2026-08-10
+
+### Shape
+
+A chip in the URL pill (same pattern as the TL;DR badge, `Collapsed` until there is something to show) opens a popup listing what VELO found. The chip carries the DRM verdict in its colour — green when media is available, amber when the page is playing something VELO will decline — so the refusal is visible before the panel is even opened.
+
+**The decisions do not live in the control.** `MediaInventory.BuildOffers()` is a pure function returning the rows; `MediaPanel` only renders them. That split is the reason the DRM refusal and the "no unactionable row without a reason" rule are testable at all (lesson #55), and it is why 13 of P4's tests need no WPF.
+
+Rules encoded in `BuildOffers`, in order:
+
+1. **Protected content short-circuits everything.** If the page is actually using encryption, *no* row is offered — not even a progressive file that was otherwise downloadable. §5 settles that we decline rather than attempt; offering a download that yields encrypted, unplayable bytes is worse than offering nothing.
+2. Progressive files are offered for real.
+3. Adaptive tracks and manifests are listed **with an explicit reason**, never as a dead control. The user can see VELO found the audio and the video separately even while neither can be fetched yet.
+
+### This is where the click finally exists
+
+P2a's engine and P3's lane both shipped with nothing calling them, on purpose. P4 is the first place a real user action exists, so it is where the lane is opened and the downloader is called:
+
+`Download` → save dialog → `BeginUserInitiatedJob` → `DownloadGuard.Evaluate(..., job)` → `MediaDownloader.DownloadAsync` → `EndUserInitiatedJob` in a `finally`. The downloader is handed `CoreWebView2Settings.UserAgent` from the tab, not the fallback constant — OPEN-3 measured a public `.mp4` answering 403 without a browser UA, and this is the exact string the site already served to.
+
+### Verification
+
+**Unit tests (13, in Core).** Protected content offers nothing while probing-only does not suppress the offers · every unactionable row carries a reason, asserted across every kind · audio and video appear as separate rows with their codecs · larger files first · navigation clears what the panel would show · filename extraction including percent-decoding and the host fallback.
+
+**Smoke test.** Every brush in the media UI is a `DynamicResource` role token and there are no hex literals — the mechanical property that makes both themes work, which is more durable than catching it in a screenshot (lesson #57). Also pins the chip's `AutomationProperties`.
+
+**Runtime, driven through UI Automation** (which the chip's `AutomationProperties.AutomationId` made possible):
+
+| Page | Chip | Panel |
+|---|---|---|
+| w3schools progressive | `⬇ 1`, green | `mov_bbb.mp4 · video/mp4 · 770 KB` with a live Download button |
+| YouTube | `⬇ 2`, green | `Audio track · opus · 321 KB buffered` and `Video track · av01.0.08M.08 · 2.8 MB buffered`, each with its reason |
+| a tab with no media | hidden | — |
+
+Both match §9–§10 exactly: 788 493 bytes reads as 770 KB, and the two YouTube SourceBuffers are the Opus/AV1 pair measured live.
+
+822 tests.
+
+### Open, and none of it hidden
+
+- **The light-theme screenshot is not done.** Dark is captured and correct; the theme can only be switched from the Settings dialog, and lesson #57 is explicit that a trait must be verified in the theme it appears in. The token smoke test covers the mechanism, not the appearance.
+- **The DRM refusal has still never run against protected content.** Verified negatively (free content clean, probing-is-not-protection unit-tested) and the refusal path is unit-tested at the offer level, but no real protected stream has produced that amber chip. It needs a rental. This is now the oldest open item in the phase.
+- **`media-detect.js` is still gated on `VELO_MEDIA_PROBE`.** Consequence for P4 specifically: **without the probe the panel only ever shows progressive files**, because the page layer is what sees adaptive tracks. Un-gating is the single highest-value next step for this feature, and it needs the wider playback pass §11 asked for.
+- **Only progressive downloads work.** HLS needs P2a-2, MSE needs P2b. Both are named in the panel rather than implied.
+
+---
+
+## 15. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).

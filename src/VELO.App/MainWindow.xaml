@@ -53,7 +53,8 @@
                        StopRequested="UrlBar_StopRequested"
                        MenuRequested="UrlBar_MenuRequested"
                        AgentChatRequested="UrlBar_AgentChatRequested"
-                       TldrRequested="UrlBar_TldrRequested"/>
+                       TldrRequested="UrlBar_TldrRequested"
+                       MediaDownloadRequested="UrlBar_MediaDownloadRequested"/>
 
             <!-- Find bar (Ctrl+F) -->
             <Border x:Name="FindBarPanel"

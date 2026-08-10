@@ -1,0 +1,119 @@
+<UserControl x:Class="VELO.UI.Controls.MediaPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="360"
+             AutomationProperties.Name="Media on this page">
+
+    <!-- Phase 6 / P4 — what VELO found playing on the page.
+         Every colour is a role token so the panel follows the v2.5.0 theme
+         swap; nothing here is hardcoded. -->
+    <Border Background="{DynamicResource SurfaceOverlayBrush}"
+            BorderBrush="{DynamicResource BorderStrongBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Effect="{DynamicResource ShadowSm}"
+            Padding="0">
+        <StackPanel>
+
+            <!-- Header -->
+            <Border Background="{DynamicResource SurfaceRaisedBrush}"
+                    CornerRadius="10,10,0,0"
+                    Padding="14,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0"
+                               Text="MEDIA ON THIS PAGE"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="CountLabel" Grid.Column="1"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <!-- Rows -->
+            <ItemsControl x:Name="OffersList" Margin="0,4,0,4">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="14,9"
+                                Background="Transparent">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Icon}"
+                                           FontSize="15"
+                                           VerticalAlignment="Top"
+                                           Margin="0,1,10,0"/>
+
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding Title}"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding Detail}"
+                                               FontSize="11"
+                                               Margin="0,1,0,0"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <!-- The reason a row cannot be acted on is always
+                                         shown. A disabled control with no explanation is
+                                         precisely what P4 was written to avoid. -->
+                                    <TextBlock Text="{Binding BlockedReason}"
+                                               Visibility="{Binding ReasonVisibility}"
+                                               FontSize="11"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap"
+                                               Foreground="{Binding ReasonBrush}"/>
+                                </StackPanel>
+
+                                <Button Grid.Column="2"
+                                        Content="Download"
+                                        FontSize="11"
+                                        Padding="10,4"
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Top"
+                                        Cursor="Hand"
+                                        Visibility="{Binding ActionVisibility}"
+                                        Background="{DynamicResource AccentBrush}"
+                                        Foreground="{DynamicResource TextOnAccentBrush}"
+                                        BorderThickness="0"
+                                        Tag="{Binding}"
+                                        Click="Download_Click">
+                                    <Button.Resources>
+                                        <Style TargetType="Border">
+                                            <Setter Property="CornerRadius" Value="6"/>
+                                        </Style>
+                                    </Button.Resources>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Footer notice. D-2: no automatic check can tell whether the user
+                 has the right to download a given item, and saying so plainly is
+                 more honest than a check that implies a guarantee it cannot give. -->
+            <Border Background="{DynamicResource SurfaceRaisedBrush}"
+                    CornerRadius="0,0,10,10"
+                    Padding="14,8">
+                <TextBlock Text="Only download what you have the right to keep."
+                           FontSize="10"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextMutedBrush}"/>
+            </Border>
+        </StackPanel>
+    </Border>
+</UserControl>
