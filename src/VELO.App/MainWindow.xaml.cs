@@ -2759,10 +2759,80 @@ public partial class MainWindow : Window
         var guard   = _services.GetRequiredService<DownloadGuard>();
         var manager = _services.GetRequiredService<DownloadManager>();
 
-        // The lane. One slot is enough for a progressive file; a segmented job
-        // will ask for its real count when P2a-2 lands. Opened here and nowhere
+        // The real WebView2 user agent, not the fallback constant: OPEN-3
+        // measured a public .mp4 answering 403 without a browser UA and 206
+        // with one, and this is the UA the site already served to.
+        var downloader = new VELO.Core.Media.MediaDownloader(userAgent: tab.BrowserUserAgent);
+
+        // P2a-2 — an HLS row means fetching the manifest, resolving it to a
+        // segment list, and running a job of N requests instead of one. Done
+        // before the lane is opened so its budget can be the real count.
+        IReadOnlyList<string> segments = [];
+        string? initSegment = null;
+
+        if (offer.Kind == VELO.Core.Media.MediaOfferKind.Manifest)
+        {
+            var manifest = await downloader.GetTextAsync(offer.Url, tab.CurrentUrl);
+            if (manifest is null)
+            {
+                MessageBox.Show(this, "Could not fetch the stream manifest.", "Download failed",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var playlistUrl = offer.Url;
+
+            // A master playlist lists qualities, not segments. Highest
+            // bandwidth wins: the user asked to keep this, and the cost of
+            // guessing low is a file they did not want.
+            if (VELO.Core.Media.HlsManifestParser.IsMaster(manifest))
+            {
+                var variants = VELO.Core.Media.HlsManifestParser.ParseMaster(manifest, offer.Url);
+                if (variants.Count == 0)
+                {
+                    MessageBox.Show(this, "The stream manifest lists no playable variants.", "Download failed",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                playlistUrl = variants[0].Url;
+                manifest = await downloader.GetTextAsync(playlistUrl, tab.CurrentUrl);
+                if (manifest is null)
+                {
+                    MessageBox.Show(this, "Could not fetch the selected quality.", "Download failed",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+            }
+
+            var playlist = VELO.Core.Media.HlsManifestParser.ParseMediaPlaylist(manifest, playlistUrl);
+
+            if (!playlist.IsComplete)
+            {
+                // No EXT-X-ENDLIST means live: the segment list is a moving
+                // window, not the asset, so "downloading it" would capture an
+                // arbitrary slice of whenever you clicked.
+                MessageBox.Show(this,
+                    "This is a live stream. VELO can only download streams that have finished.",
+                    "Live stream", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            if (playlist.SegmentUrls.Count == 0)
+            {
+                MessageBox.Show(this, "The stream manifest lists no segments.", "Download failed",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            segments    = playlist.SegmentUrls;
+            initSegment = playlist.InitSegmentUrl;
+        }
+
+        // The lane, sized to the real request count. Opened here and nowhere
         // else, because here is where the click happened.
-        var job = guard.BeginUserInitiatedJob(tab.TabId, expectedDownloads: 1);
+        var expected = segments.Count > 0 ? segments.Count + 2 : 1;
+        var job = guard.BeginUserInitiatedJob(tab.TabId, expectedDownloads: expected);
         try
         {
             var verdict = guard.Evaluate(
@@ -2778,20 +2848,32 @@ public partial class MainWindow : Window
             var item = manager.StartDownload(
                 offer.Url, System.IO.Path.GetFileName(dialog.FileName), dialog.FileName, 0);
 
-            // The real WebView2 user agent, not the fallback constant: OPEN-3
-            // measured a public .mp4 answering 403 without a browser UA and 206
-            // with one, and this is the UA the site already served to.
-            var downloader = new VELO.Core.Media.MediaDownloader(
-                userAgent: tab.BrowserUserAgent);
+            VELO.Core.Media.MediaDownloadResult result;
 
-            var progress = new Progress<(long Received, long Total)>(p =>
+            if (segments.Count > 0)
             {
-                item.TotalBytes    = p.Total;
-                item.ReceivedBytes = p.Received;
-            });
+                // A segmented job has no known total until every segment has
+                // been fetched, so progress counts segments and reports bytes
+                // as they land — DownloadItem shows the byte figure it has.
+                var progress = new Progress<(int Done, int Total, long Bytes)>(p =>
+                {
+                    item.ReceivedBytes = p.Bytes;
+                });
 
-            var result = await downloader.DownloadAsync(
-                offer.Url, dialog.FileName, tab.CurrentUrl, progress);
+                result = await downloader.DownloadSegmentsAsync(
+                    segments, dialog.FileName, initSegment, tab.CurrentUrl, progress);
+            }
+            else
+            {
+                var progress = new Progress<(long Received, long Total)>(p =>
+                {
+                    item.TotalBytes    = p.Total;
+                    item.ReceivedBytes = p.Received;
+                });
+
+                result = await downloader.DownloadAsync(
+                    offer.Url, dialog.FileName, tab.CurrentUrl, progress);
+            }
 
             item.State = result.Success ? DownloadState.Completed : DownloadState.Interrupted;
 

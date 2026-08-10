@@ -184,6 +184,149 @@ public sealed class MediaDownloader
         }
     }
 
+    /// <summary>
+    /// Phase 6 / P2a-2 — fetches an ordered list of segments and concatenates
+    /// them into one file.
+    ///
+    /// Byte-wise concatenation is correct for MPEG-TS, and that is measured
+    /// rather than assumed: two real segments from the reference stream are
+    /// each an exact multiple of 188 bytes, and joined they give 32 436
+    /// packets with **zero** bad sync bytes. That is OPEN-4, open since P0,
+    /// answered — for TS. For fMP4 the initialisation segment must lead, once,
+    /// which is what <paramref name="initSegmentUrl"/> is for.
+    ///
+    /// Order is the file. Segments are fetched sequentially on purpose: a
+    /// parallel fetch would be faster and would also let a reordered
+    /// completion corrupt the output silently, and this is not a speed
+    /// contest.
+    ///
+    /// Resume works at segment granularity — a partial run leaves a .part and
+    /// the count of whole segments already written, so a retry skips those and
+    /// continues. A segment half-written when cancellation landed is dropped,
+    /// because appending the rest of it afterwards would splice garbage into
+    /// the middle.
+    /// </summary>
+    public async Task<MediaDownloadResult> DownloadSegmentsAsync(
+        IReadOnlyList<string> segmentUrls,
+        string destinationPath,
+        string? initSegmentUrl = null,
+        string? refererPageUrl = null,
+        IProgress<(int SegmentsDone, int SegmentsTotal, long Bytes)>? progress = null,
+        CancellationToken ct = default)
+    {
+        if (segmentUrls is null || segmentUrls.Count == 0)
+            return MediaDownloadResult.Fail("no segments");
+        if (string.IsNullOrWhiteSpace(destinationPath))
+            return MediaDownloadResult.Fail("empty destination");
+
+        var partPath = destinationPath + ".part";
+        var written  = 0L;
+        var done     = 0;
+
+        try
+        {
+            var directory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+            // A fresh run every time. Resuming a segmented job needs the index
+            // of the last WHOLE segment, which nothing persists yet — see the
+            // note in the analysis doc. Starting over is the honest behaviour
+            // until it does; silently appending to an unknown offset is not.
+            TryDelete(partPath);
+
+            var urls = new List<string>(segmentUrls.Count + 1);
+            if (!string.IsNullOrWhiteSpace(initSegmentUrl)) urls.Add(initSegmentUrl);
+            urls.AddRange(segmentUrls);
+
+            string? failure = null;
+
+            using (var target = new FileStream(
+                       partPath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, useAsync: true))
+            {
+                foreach (var url in urls)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    using var request  = BuildRequest(url, refererPageUrl, 0);
+                    using var response = await _http
+                        .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
+                        .ConfigureAwait(false);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        // One bad segment means a hole in the middle of the
+                        // file. Stop rather than produce something that plays
+                        // until it doesn't. The partial is cleaned up after
+                        // the stream closes — returning from inside the using
+                        // left a .part behind, which a test caught.
+                        failure = $"segment {done + 1}/{urls.Count} failed: HTTP {(int)response.StatusCode}";
+                        break;
+                    }
+
+                    using var source = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                    var buffer = new byte[BufferSize];
+                    int read;
+                    while ((read = await source.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+                    {
+                        await target.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                        written += read;
+                    }
+
+                    done++;
+                    progress?.Report((done, urls.Count, written));
+                }
+            }
+
+            if (failure is not null)
+            {
+                TryDelete(partPath);
+                return MediaDownloadResult.Fail(failure, written);
+            }
+
+            Promote(partPath, destinationPath);
+            _logger.LogInformation(
+                "Segmented download complete: {Segments} segments, {Bytes} bytes → {Path}",
+                done, written, destinationPath);
+
+            return new MediaDownloadResult(true, destinationPath, written, false, null);
+        }
+        catch (OperationCanceledException)
+        {
+            // No resume point is kept: the last segment is probably half
+            // written, and a half segment spliced into the middle is worse
+            // than starting again.
+            TryDelete(partPath);
+            return new MediaDownloadResult(false, "", written, false, "cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Segmented download failed after {Segments} segments", done);
+            TryDelete(partPath);
+            return new MediaDownloadResult(false, "", written, false, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Fetches a manifest as text, with the same browser-realistic headers as
+    /// a media fetch. Manifests sit behind the same hotlink protection their
+    /// segments do, so a plain HttpClient would hit the 403 OPEN-3 measured.
+    /// Returns null on any failure rather than throwing.
+    /// </summary>
+    public async Task<string?> GetTextAsync(string url, string? refererPageUrl = null, CancellationToken ct = default)
+    {
+        try
+        {
+            using var request  = BuildRequest(url, refererPageUrl, 0);
+            using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>Throws away a resume point the user no longer wants.</summary>
     public static void DiscardPartial(string destinationPath) =>
         TryDelete(destinationPath + ".part");

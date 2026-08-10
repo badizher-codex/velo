@@ -357,6 +357,161 @@ public class MediaDownloaderTests
         Assert.False(File.Exists(dest));
     }
 
+    // ── P2a-2 — segmented downloads ──────────────────────────────────────
+
+    /// <summary>Serves a distinct body per URL, and can be told to fail one.</summary>
+    private sealed class SegmentHandler(Dictionary<string, byte[]> bodies, string? failUrl = null) : HttpMessageHandler
+    {
+        public List<string> RequestedInOrder { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var url = request.RequestUri!.AbsoluteUri;
+            RequestedInOrder.Add(url);
+
+            if (url == failUrl)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+
+            return Task.FromResult(bodies.TryGetValue(url, out var body)
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(body) }
+                : new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+    }
+
+    private static (Dictionary<string, byte[]> Bodies, List<string> Urls, byte[] Joined) BuildSegments(int count)
+    {
+        var bodies = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        var urls   = new List<string>();
+        var joined = new List<byte>();
+
+        for (var i = 0; i < count; i++)
+        {
+            var url  = $"https://cdn.example/seg{i}.ts";
+            var body = Enumerable.Range(0, 1000).Select(_ => (byte)i).ToArray();
+            bodies[url] = body;
+            urls.Add(url);
+            joined.AddRange(body);
+        }
+
+        return (bodies, urls, [.. joined]);
+    }
+
+    [Fact]
+    public async Task Segments_are_concatenated_in_playlist_order()
+    {
+        // Order is the file. Each segment here is filled with its own index,
+        // so a reordered fetch produces different bytes and this fails.
+        var (bodies, urls, joined) = BuildSegments(6);
+        var dir  = NewTempDir();
+        var dest = Path.Combine(dir, "stream.ts");
+
+        var handler = new SegmentHandler(bodies);
+        var result  = await new MediaDownloader(new HttpClient(handler))
+            .DownloadSegmentsAsync(urls, dest);
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(joined, await File.ReadAllBytesAsync(dest));
+        Assert.Equal(urls, handler.RequestedInOrder);
+        Assert.False(File.Exists(dest + ".part"));
+    }
+
+    [Fact]
+    public async Task The_initialisation_segment_leads_the_file_exactly_once()
+    {
+        // fMP4: the init segment is not part of the playlist's segment list
+        // and must be written first, once. Prepending it twice, or appending
+        // it, gives a file no player will open.
+        var (bodies, urls, joined) = BuildSegments(3);
+        var initUrl = "https://cdn.example/init.mp4";
+        var init    = new byte[] { 9, 9, 9, 9 };
+        bodies[initUrl] = init;
+
+        var dir  = NewTempDir();
+        var dest = Path.Combine(dir, "stream.mp4");
+
+        var handler = new SegmentHandler(bodies);
+        var result  = await new MediaDownloader(new HttpClient(handler))
+            .DownloadSegmentsAsync(urls, dest, initSegmentUrl: initUrl);
+
+        Assert.True(result.Success, result.Error);
+        Assert.Equal(init.Concat(joined), await File.ReadAllBytesAsync(dest));
+        Assert.Equal(initUrl, handler.RequestedInOrder[0]);
+        Assert.Single(handler.RequestedInOrder.Where(u => u == initUrl));
+    }
+
+    [Fact]
+    public async Task One_bad_segment_stops_the_job_and_leaves_no_file()
+    {
+        // A hole in the middle produces a file that plays until it doesn't —
+        // the worst outcome, because it looks like it worked.
+        var (bodies, urls, _) = BuildSegments(6);
+        var dir  = NewTempDir();
+        var dest = Path.Combine(dir, "stream.ts");
+
+        var result = await new MediaDownloader(new HttpClient(new SegmentHandler(bodies, failUrl: urls[3])))
+            .DownloadSegmentsAsync(urls, dest);
+
+        Assert.False(result.Success);
+        Assert.Contains("segment 4/6", result.Error!);
+        Assert.False(File.Exists(dest));
+        Assert.False(File.Exists(dest + ".part"));
+    }
+
+    [Fact]
+    public async Task Progress_counts_segments_not_just_bytes()
+    {
+        var (bodies, urls, joined) = BuildSegments(5);
+        var dir = NewTempDir();
+
+        (int Done, int Total, long Bytes) last = (0, 0, 0);
+        await new MediaDownloader(new HttpClient(new SegmentHandler(bodies)))
+            .DownloadSegmentsAsync(urls, Path.Combine(dir, "s.ts"),
+                progress: new SyncProgress<(int, int, long)>(p => last = p));
+
+        Assert.Equal(5, last.Done);
+        Assert.Equal(5, last.Total);
+        Assert.Equal(joined.Length, last.Bytes);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_segmented_job_keeps_no_partial()
+    {
+        // Unlike a single-URL transfer, no resume point is kept: the segment
+        // in flight is probably half written, and splicing the rest of it in
+        // later would corrupt the middle of the file.
+        var (bodies, urls, _) = BuildSegments(40);
+        var dir  = NewTempDir();
+        var dest = Path.Combine(dir, "stream.ts");
+
+        using var cts = new CancellationTokenSource();
+        var done = 0;
+        var task = new MediaDownloader(new HttpClient(new SegmentHandler(bodies)))
+            .DownloadSegmentsAsync(urls, dest,
+                progress: new SyncProgress<(int Done, int Total, long Bytes)>(p =>
+                {
+                    Interlocked.Exchange(ref done, p.Done);
+                    if (p.Done >= 3) cts.Cancel();
+                }),
+                ct: cts.Token);
+
+        var result = await task;
+
+        Assert.False(result.Success);
+        Assert.Equal("cancelled", result.Error);
+        Assert.False(File.Exists(dest));
+        Assert.False(File.Exists(dest + ".part"));
+    }
+
+    [Fact]
+    public async Task An_empty_segment_list_fails_cleanly()
+    {
+        var result = await new MediaDownloader(new HttpClient(new SegmentHandler([])))
+            .DownloadSegmentsAsync([], Path.Combine(NewTempDir(), "s.ts"));
+
+        Assert.False(result.Success);
+        Assert.Equal("no segments", result.Error);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

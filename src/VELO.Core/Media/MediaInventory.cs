@@ -209,12 +209,20 @@ public sealed class MediaInventory
 
             foreach (var manifest in _manifests.Values)
             {
+                // HLS is downloadable since P2a-2. DASH is not, and says so:
+                // every measurement in this phase came from HLS or from MSE —
+                // the dash.js reference player never loaded a stream in any
+                // pass — so there is no measured MPD to have written a parser
+                // against.
+                var isHls = manifest.Kind == MediaClass.HlsManifest;
+
                 offers.Add(new MediaOffer(
                     MediaOfferKind.Manifest,
-                    manifest.Kind == MediaClass.HlsManifest ? "HLS stream" : "DASH stream",
+                    isHls ? "HLS stream" : "DASH stream",
                     FileNameFor(manifest.Url),
-                    manifest.Url, false,
-                    "Segmented downloads are not implemented yet."));
+                    manifest.Url,
+                    isHls,
+                    isHls ? null : "DASH streams are not supported yet."));
             }
 
             return offers;

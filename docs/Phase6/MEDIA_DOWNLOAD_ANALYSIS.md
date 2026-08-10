@@ -748,7 +748,51 @@ Run red by making the fallback unconditional — exactly one test fails, `The_fa
 
 ---
 
-## 17. What is deliberately not in this plan
+## 17. P2a-2 — manifests and segmented jobs, done 2026-08-10
+
+### OPEN-4, answered at last
+
+Open since P0: does concatenating segments produce a usable file? Measured on two real segments from the reference stream:
+
+| File | Bytes | Multiple of 188 | Packets | Bad sync bytes |
+|---|---|---|---|---|
+| segment 462 | 1 915 156 | yes | 10 187 | **0** |
+| segment 463 | 4 182 812 | yes | 22 249 | **0** |
+| concatenated | 6 097 968 | yes | 32 436 | **0** |
+
+MPEG-TS is a stream of 188-byte packets each starting with `0x47`; the join is packet-aligned and every packet in the result is intact. **Byte-wise concatenation is correct for TS, with no muxer** — which is what §4 hoped for and never had evidence of. Structurally verified, not played: a player has still not opened one of these files.
+
+For fMP4 the initialisation segment must lead exactly once, which is the same shape Gate 0.5 measured as the first append of every SourceBuffer. `EXT-X-MAP` carries it and the downloader writes it first.
+
+### HLS only, and why
+
+`HlsManifestParser` handles master playlists, media playlists, `EXT-X-MAP`, `EXT-X-ENDLIST` and relative URI resolution. **DASH is absent on purpose.** Every measurement in this phase came from HLS or from the MSE layer — the dash.js reference player never loaded a stream in any pass — so there is no measured MPD to write a parser against, and writing one blind is the thing this phase keeps proving wrong. DASH rows say so in the panel instead of pretending.
+
+The fixtures are the real manifests from `test-streams.mux.dev`, captured verbatim. Two tests exist only because of that: `CODECS="mp4a.40.2,avc1.64001f"` contains a comma, so splitting the attribute list on commas cuts it in half; and every URI in the real master is relative, so an unresolved one fails later as a 404 far from its cause. Neither trap appears in a textbook example.
+
+Also pinned: `#EXTINF:10.000,` is ten seconds, parsed with `InvariantCulture` — under a Spanish locale it is ten thousand and the duration estimate becomes nonsense.
+
+### The segmented engine
+
+`MediaDownloader.DownloadSegmentsAsync` fetches an ordered list and concatenates. Sequential on purpose: parallel would be faster and would let a reordered completion corrupt the output silently. A failed segment aborts the whole job — a hole in the middle produces a file that plays until it doesn't, which is the worst outcome because it looks like it worked.
+
+No resume point is kept for a cancelled segmented job: the segment in flight is probably half written, and splicing the rest of it in later corrupts the middle. Starting over is the honest behaviour until something persists the index of the last whole segment.
+
+**A bug the tests caught:** aborting on a bad segment originally returned from inside the `using`, leaving the `.part` behind. Now the stream closes first and the partial is deleted.
+
+### Wiring
+
+The HLS row is downloadable. The click fetches the manifest, resolves a master to its **highest-bandwidth** variant (the user asked to keep this; guessing low costs them the file they wanted), refuses a live playlist — no `EXT-X-ENDLIST` means the segment list is a moving window, not the asset — and opens P3's lane sized to the real segment count instead of 1.
+
+### Verification
+
+32 new tests, 859 total. Runtime on the reference stream: the panel reports `5 found · 3 available` — two MSE tracks that still explain why they cannot be fetched, and three HLS manifests each with a live Download button.
+
+**Not verified:** the click-through itself. Driving the save dialog is not something the accessibility harness does reliably, so no file has been produced through the UI. The mechanism either side of it is measured — real manifests parsed, real segments concatenated and checked — but the two have not been joined by a human click yet.
+
+---
+
+## 18. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).
