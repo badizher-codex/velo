@@ -401,10 +401,11 @@ public partial class MainWindow : Window
         _ = ApplyCtLogSettingAtStartupAsync();
         // v2.4.53 — same pattern for the YouTube ad-block opt-out flag.
         _ = _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>().RefreshAsync();
-        // Phase 6 — same pattern for the media-detection opt-out. Fire-and-forget:
-        // the gate defaults to enabled, so a tab opened before this lands gets
-        // detection, which is the same answer the setting almost always gives.
-        _ = _services.GetRequiredService<VELO.Core.Media.MediaDetectionGate>().RefreshAsync();
+        // Phase 6 — the media-detection gate is refreshed in
+        // AppBootstrapper.InitializeAsync, awaited before this window exists.
+        // It is NOT fire-and-forget here on purpose: the cached default is
+        // "enabled", so a refresh still in flight while session-restored tabs
+        // initialise would inject the detector against the user's setting.
         // S-C — Sentinel: load the model (fail-soft) and apply the enforce
         // opt-in. Fire-and-forget so a 130 ms ONNX session build never sits in
         // front of WebView2 boot; until it lands the classifier answers Allow.

@@ -698,10 +698,21 @@ public class WiringSmokeTests
         var depConfig = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "Startup", "DependencyConfig.cs"));
         Assert.Contains("AddSingleton<VELO.Core.Media.MediaDetectionGate>", depConfig);
 
-        // Refreshed at startup, or the first session after a change keeps the
-        // stale cached default.
+        // Refreshed at startup, and specifically AWAITED in the bootstrapper
+        // rather than fired and forgotten from MainWindow. The cached default
+        // is "enabled", so a refresh still in flight while session-restored
+        // tabs initialise their WebViews would inject the detector against the
+        // user's setting — a race that only bites the users who turned it off.
+        var bootstrapper = StripComments(File.ReadAllText(
+            Path.Combine(srcRoot, "VELO.App", "Startup", "AppBootstrapper.cs")));
+
+        Assert.True(
+            Regex.IsMatch(bootstrapper, @"await\s+_services\.GetRequiredService<[\w.]*MediaDetectionGate>\(\)\s*\.\s*RefreshAsync\(\)"),
+            "AppBootstrapper does not AWAIT MediaDetectionGate.RefreshAsync(). Fire-and-forget leaves the " +
+            "cached default ('enabled') racing session-restored tabs, so a user who turned detection off " +
+            "gets it injected anyway on the tabs they had open.");
+
         var mainWindow = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs"));
-        Assert.Contains("MediaDetectionGate>().RefreshAsync()", mainWindow);
         Assert.Contains("OnMediaDetectionChanged", mainWindow);
 
         // Handed to every tab.

@@ -82,6 +82,18 @@ public class AppBootstrapper(IServiceProvider services)
             .GetAsync(SettingKeys.Language, "es");
         LocalizationService.Current.SetLanguage(savedLang);
 
+        // Phase 6 — media-detection opt-out, AWAITED here rather than
+        // fire-and-forget from MainWindow.
+        //
+        // The gate's cached default is "enabled", which is right for the first
+        // tab of a fresh profile but wrong the moment the user has turned
+        // detection OFF: session-restored tabs initialise their WebViews right
+        // after the window appears, and a refresh still in flight would let
+        // them inject the detector against the user's setting. Reading it here
+        // — before MainWindow exists at all — removes the race rather than
+        // relying on a SQLite read winning against WebView2 startup.
+        await _services.GetRequiredService<VELO.Core.Media.MediaDetectionGate>().RefreshAsync();
+
         // 4. Configure AI adapter from saved settings
         await ConfigureAIAdapterAsync();
 
