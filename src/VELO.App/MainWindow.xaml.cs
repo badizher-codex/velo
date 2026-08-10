@@ -2749,13 +2749,6 @@ public partial class MainWindow : Window
         if (!offer.CanDownload || string.IsNullOrEmpty(offer.Url)) return;
         if (ActiveBrowserTab() is not { } tab) return;
 
-        var dialog = new Microsoft.Win32.SaveFileDialog
-        {
-            FileName = offer.Title,
-            Title    = "Save media",
-        };
-        if (dialog.ShowDialog(this) != true) return;
-
         var guard   = _services.GetRequiredService<DownloadGuard>();
         var manager = _services.GetRequiredService<DownloadManager>();
 
@@ -2765,10 +2758,19 @@ public partial class MainWindow : Window
         var downloader = new VELO.Core.Media.MediaDownloader(userAgent: tab.BrowserUserAgent);
 
         // P2a-2 — an HLS row means fetching the manifest, resolving it to a
-        // segment list, and running a job of N requests instead of one. Done
-        // before the lane is opened so its budget can be the real count.
+        // segment list, and running a job of N requests instead of one.
+        //
+        // Resolved BEFORE the save dialog on purpose. The dialog needs a
+        // sensible name and extension, and neither is knowable from the row:
+        // the row's title is "HLS stream" and its URL ends in .m3u8, while the
+        // file this produces is the concatenated segments — .ts for MPEG-TS,
+        // .mp4 when the playlist carries an EXT-X-MAP init segment. Asking
+        // where to save before knowing what is being saved produced a default
+        // of "HLS stream" with no extension at all.
         IReadOnlyList<string> segments = [];
         string? initSegment = null;
+        var suggestedName = offer.Title;
+        var filter        = "All files|*.*";
 
         if (offer.Kind == VELO.Core.Media.MediaOfferKind.Manifest)
         {
@@ -2827,7 +2829,32 @@ public partial class MainWindow : Window
 
             segments    = playlist.SegmentUrls;
             initSegment = playlist.InitSegmentUrl;
+
+            // fMP4 when the playlist declares an init segment, MPEG-TS
+            // otherwise — the two cases Gate 0.5 and OPEN-4 measured.
+            var extension = initSegment is null ? ".ts" : ".mp4";
+            var baseName  = System.IO.Path.GetFileNameWithoutExtension(
+                VELO.Core.Media.MediaInventory.FileNameFor(playlistUrl));
+            if (string.IsNullOrWhiteSpace(baseName)) baseName = "stream";
+
+            suggestedName = baseName + extension;
+            filter        = initSegment is null
+                ? "MPEG transport stream|*.ts|All files|*.*"
+                : "MP4 video|*.mp4|All files|*.*";
         }
+        else if (!string.IsNullOrEmpty(offer.Url))
+        {
+            var name = VELO.Core.Media.MediaInventory.FileNameFor(offer.Url);
+            if (!string.IsNullOrWhiteSpace(name)) suggestedName = name;
+        }
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = suggestedName,
+            Filter   = filter,
+            Title    = "Save media",
+        };
+        if (dialog.ShowDialog(this) != true) return;
 
         // The lane, sized to the real request count. Opened here and nowhere
         // else, because here is where the click happened.
