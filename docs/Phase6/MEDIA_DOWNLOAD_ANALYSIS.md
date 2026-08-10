@@ -703,6 +703,10 @@ Turning it off also clears the inventory of every open tab and hides the chip im
 
 829 tests.
 
+**Runtime, both directions.** With the toggle off: a YouTube tab opened afterwards shows no chip, and a YouTube tab whose WebView was created during **session restore** — the path the startup race would have broken — also shows none, on a page confirmed loaded and playing. With it on, the same page shows `⬇ 2`. A tab already open when the setting changed keeps detection, which is the documented behaviour the settings copy states.
+
+Two intermediate readings were discarded as inconclusive before that: both reported "no chip" on tabs (Grok, the VELO landing) that would not have shown one anyway. **A negative only counts where the positive was possible** — and the signal for "is the right tab active" is the URL field read through `ValuePattern`, not the window title, which lags tab activation badly on restored tabs.
+
 **A bug in the test helper, found by this.** `StripComments` ran its block-comment regex *before* stripping line comments, and `BrowserTab.xaml.cs` contains the line comment `a council/* payload`. That stray `/*` opened a phantom block which the lazy matcher closed ~200 lines later at the next real `*/`, deleting the code in between — the new test failed on a field that was plainly there. Order is now line comments first. This mattered beyond the false red: the same helper feeds the `postMessage` stringify test, which **counts** call sites, and there over-stripping is a false green.
 
 **Not localised.** The checkbox strings are English in XAML and not wired through `LocalizationService`, unlike its neighbour. Consistent with the stated UI language, inconsistent with the control next to it; noted rather than half-done.
