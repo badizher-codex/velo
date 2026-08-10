@@ -232,7 +232,7 @@ Throwaway instrumented build, no production code, discarded afterwards.
 
 **Verification:** unit tests against a local `HttpListener` fixture — byte-identical output vs source, cancel mid-transfer leaves no partial file in the visible list, resume completes. Run in both directions.
 
-### P3 — Guard lane
+### P3 — Guard lane ✅ **DONE — see §13**
 
 An explicit user-initiated lane in `DownloadGuard`, keyed to a job the user actually clicked. The drive-by burst rule stays exactly as strong for everything else.
 
@@ -565,7 +565,44 @@ Also carried into P2b from §10: the capture is **real-time by construction** (y
 
 ---
 
-## 13. What is deliberately not in this plan
+## 13. P3 — the guard lane, done 2026-08-10
+
+### The guard had no tests
+
+Before anything was changed: `DownloadGuard` shipped with **zero test coverage**. 273 security tests, and none of them touched the rule that blocks the second download in three seconds — the rule V-6 identified as the thing that kills this feature.
+
+That made P3's own success criterion unmeasurable. "The drive-by burst rule stays exactly as strong for everything else" cannot be demonstrated against a baseline nobody ever wrote down. So P3 began by writing 13 characterization tests and **running them green against the unmodified guard**: the burst rule and its per-tab scoping, `ResetBurst`, cross-origin executables, same-origin warnings, the subdomain case, the no-parent-page case from v2.0.5.5, safe extensions, and `.ts` falling through as an unknown extension. They live in `DownloadGuardTests.cs`, separate from the lane tests on purpose — a characterization suite that only ever ran against the changed code proves nothing about what the change preserved.
+
+After the lane landed, all 13 still pass unchanged. That is the claim, demonstrated rather than asserted.
+
+### The lane
+
+`BeginUserInitiatedJob(tabId, expectedDownloads, maxDuration?)` returns a token; `Evaluate(...)` takes it as a new optional last parameter; `EndUserInitiatedJob(token)` and `EndJobsForTab(tabId)` close it.
+
+Four properties, each of which has a test that fails when it is removed:
+
+- **Unforgeable.** The token is 128 bits from the CSPRNG, minted in the guard, and it never travels to the renderer — nothing a page can put in a WebMessage can name it. A forged token leaves the caller on the normal path.
+- **Bound to one tab.** A token issued for tab A does nothing in tab B. Verified red by deleting the tab comparison.
+- **Bounded.** A budget (clamped to 20 000) and an expiry (default 30 min, capped at 2 h). When either runs out the request is evaluated as if no lane existed. A lane with no ceiling is a permanent hole, not a lane.
+- **Narrow.** It bypasses **Rule 1 only**. A cross-origin executable inside an open lane still blocks; a dangerous extension still warns. Verified red by making the lane return `Allow` outright — exactly two tests fail, and they are the two that describe the scope.
+
+Existing callers pass no token, so their behaviour is bit-for-bit unchanged.
+
+### One design decision worth stating
+
+**Lane requests are not recorded in the burst tracker at all**, rather than recorded-and-ignored. The tracker measures *unrequested* downloads; counting our own job into it would make the first ordinary download after a capture look like an attack. The reason this is safe rather than a blind spot is that page-initiated downloads arriving *during* a job are still counted on their own — there is a test for exactly that, in which a drive-by interleaved with lane traffic is still blocked on its second attempt.
+
+### Verification
+
+27 tests (13 characterization + 14 lane), 809 total. Both directions throughout, and three separate red-checks run and restored: the lane scope, the tab binding, and — from P2a — the ignore-Range branch.
+
+### Still open
+
+**Nothing calls `BeginUserInitiatedJob` yet.** The lane exists and is proven; the caller arrives with P4's UI, which is where a user click first exists to justify opening one. This is the same deliberate staging as P2a: the engine and the lane are both ready before anything is allowed to issue hundreds of requests.
+
+---
+
+## 14. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).

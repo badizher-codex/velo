@@ -64,6 +64,134 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
     public static void Whitelist(string host)
         => _whitelistedHosts.Add(host.ToLowerInvariant());
 
+    // ── Phase 6 / P3 — user-initiated job lane ────────────────────────────
+    //
+    // A segmented media download is hundreds of requests, and Rule 1 blocks the
+    // second one inside three seconds. That rule is doing real work against
+    // drive-by downloads and must not be weakened, so the lane is explicit,
+    // narrow and unforgeable rather than a relaxation of the threshold:
+    //
+    //   • It is opened by the HOST, on a click the user made in VELO's own UI.
+    //     A page cannot ask for one — the token is minted here, never travels
+    //     to the renderer, and nothing in a WebMessage can name it.
+    //   • It is keyed to ONE tab. A token from another tab does nothing.
+    //   • It has a budget and an expiry. A lane with no ceiling is a permanent
+    //     hole; when either runs out the download is evaluated as if no lane
+    //     existed.
+    //   • It bypasses Rule 1 ONLY. Cross-origin executables still block and
+    //     dangerous extensions still warn, because the lane says "the user
+    //     asked for this transfer", not "anything goes".
+    //
+    // Instance state, unlike the static override sets above: those are
+    // process-wide and leak across windows, which is a pre-existing smell this
+    // deliberately does not copy.
+    private sealed class UserInitiatedJob
+    {
+        public required string   TabId     { get; init; }
+        public required DateTime ExpiresAt { get; init; }
+        public          int      Remaining { get; set; }
+    }
+
+    private readonly Dictionary<string, UserInitiatedJob> _jobs = new(StringComparer.Ordinal);
+    private readonly object _jobLock = new();
+
+    private static readonly TimeSpan DefaultJobDuration = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan MaxJobDuration     = TimeSpan.FromHours(2);
+    private const int MaxJobDownloads = 20_000;
+
+    /// <summary>
+    /// Opens a lane for a transfer the user explicitly started, and returns the
+    /// token that identifies it. Pass that token to
+    /// <see cref="Evaluate(string,string,string,string,string?)"/> for each
+    /// request belonging to the job, and call
+    /// <see cref="EndUserInitiatedJob"/> when it finishes.
+    ///
+    /// Callers must only do this in response to a real user action. The whole
+    /// value of the lane is that it cannot be reached any other way.
+    /// </summary>
+    /// <param name="expectedDownloads">
+    /// How many requests the job needs. Clamped to <see cref="MaxJobDownloads"/>;
+    /// once spent, the burst rule applies again.
+    /// </param>
+    public string BeginUserInitiatedJob(string tabId, int expectedDownloads, TimeSpan? maxDuration = null)
+    {
+        // 128 bits from the CSPRNG. Guid.NewGuid() would almost certainly be
+        // fine for a process-local value, but "almost certainly" is not the
+        // standard for the key to a security bypass.
+        var token = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16));
+
+        var duration = maxDuration ?? DefaultJobDuration;
+        if (duration > MaxJobDuration) duration = MaxJobDuration;
+
+        lock (_jobLock)
+        {
+            PurgeExpired();
+            _jobs[token] = new UserInitiatedJob
+            {
+                TabId     = tabId,
+                ExpiresAt = DateTime.UtcNow + duration,
+                Remaining = Math.Clamp(expectedDownloads, 0, MaxJobDownloads),
+            };
+        }
+
+        _logger.LogInformation(
+            "User-initiated download lane opened: tab={Tab} budget={Budget}", tabId, expectedDownloads);
+        return token;
+    }
+
+    /// <summary>Closes a lane. Safe to call twice, or with an unknown token.</summary>
+    public void EndUserInitiatedJob(string? token)
+    {
+        if (string.IsNullOrEmpty(token)) return;
+        lock (_jobLock)
+            _jobs.Remove(token);
+    }
+
+    /// <summary>Closes every lane belonging to a tab. Call when the tab closes.</summary>
+    public void EndJobsForTab(string tabId)
+    {
+        lock (_jobLock)
+        {
+            foreach (var token in _jobs.Where(kv => kv.Value.TabId == tabId).Select(kv => kv.Key).ToList())
+                _jobs.Remove(token);
+        }
+    }
+
+    /// <summary>
+    /// True when the token names a live lane for this tab, spending one unit of
+    /// its budget. False for an unknown, forged, ended, expired, exhausted or
+    /// wrong-tab token — every one of which leaves the caller on the normal path.
+    /// </summary>
+    private bool TryConsumeJobSlot(string? token, string tabId)
+    {
+        if (string.IsNullOrEmpty(token)) return false;
+
+        lock (_jobLock)
+        {
+            if (!_jobs.TryGetValue(token, out var job)) return false;
+
+            if (!string.Equals(job.TabId, tabId, StringComparison.Ordinal)) return false;
+
+            if (DateTime.UtcNow >= job.ExpiresAt)
+            {
+                _jobs.Remove(token);
+                return false;
+            }
+
+            if (job.Remaining <= 0) return false;
+
+            job.Remaining--;
+            return true;
+        }
+    }
+
+    private void PurgeExpired()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var token in _jobs.Where(kv => now >= kv.Value.ExpiresAt).Select(kv => kv.Key).ToList())
+            _jobs.Remove(token);
+    }
+
     // ── Public API ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -73,13 +201,27 @@ public class DownloadGuard(ILogger<DownloadGuard> logger)
     /// <param name="downloadUrl">Full URL of the file being downloaded.</param>
     /// <param name="fileName">Suggested file name.</param>
     /// <param name="pageUrl">Current page URL (used for cross-origin check).</param>
+    /// <param name="jobToken">
+    /// Phase 6 / P3 — token from <see cref="BeginUserInitiatedJob"/> when this
+    /// request belongs to a transfer the user explicitly started. Bypasses the
+    /// burst rule and nothing else. Null for every ordinary download, which is
+    /// every existing caller, so their behaviour is bit-for-bit unchanged.
+    /// </param>
     /// <returns>A <see cref="DownloadVerdict"/> with the decision and reason.</returns>
-    public DownloadVerdict Evaluate(string tabId, string downloadUrl, string fileName, string pageUrl)
+    public DownloadVerdict Evaluate(
+        string tabId, string downloadUrl, string fileName, string pageUrl, string? jobToken = null)
     {
         var ext          = Path.GetExtension(fileName);
         var isDangerous  = _dangerousExts.Contains(ext);
         var isSafe       = _safeExts.Contains(ext) && !isDangerous;
-        var isBurst      = RecordAndCheckBurst(tabId);
+
+        // A request inside an open lane is not recorded in the burst tracker at
+        // all. That tracker measures UNREQUESTED downloads; counting our own
+        // job into it would make the first ordinary download after a capture
+        // look like an attack, and would blind the rule to a real drive-by
+        // arriving during the job — which, this way, is still counted on its own.
+        var inUserJob    = TryConsumeJobSlot(jobToken, tabId);
+        var isBurst      = !inUserJob && RecordAndCheckBurst(tabId);
         var isCrossOrigin = IsCrossOrigin(downloadUrl, pageUrl);
 
         // ── Rule 0 (v2.0.5.4): user override — checked before everything else ─
