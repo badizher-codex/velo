@@ -626,7 +626,9 @@ P2a's engine and P3's lane both shipped with nothing calling them, on purpose. P
 
 **Unit tests (13, in Core).** Protected content offers nothing while probing-only does not suppress the offers · every unactionable row carries a reason, asserted across every kind · audio and video appear as separate rows with their codecs · larger files first · navigation clears what the panel would show · filename extraction including percent-decoding and the host fallback.
 
-**Smoke test.** Every brush in the media UI is a `DynamicResource` role token and there are no hex literals — the mechanical property that makes both themes work, which is more durable than catching it in a screenshot (lesson #57). Also pins the chip's `AutomationProperties`.
+**Smoke test.** Every brush in the media UI is a `DynamicResource` role token and there are no hex literals — the mechanical property that makes both themes work, which is more durable than catching it in a screenshot. Also pins the chip's `AutomationProperties`.
+
+**Both themes, captured.** Lesson #57 says a trait must be verified in the theme it appears in, not inferred from the other one, so the panel was captured in dark *and* in light on the same page: identical content, every colour swapped correctly. Worth recording how the light pass nearly went wrong — the first attempt reported "chip not visible" and the window title said the right page, but `Get-Process VELO | Select Path` showed the process was `C:\Program Files\VELO\VELO.exe`, the installed v2.5.0. The dev build's launch had simply handed the URL off to it through the single-instance path. **Checking the window title is not checking which binary is running** — the process path is (lesson #56, new flavour).
 
 **Runtime, driven through UI Automation** (which the chip's `AutomationProperties.AutomationId` made possible):
 
@@ -642,7 +644,6 @@ Both match §9–§10 exactly: 788 493 bytes reads as 770 KB, and the two YouTub
 
 ### Open, and none of it hidden
 
-- **The light-theme screenshot is not done.** Dark is captured and correct; the theme can only be switched from the Settings dialog, and lesson #57 is explicit that a trait must be verified in the theme it appears in. The token smoke test covers the mechanism, not the appearance.
 - **The DRM refusal has still never run against protected content.** Verified negatively (free content clean, probing-is-not-protection unit-tested) and the refusal path is unit-tested at the offer level, but no real protected stream has produced that amber chip. It needs a rental. This is now the oldest open item in the phase.
 - **`media-detect.js` is still gated on `VELO_MEDIA_PROBE`.** Consequence for P4 specifically: **without the probe the panel only ever shows progressive files**, because the page layer is what sees adaptive tracks. Un-gating is the single highest-value next step for this feature, and it needs the wider playback pass §11 asked for.
 - **Only progressive downloads work.** HLS needs P2a-2, MSE needs P2b. Both are named in the panel rather than implied.
