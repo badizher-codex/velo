@@ -788,7 +788,23 @@ The HLS row is downloadable. The click fetches the manifest, resolves a master t
 
 32 new tests, 859 total. Runtime on the reference stream: the panel reports `5 found · 3 available` — two MSE tracks that still explain why they cannot be fetched, and three HLS manifests each with a live Download button.
 
-**Not verified:** the click-through itself. Driving the save dialog is not something the accessibility harness does reliably, so no file has been produced through the UI. The mechanism either side of it is measured — real manifests parsed, real segments concatenated and checked — but the two have not been joined by a human click yet.
+### End to end, through the UI
+
+The maintainer clicked Download on an HLS row and produced a file. Verified against it:
+
+| Check | Result |
+|---|---|
+| Size | 502 204 400 bytes — exactly **2 671 300** TS packets, no remainder |
+| Sync bytes | **0 bad** across all 2.67 M packets |
+| Leftovers | no `.part` — the promote-on-success worked |
+| Variant chosen | `…_fhd_7.ts`, the 1080p one — highest bandwidth, as intended |
+| PMT | declares **H.264 video (PID 258)** and **AAC audio (PID 257)** — a complete A/V file, no muxer |
+| Duration | PCR span 634.5 s ≈ 10m34s, matching the playlist |
+| Continuity counters | 63/63/63/60/58 discontinuities per PID against ~64 segments — **exactly one per join**, with 0.7–29 MB between them |
+
+That last row is the one worth reading twice. Discontinuities are expected here: each HLS segment is independently muxed, so its counters restart at every join. One per PID per boundary, spaced megabytes apart, is the signature of a clean concatenation; scattered small-gap discontinuities would have been corruption.
+
+**Still not verified: playback by a decoder.** `ffprobe` is not installed on the machine, so nothing has actually decoded the file — every check above is structural. Opening it in a player is the last step and it is one double-click.
 
 ---
 
