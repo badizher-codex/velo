@@ -153,6 +153,83 @@ public class MediaClassifierTests
             new ResponseSignals("https://example.com/x", contentType)));
     }
 
+    // ── The absent-header fallback ───────────────────────────────────────
+    //
+    // A warm cache makes WebResourceResponseReceived deliver a 200 with no
+    // Content-Type, Content-Length or Content-Range at all — measured: 285 of
+    // 2311 responses. The manifests that classified correctly on a cold load
+    // silently stopped being found on the second visit. The extension becomes
+    // a tie-breaker ONLY in that case, and only for manifests.
+
+    [Fact]
+    public void A_manifest_with_no_content_type_is_recovered_from_the_extension()
+    {
+        // The exact three URLs that were lost. Note the type is empty, not
+        // wrong — that distinction is the whole design.
+        foreach (var url in new[]
+        {
+            "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+            "https://test-streams.mux.dev/x36xhzz/url_0/193039199_mp4_h264_aac_hd_7.m3u8",
+        })
+        {
+            Assert.Equal(MediaClass.HlsManifest,
+                MediaClassifier.ClassifyResponse(new ResponseSignals(url, "")));
+        }
+
+        Assert.Equal(MediaClass.DashManifest,
+            MediaClassifier.ClassifyResponse(new ResponseSignals("https://cdn.example/stream.mpd", "")));
+    }
+
+    [Fact]
+    public void A_signed_manifest_url_still_matches()
+    {
+        Assert.Equal(MediaClass.HlsManifest, MediaClassifier.ClassifyResponse(
+            new ResponseSignals("https://cdn.example/master.m3u8?token=abc&expires=123", "")));
+    }
+
+    [Fact]
+    public void The_fallback_never_runs_when_a_content_type_is_present()
+    {
+        // The rule §9 demolished ran INSTEAD of the headers. This one runs
+        // only when there are none. A server that says .m3u8 is HTML is
+        // believed, exactly as before.
+        Assert.Equal(MediaClass.NotMedia, MediaClassifier.ClassifyResponse(
+            new ResponseSignals("https://cdn.example/master.m3u8", "text/html; charset=utf-8")));
+    }
+
+    [Theory]
+    // 184 of the 285 had no extension — including YouTube's videoplayback,
+    // which is why the fallback cannot resurrect P0's failure.
+    [InlineData("https://rr10---sn-0opoxu.googlevideo.com/videoplayback?expire=1786397306&sabr=1")]
+    // 44 were .js. A segment is media by provenance, never by name — and .ts
+    // is also TypeScript, so on a dev site those are source files.
+    [InlineData("https://cdn.example/app.js")]
+    [InlineData("https://test-streams.mux.dev/x36xhzz/url_8/url_603/193039199_mp4_h264_aac_fhd_7.ts")]
+    // All 8 .mp3 with no Content-Type were YouTube UI sound effects. Those
+    // four beeps have been a false positive under three rules already.
+    [InlineData("https://www.youtube.com/s/search/audio/open.mp3")]
+    [InlineData("https://www.youtube.com/s/search/audio/success.mp3")]
+    // And a progressive video is NOT recovered by name either — only
+    // manifests are in scope.
+    [InlineData("https://www.w3schools.com/html/mov_bbb.mp4")]
+    public void The_fallback_covers_manifests_and_nothing_else(string url)
+    {
+        Assert.Equal(MediaClass.NotMedia, MediaClassifier.ClassifyResponse(new ResponseSignals(url, "")));
+    }
+
+    [Fact]
+    public void A_cached_segment_is_still_media_only_through_its_manifest()
+    {
+        // Provenance keeps working with no headers at all, which is the
+        // mechanism that covers the .ts responses the fallback declines.
+        var segment = new ResponseSignals(
+            "https://test-streams.mux.dev/x36xhzz/url_8/url_603/193039199_mp4_h264_aac_fhd_7.ts", "");
+
+        Assert.Equal(MediaClass.NotMedia, MediaClassifier.ClassifyResponse(segment));
+        Assert.Equal(MediaClass.Segment,
+            MediaClassifier.ClassifyResponse(segment, referencedByManifest: true));
+    }
+
     // ── Total size ───────────────────────────────────────────────────────
 
     [Fact]

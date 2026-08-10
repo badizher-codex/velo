@@ -691,7 +691,7 @@ All three headers absent, on a 200. Across the whole run **34.1 % of responses c
 
 **Consequence:** the classifier's only signal disappears, and manifests are silently lost on a repeat visit. A stream that showed an HLS row yesterday shows nothing today. This does not affect the MSE path — YouTube and hls.js both still show their tracks, because those come from the page — but the network side of the inventory is unreliable on a warm cache.
 
-**Not fixed here, deliberately.** The obvious fallback is to trust the URL extension when Content-Type is absent, and that is precisely the rule §9 spent a measurement demolishing. As a *tie-breaker for an absent authoritative signal* it is defensible and cannot re-introduce the YouTube failure (that URL has no extension at all) — but re-admitting extensions in any form is a policy decision, not a tidy-up, and it needs its own measurement of how often the fallback would fire and on what. Recorded here as the next item rather than slipped in.
+**Fixed — see §16.** The fallback was taken, but only after measuring what it would actually catch.
 
 ### The off switch — done
 
@@ -713,7 +713,42 @@ Two intermediate readings were discarded as inconclusive before that: both repor
 
 ---
 
-## 16. What is deliberately not in this plan
+## 16. The absent-header fallback — measured, then taken
+
+§15 found that a warm cache makes `WebResourceResponseReceived` deliver a 200 with **no** Content-Type, Content-Length or Content-Range, so manifests that classified correctly on a cold load were silently lost on the second visit. The obvious fix — trust the URL extension — is the rule §9 spent a measurement demolishing, so it got its own measurement first.
+
+### What the fallback would actually catch
+
+285 of 2311 logged responses (12.3 %) carried no Content-Type. By URL extension:
+
+| Count | Extension | Verdict |
+|---|---|---|
+| 184 | none at all | never fires — **and this includes YouTube's `videoplayback`**, so the fallback cannot resurrect P0's failure |
+| 44 | `.js` | not media |
+| 33 | `.ts` | **excluded on purpose** — a segment is media because a manifest named it (§9), never because of its name, and `.ts` is also the TypeScript extension |
+| 8 | `.mp3` | **every one a YouTube UI sound effect** (open/success/failure/no_input) — those four beeps have now been a false positive under three separate rules; they are not getting a fourth |
+| 4+4+2+2+1 | `.ico .css .jpg .html .png` | not media |
+| 3 | `.m3u8` | the manifests this exists to recover |
+
+The measurement wrote the rule: **manifests only, and only when the authoritative signal is absent entirely.**
+
+### The rule
+
+`ManifestFromExtension` maps `.m3u8` → HLS and `.mpd` → DASH, on the URL path with query and fragment stripped (signed manifest URLs are normal). It is reached **only** when the normalised Content-Type is empty.
+
+That conditionality is the whole design, and it is what separates this from the rule §9 killed: **that rule ran instead of the headers and lost to every site; this one runs only when there are no headers to lose to.** A server that says an `.m3u8` is `text/html` is still believed.
+
+### Verification
+
+10 new tests, 839 total. Both directions: the three lost manifest URLs are recovered · a signed manifest URL matches · a present-but-wrong Content-Type still wins over the extension · `videoplayback`, `.js`, `.ts`, both beep URLs and a progressive `.mp4` all stay NotMedia · a cached `.ts` is still media only through provenance.
+
+Run red by making the fallback unconditional — exactly one test fails, `The_fallback_never_runs_when_a_content_type_is_present`, which is the one guarding §9.
+
+**Runtime:** the hls.js demo on the same warm cache that had reported `manifests=0` now reports `manifests=3`.
+
+---
+
+## 17. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).

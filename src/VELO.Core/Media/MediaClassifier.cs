@@ -115,10 +115,60 @@ public static class MediaClassifier
             type.StartsWith("audio/", StringComparison.Ordinal))
             return MediaClass.ProgressiveMedia;
 
+        // Last resort, and ONLY when the authoritative signal is missing
+        // entirely — see ManifestFromExtension for why this is not a
+        // re-admission of the rule §9 demolished.
+        if (type.Length == 0)
+        {
+            var byExtension = ManifestFromExtension(signals.Url);
+            if (byExtension is { } manifest) return manifest;
+        }
+
         // Everything else, explicitly including application/octet-stream and
         // vendor types like application/vnd.yt-ump. YouTube's stream is not
         // recognisable here by design — the page layer handles it.
         return MediaClass.NotMedia;
+    }
+
+    /// <summary>
+    /// Manifest class from the URL path, used ONLY when the response carried
+    /// no Content-Type at all.
+    ///
+    /// Why this is not the extension rule §9 demolished: that rule ran
+    /// *instead* of the headers and lost to every site. This one runs only
+    /// when there are no headers to lose to. Measured cause — a warm cache:
+    /// <c>WebResourceResponseReceived</c> surfaces cache hits with no
+    /// Content-Type, Content-Length or Content-Range, and the HLS manifests
+    /// that had classified correctly on a cold load silently stopped being
+    /// found on the second visit.
+    ///
+    /// The scope is manifests and nothing else, and the measurement is why.
+    /// Of 285 responses observed with no Content-Type:
+    ///
+    ///   • 184 had no extension at all — including YouTube's videoplayback,
+    ///     so this cannot resurrect the failure P0 found;
+    ///   • 44 were .js, plus .css/.ico/.jpg/.png/.html — none of them media;
+    ///   • 33 were .ts. Excluded deliberately: a segment is media because a
+    ///     manifest named it (§9), never because of its name, and .ts is also
+    ///     the TypeScript extension — on a dev site those are source files;
+    ///   • 8 were .mp3, and every one of them was a YouTube UI sound effect
+    ///     (open/success/failure/no_input). Those four beeps have now turned
+    ///     up as a false positive under three separate rules; they are not
+    ///     getting a fourth;
+    ///   • 3 were .m3u8 — the manifests this exists to recover.
+    /// </summary>
+    private static MediaClass? ManifestFromExtension(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+
+        // Query strings routinely carry tokens, and a signed manifest URL is
+        // normal — compare the path only.
+        var path = url.Split('?')[0].Split('#')[0];
+
+        if (path.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase)) return MediaClass.HlsManifest;
+        if (path.EndsWith(".mpd",  StringComparison.OrdinalIgnoreCase)) return MediaClass.DashManifest;
+
+        return null;
     }
 
     /// <summary>
