@@ -8,6 +8,7 @@ using System.Windows.Media;
 using Microsoft.Web.WebView2.Core;
 using VELO.Core.Containers;
 using VELO.Core.Downloads;
+using VELO.Core.Media;
 using VELO.Security.AI;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
@@ -66,8 +67,6 @@ public partial class BrowserTab
     private void OnWebResourceResponseReceived(
         object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
     {
-        if (!MediaProbeLog.Enabled) return;
-
         try
         {
             var response = e.Response;
@@ -85,16 +84,29 @@ public partial class BrowserTab
                 ? reqHeaders.GetHeader("Range")
                 : "";
 
-            MediaProbeLog.Record(
-                _tabId,
+            var signals = new ResponseSignals(
                 e.Request?.Uri ?? "",
-                response.StatusCode,
                 Header("Content-Type"),
                 Header("Content-Length"),
-                range,
                 Header("Content-Range"));
+
+            // Progressive files never touch MSE, so the page never reports and
+            // the inventory would be invisible in the measurement log without
+            // this. Only fires when the response actually contributed — the
+            // reference capture had 765 responses and 9 contributors.
+            if (Media.RecordResponse(signals) != MediaClass.NotMedia)
+                MediaProbeLog.RecordPage(_tabId, GetHost(signals.Url), Media.Describe());
+
+            MediaProbeLog.Record(
+                _tabId,
+                signals.Url,
+                response.StatusCode,
+                signals.ContentType,
+                signals.ContentLength,
+                range,
+                signals.ContentRange);
         }
-        catch { /* instrumentation must never take a page down */ }
+        catch { /* detection must never take a page down */ }
     }
 
     private Task ProcessRequestAsync(CoreWebView2WebResourceRequestedEventArgs e)
@@ -303,6 +315,11 @@ public partial class BrowserTab
         // sub-resource ThreatContexts during the gap between commit and
         // DocumentTitleChanged.
         _currentPageTitle = "";
+        // Phase 6 / P1 — the media inventory describes ONE page. Without this
+        // reset, leaving a video would keep offering its tracks on the next
+        // page: same family as the two resets above, and the one most visible
+        // to the user because P4 puts it in the URL bar.
+        Media.Reset();
 
         // Reset burst counter on user-initiated navigations (not iframes/subresources)
         if (e.IsUserInitiated && _downloadGuard != null)
@@ -476,9 +493,18 @@ public partial class BrowserTab
                 // (MIME strings, container box names, counts) — no media bytes.
                 // Gate 1 turns this into a per-tab MediaInventory; today it
                 // only feeds the measurement log.
-                case "media-detect" when MediaProbeLog.Enabled:
-                    MediaProbeLog.RecordPage(_tabId, senderHost, json ?? "");
+                case "media-detect":
+                {
+                    if (!MediaPageReport.TryParse(json ?? "", out var report)) break;
+                    Media.ApplyPageReport(report);
+
+                    // The measurement log is P1's consumer. It is deliberately
+                    // the only one: an event with no subscriber is the dormant
+                    // wiring WiringSmokeTests exists to catch (lesson #21), and
+                    // the real consumer — the URL-bar chip — is P4.
+                    MediaProbeLog.RecordPage(_tabId, senderHost, Media.Describe());
                     break;
+                }
                 case "glance-show":
                 {
                     var url = node["url"]?.GetValue<string>() ?? "";

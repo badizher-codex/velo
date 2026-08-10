@@ -460,6 +460,179 @@ public class WiringSmokeTests
         }
     }
 
+    // ── Phase 6 / P1 — media detection ───────────────────────────────────
+
+    [Fact]
+    public void Every_injected_script_is_copied_to_the_output_by_the_csproj()
+    {
+        // A script loaded by LoadScriptResourceAsync but missing its
+        // <Content Include> is never copied to the output, so the loader
+        // returns null and the feature is silently inert — no exception, no
+        // log line, nothing. This is not hypothetical: cookie-bypass.js and
+        // dom-extractor.js sit in resources/scripts/ today with no csproj
+        // entry and no loader call, which is how the failure looks from the
+        // outside. This test pins the direction that actually matters: if the
+        // code asks for a script, the build must ship it.
+
+        var repoRoot = LocateRepoRoot();
+        var csproj   = File.ReadAllText(Path.Combine(repoRoot, "src", "VELO.App", "VELO.App.csproj"));
+
+        var srcFiles = Directory
+            .GetFiles(Path.Combine(repoRoot, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"));
+
+        var requested = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in srcFiles)
+        {
+            foreach (Match m in Regex.Matches(
+                         File.ReadAllText(file),
+                         @"LoadScriptResourceAsync\(\s*""([^""]+\.js)""\s*\)"))
+                requested.Add(m.Groups[1].Value);
+        }
+
+        Assert.NotEmpty(requested); // sanity — the injection ladder exists
+
+        var missing = requested
+            .Where(js => !csproj.Contains($@"resources\scripts\{js}", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            $"{missing.Count} script(s) are loaded at runtime but have no <Content Include> in " +
+            "VELO.App.csproj, so they never reach the build output and the feature is silently " +
+            "inert:\n  " + string.Join("\n  ", missing));
+    }
+
+    [Fact]
+    public void Every_page_to_host_message_is_stringified()
+    {
+        // Found the hard way in P1 gate 0.5: media-detect.js posted an object
+        // and NOTHING arrived — no error, no log. TryGetWebMessageAsString()
+        // THROWS ArgumentException for a non-string message (WebView2 SDK
+        // docs), and OnWebMessageReceived wraps its body in a try/catch that
+        // swallows it. The message just vanishes.
+        //
+        // Any script that posts to the host must therefore stringify.
+
+        var repoRoot = LocateRepoRoot();
+        var scripts  = Directory.GetFiles(Path.Combine(repoRoot, "resources", "scripts"), "*.js");
+        Assert.NotEmpty(scripts);
+
+        // Known offender, deliberately parked rather than silently tolerated:
+        // council-bridge.js posts object literals (its `post` helper at the
+        // top of the file), which means every council/* message is dropped
+        // before the host's fast-path ever sees it. Council Mode is paused
+        // (chunk H unfinished), which is why nobody noticed. Remove this entry
+        // when that is fixed — do not add new ones without the same writeup.
+        var knownUnstringified = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "council-bridge.js",
+        };
+
+        var offenders = new List<string>();
+        foreach (var path in scripts)
+        {
+            var name = Path.GetFileName(path);
+            if (knownUnstringified.Contains(name)) continue;
+
+            // Comments are stripped first. Without this, webview-cloak.js
+            // trips the test on a comment explaining that postMessage is the
+            // only bridge member VELO uses — it never posts anything. Same
+            // trap as Every_path_that_hands_a_tab_to_the_user, and a guard
+            // that fires on prose is not a guard.
+            var contents = StripJsComments(File.ReadAllText(path));
+
+            // Checked AT THE CALL SITE, not per file. The first version of
+            // this test asked whether the file contained JSON.stringify
+            // anywhere, and council-bridge.js passed it on line 177 — an
+            // unrelated return value — while still posting a raw object.
+            // A guard that green-lights the one file it was written for is
+            // worse than no guard.
+            var calls       = Regex.Matches(contents, @"\.postMessage\s*\(").Count;
+            var stringified = Regex.Matches(contents, @"\.postMessage\s*\(\s*JSON\.stringify\s*\(").Count;
+
+            if (calls > 0 && stringified < calls)
+                offenders.Add($"{name} ({calls - stringified} of {calls} call(s) post a non-string)");
+        }
+
+        Assert.True(offenders.Count == 0,
+            $"{offenders.Count} script(s) post to the host without JSON.stringify. " +
+            "TryGetWebMessageAsString throws on non-string messages and the handler swallows it, " +
+            "so those messages are lost silently:\n  " + string.Join("\n  ", offenders));
+    }
+
+    [Fact]
+    public void MediaDetect_script_shape_matches_the_host_parser()
+    {
+        // The script and MediaPageReport.TryParse are one contract split
+        // across two languages. A renamed field on either side produces an
+        // empty inventory forever — TryParse returns false and the handler
+        // breaks out with no log. Pin both sides against the same list.
+
+        var repoRoot = LocateRepoRoot();
+        var script   = Path.Combine(repoRoot, "resources", "scripts", "media-detect.js");
+        Assert.True(File.Exists(script), $"media-detect.js missing at {script}");
+
+        var js     = File.ReadAllText(script);
+        var parser = File.ReadAllText(Path.Combine(
+            repoRoot, "src", "VELO.Core", "Media", "MediaPageReport.cs"));
+        var events = File.ReadAllText(Path.Combine(
+            repoRoot, "src", "VELO.UI", "Controls", "BrowserTab.Events.cs"));
+
+        // The discriminator. Note it is `kind`, not `type` — `type` is taken
+        // by the Council fast-path that forks before the kind switch.
+        Assert.Contains("'media-detect'",       js);
+        Assert.Contains("kind",                 js);
+        Assert.Contains("\"media-detect\"",     parser);
+        Assert.Contains("case \"media-detect\"", events);
+
+        // Every field the parser reads must be a field the script writes.
+        foreach (var field in new[]
+        {
+            "buffers", "mime", "appends", "bytes", "encrypted", "first", "container",
+            "pssh", "sinf", "eme", "probed", "resolved", "setMediaKeys",
+            "encryptedEvents", "elements", "tag", "srcKind", "duration", "url",
+        })
+        {
+            Assert.True(js.Contains($"{field}", StringComparison.Ordinal),
+                $"media-detect.js does not produce the '{field}' field that MediaPageReport.TryParse reads");
+            Assert.True(parser.Contains($"\"{field}\"", StringComparison.Ordinal),
+                $"MediaPageReport.TryParse does not read the '{field}' field media-detect.js produces");
+        }
+
+        // Read-only means read-only: the script must never ship media bytes
+        // over the bridge. It reports counts and box names.
+        Assert.DoesNotContain("appendBuffer(data)", js.Replace(" ", ""));
+    }
+
+    [Fact]
+    public void Media_inventory_is_produced_from_both_layers_and_consumed()
+    {
+        // Lesson #21 — a detector can be built, wired and completely inert
+        // because nobody feeds it or nobody reads it. §9-§10 measured that
+        // BOTH evidence layers are required (the network cannot see YouTube;
+        // the page cannot see a progressive file's URL), so assert both
+        // producers, the lifecycle reset, and a consumer.
+
+        var srcRoot = LocateSrcRoot();
+        var events  = File.ReadAllText(Path.Combine(srcRoot, "VELO.UI", "Controls", "BrowserTab.Events.cs"));
+        var core    = File.ReadAllText(Path.Combine(srcRoot, "VELO.UI", "Controls", "BrowserTab.xaml.cs"));
+
+        // Producer 1 — the network layer, via the response hook.
+        Assert.Contains("WebResourceResponseReceived += OnWebResourceResponseReceived", core);
+        Assert.Contains("Media.RecordResponse(", events);
+
+        // Producer 2 — the page layer, via media-detect.js.
+        Assert.Contains("media-detect.js",       core);
+        Assert.Contains("Media.ApplyPageReport(", events);
+
+        // Lifecycle — an inventory that outlives its page describes the wrong one.
+        Assert.Contains("Media.Reset()", events);
+
+        // Consumer — P1's is the measurement log; P4 replaces it with the chip.
+        Assert.Contains("Media.Describe()", events);
+    }
+
     [Fact]
     public void CouncilAdapters_bundledJsonFiles_existWithRequiredFields()
     {
@@ -759,6 +932,20 @@ public class WiringSmokeTests
             string.Join("\n  ", loadedButNotSaved.Select(k => $"SettingKeys.{k}")) +
             "\nAdd the matching _settings.Set* in Save_Click, or (if intentionally " +
             "read-only) add it to readOnlyDisplay in this test.");
+    }
+
+    /// <summary>
+    /// Removes // line comments and /* block */ comments so a scan matches
+    /// code rather than the prose explaining it.
+    /// </summary>
+    private static string StripJsComments(string source)
+    {
+        var withoutBlocks = Regex.Replace(source, @"/\*.*?\*/", "", RegexOptions.Singleline);
+        return string.Join('\n', withoutBlocks.Split('\n').Select(line =>
+        {
+            var idx = line.IndexOf("//", StringComparison.Ordinal);
+            return idx >= 0 ? line[..idx] : line;
+        }));
     }
 
     private static HashSet<string> SettingKeyMatches(string text, string pattern)

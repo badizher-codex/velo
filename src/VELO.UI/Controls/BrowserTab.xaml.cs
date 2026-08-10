@@ -2,6 +2,7 @@ using System.Windows.Controls;
 using Microsoft.Web.WebView2.Core;
 using VELO.Core.Containers;
 using VELO.Core.Downloads;
+using VELO.Core.Media;
 using VELO.Data.Repositories;
 using VELO.Security.AI;
 using VELO.Security.AI.Models;
@@ -38,6 +39,15 @@ public partial class BrowserTab : UserControl
     public event EventHandler? CloseRequested;
 
     private string _tabId = "";
+
+    /// <summary>
+    /// Phase 6 / P1 — read-only media inventory for this tab. Fed from both
+    /// evidence sources (network responses and media-detect.js) because §9-§10
+    /// of the analysis measured that neither is sufficient alone. Reset on
+    /// every navigation. The URL-bar chip that reads it arrives in P4.
+    /// </summary>
+    public MediaInventory Media { get; } = new();
+
     private bool _webViewInitialized;
     private CoreWebView2Environment? _env;
     private readonly List<string> _allowedOnce = [];

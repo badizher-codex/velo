@@ -214,7 +214,7 @@ Throwaway instrumented build, no production code, discarded afterwards.
 
 **Exit gate:** if the network layer does not see segments, P1 drops the sniffer and goes page-side only. If neither layer sees them, the feature stops here and we say so.
 
-### P1 — Detection, read-only
+### P1 — Detection, read-only ✅ **DONE — see §9 (gate 0), §10 (gate 0.5), §11 (gates 1 & 3)**
 
 `resources/scripts/media-detect.js` + inventory in C#. Nothing downloadable yet.
 
@@ -469,7 +469,61 @@ The "unaligned" appends are the important nuance: YouTube feeds the SourceBuffer
 
 ---
 
-## 11. What is deliberately not in this plan
+## 11. P1 Gate 1 — the classifier and the inventory, built 2026-08-10
+
+**Shipped:** `MediaClassifier`, `MediaPageReport`, `MediaInventory` (`src/VELO.Core/Media/`), fed from both layers by `BrowserTab`, reset on navigation, with the measurement log as its consumer. Nothing downloads. 30 new tests, 769 total.
+
+### The classifier is three separate rules, on purpose
+
+Splitting them is what makes them arguable individually:
+
+- `ClassifyResponse` — normalised Content-Type → class. Manifests are matched **before** audio, because two of the four HLS types begin with `audio/`. `octet-stream` is media only with manifest provenance. `vnd.yt-ump` is deliberately not media at this layer.
+- `IsUserContent` — the size floor separating content from furniture. **This is a heuristic and it is named as one**: YouTube's four UI beeps are 6.1–7.0 KB, the smallest real content measured was 788 KB, so the floor sits at 100 KB. The principled discriminator (is this attached to a media element the user can see) needs page-layer coverage that today only exists for adaptive streams.
+- `IsProtected` — use, never capability. `setMediaKeys`, an `encrypted` event, or `pssh`/`sinf` in the init segment. Probing 13 key systems is not protection.
+
+### Verification
+
+**Unit tests (26).** Every string in them is measured, not invented — the negatives come first because three of the four failures Gate 0 found are false *positives*, which a happy-path suite goes green on. Covered: font-as-octet-stream is not media · a segment is media only by provenance · `vnd.yt-ump` is not recognisable on the network · an `.mp4` URL serving `text/html` is not media · all four HLS manifest types are manifests and not audio tracks · the four UI beeps classify as audio but not as content · `Content-Range` beats `Content-Length` for total size · the four measured SourceBuffer MIME strings yield the right track and codecs · probing is not protection, each of the four use signals is.
+
+**The tests were run red before being trusted.** Reordering `ClassifyResponse` to test `audio/` before manifests — the exact mistake the measurement warned about — turns 2 of them red. Restored, 26 green.
+
+**Smoke tests (4), file-scan, following `WiringSmokeTests`:**
+
+1. Every script loaded by `LoadScriptResourceAsync` has a `<Content Include>`. Verified red by removing `media-detect.js`'s entry.
+2. Every page→host `postMessage` stringifies. **This one was decorative on the first attempt** — it asked whether the file contained `JSON.stringify` anywhere, and `council-bridge.js` passed on line 177, an unrelated return value, while still posting a raw object. Now checked at the call site, which does catch it. `council-bridge.js` is parked in a documented allowlist rather than silently tolerated.
+3. `media-detect.js`'s field names match `MediaPageReport.TryParse`'s, in both directions, plus the `kind` discriminator across script, parser and switch.
+4. The inventory has both producers, the navigation reset, and a consumer — the failure mode lesson #21 exists for.
+
+**Runtime, against what §9–§10 measured:**
+
+| Site | Inventory | Matches |
+|---|---|---|
+| w3schools | `progressive=1 manifests=0 tracks=[]` | ✅ one `video/mp4`; the four beeps excluded by the size floor |
+| hls.js demo | `manifests=3 tracks=[Audio:mp4a.40.2, Video:avc1.64001f]` | ✅ |
+| YouTube | `progressive=0 manifests=0 tracks=[Audio:opus, Video:av01.0.08M.08]` | ✅ network blind, page sees both tracks |
+| example.com | empty — no entry at all | ✅ the negative |
+
+Per-tab isolation held: with several tabs open, each inventory described its own page and none leaked.
+
+### Two bugs found on the way, both silent
+
+- A page→host message posted as an object is **lost with no trace**. `TryGetWebMessageAsString()` throws for non-strings and `OnWebMessageReceived`'s `try/catch` swallows it. Cost an hour of "the script runs but nothing arrives". Now guarded.
+- A guard that matches inside comments guards nothing. The stringify test first tripped on `webview-cloak.js`, which only *mentions* `postMessage` in prose — the same trap already documented in `Every_path_that_hands_a_tab_to_the_user`. Comments are stripped now.
+
+### Still open, deliberately
+
+- **The DRM rule is verified negatively only.** Free content measured clean, probing-is-not-protection is unit-tested, but no protected stream has been through it at runtime. The positive case needs a YouTube rental and stays on Gate 3's list, unticked.
+- **`media-detect.js` is still gated on `VELO_MEDIA_PROBE`.** Two sites is thin evidence that wrapping the media path is inert, and v2.4.53 is the reason to be careful. Un-gating needs a wider pass.
+- **Segment provenance is not implemented.** The classifier takes the flag, nothing sets it yet; manifest parsing is P2's, and the MSE layer covers adaptive streams for detection purposes today.
+- **OPEN-2** — the mix is now four sites.
+
+### Exit gate
+
+**Passed.** Detection is real, measured against the reference set, and read-only. P2 may start.
+
+---
+
+## 12. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).
