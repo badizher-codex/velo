@@ -47,6 +47,35 @@
     const eme = { probed: [], resolved: [], setMediaKeys: 0, encryptedEvents: 0 };
     let dirty = false;
 
+    // blob: URL -> MediaSource, so a SourceBuffer can be traced back to the
+    // element actually playing it. YouTube builds a NEW MediaSource on quality
+    // switches, ads and autoplay-next, and every one of them adds its own
+    // SourceBuffers — without this the panel accumulated ten stale pairs of
+    // dead tracks, most reading 0 B, and reported "20 found" on one video.
+    const sourceUrls = new WeakMap();
+    try {
+        const origCreate = URL.createObjectURL;
+        URL.createObjectURL = function (obj) {
+            const url = origCreate.apply(URL, arguments);
+            try {
+                if (window.MediaSource && obj instanceof window.MediaSource) sourceUrls.set(obj, url);
+            } catch (_) { }
+            return url;
+        };
+    } catch (_) { }
+
+    // The MediaSource currently attached to a media element, by blob URL.
+    const liveSourceUrl = () => {
+        try {
+            const els = document.querySelectorAll('video,audio');
+            for (let i = 0; i < els.length; i++) {
+                const src = els[i].currentSrc || els[i].src || '';
+                if (src.startsWith('blob:')) return src;
+            }
+        } catch (_) { }
+        return '';
+    };
+
     // ── Container sniffing ───────────────────────────────────────────────
     // ISOBMFF is [4-byte big-endian size][4-char type]; walking the top level
     // is enough to tell an init segment (ftyp/moov) from a media segment
@@ -139,9 +168,19 @@
                         first: null,     // structure of the first append (init segment?)
                         later: {},       // box-signature -> count, for every later append
                         encrypted: false,
+                        // The blob: URL of the MediaSource this belongs to.
+                        // Reporting filters on it so a replaced MediaSource's
+                        // buffers stop being offered as if they were live.
+                        srcUrl: sourceUrls.get(this) || '',
                     };
                     buffers.push(entry);
-                    sb.__veloIndex = entry.i;
+                    // Bounded: a long session on an autoplay playlist would
+                    // otherwise grow this array without limit.
+                    if (buffers.length > 40) buffers.splice(0, buffers.length - 40);
+                    // The entry itself, not an index into the array — trimming
+                    // above shifts indices and would silently rebind old
+                    // SourceBuffers to the wrong entry.
+                    sb.__veloEntry = entry;
                     dirty = true;
                 } catch (_) { }
                 return sb;
@@ -154,7 +193,7 @@
                 // Inspection is wrapped separately from the call so a bug in
                 // the sniffer can never stop the player from being fed.
                 try {
-                    const entry = buffers[this.__veloIndex];
+                    const entry = this.__veloEntry;
                     if (entry) {
                         const len = (data && (data.byteLength || 0)) || 0;
                         entry.appends++;
@@ -245,13 +284,37 @@
     // ── Reporting ────────────────────────────────────────────────────────
     // Throttled and change-gated: appendBuffer fires constantly during
     // playback and the bridge must not become the bottleneck.
+    // Only the tracks of the MediaSource currently attached to a media
+    // element. Everything else is a corpse: YouTube replaces the MediaSource
+    // on quality switches, ads and autoplay-next, and reporting all of them
+    // turned one video into "20 found" — ten pairs of dead tracks, most
+    // reading 0 B, each offering itself as if it were the thing on screen.
+    //
+    // Falls back to the newest pair when nothing can be matched (no element
+    // yet, or a browser that does not expose currentSrc as the blob URL), so
+    // a failure to match degrades to "slightly stale" rather than "empty".
+    const liveBuffers = () => {
+        const live = liveSourceUrl();
+        const matched = live ? buffers.filter(b => b.srcUrl === live) : [];
+        if (matched.length) return matched;
+
+        const withUrls = buffers.filter(b => b.srcUrl);
+        if (!withUrls.length) return buffers.slice(-4);
+
+        const newest = withUrls[withUrls.length - 1].srcUrl;
+        return buffers.filter(b => b.srcUrl === newest);
+    };
+
     setInterval(() => {
         if (!dirty) return;
         dirty = false;
         post({
             kind: 'media-detect',
             url: location.href,
-            buffers: buffers,
+            buffers: liveBuffers().map(b => ({
+                i: b.i, mime: b.mime, appends: b.appends, bytes: b.bytes,
+                first: b.first, encrypted: b.encrypted,
+            })),
             eme: eme,
             elements: elements(),
         });
