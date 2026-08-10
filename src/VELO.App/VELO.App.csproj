@@ -75,6 +75,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>resources\scripts\webview-cloak.js</Link>
     </Content>
+    <Content Include="..\..\resources\scripts\media-detect.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>resources\scripts\media-detect.js</Link>
+    </Content>
     <Content Include="..\..\resources\council\adapters\claude.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>resources\council\adapters\claude.json</Link>

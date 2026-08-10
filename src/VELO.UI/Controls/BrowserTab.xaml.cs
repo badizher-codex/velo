@@ -6,6 +6,7 @@ using VELO.Data.Repositories;
 using VELO.Security.AI;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
+using VELO.UI.Utilities;
 using VELO.Vault;
 
 namespace VELO.UI.Controls;
@@ -256,6 +257,32 @@ public partial class BrowserTab : UserControl
             System.Diagnostics.Trace.WriteLine($"[VELO] WebView cloak inject failed: {ex.Message}");
         }
 
+        // Phase 6 / P1 Gate 0.5 — media detection, read-only.
+        // Must come after the cloak (it resolves __veloBridge) and before any
+        // page script, since it wraps MediaSource/SourceBuffer and only sees
+        // what is created after it installs.
+        //
+        // Gated on the probe switch on purpose: this wraps the media path, and
+        // wrapping the media path is exactly what broke playback in YouTube
+        // ad-block v0.2. It goes unconditional in Gate 1, once a play-through
+        // has proven it inert.
+        if (MediaProbeLog.Enabled)
+        {
+            try
+            {
+                var mediaScript = await LoadScriptResourceAsync("media-detect.js");
+                if (mediaScript != null)
+                    await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
+                else
+                    System.Diagnostics.Trace.WriteLine(
+                        "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] Media detect inject failed: {ex.Message}");
+            }
+        }
+
         // Cookie consent auto-dismiss (embedded — no external files)
         await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(ConsentScript);
 
@@ -409,6 +436,10 @@ public partial class BrowserTab : UserControl
         // Hooks — handler bodies live in BrowserTab.Events.cs (v2.4.31).
         WebView.CoreWebView2.WebResourceRequested += OnWebResourceRequested;
         WebView.CoreWebView2.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+        // Phase 6 / P1 — response side. Deliberately NOT filtered: the filter
+        // above governs WebResourceRequested only, and this event is the sole
+        // place the response's Content-Type is visible (see the handler).
+        WebView.CoreWebView2.WebResourceResponseReceived += OnWebResourceResponseReceived;
         WebView.CoreWebView2.NavigationStarting += OnNavigationStarting;
         WebView.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
         WebView.CoreWebView2.DocumentTitleChanged += OnTitleChanged;

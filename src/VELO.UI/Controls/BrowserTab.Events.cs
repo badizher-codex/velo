@@ -12,6 +12,7 @@ using VELO.Security.AI;
 using VELO.Security.AI.Models;
 using VELO.Security.Guards;
 using VELO.UI.Themes;
+using VELO.UI.Utilities;
 
 namespace VELO.UI.Controls;
 
@@ -45,6 +46,55 @@ public partial class BrowserTab
             try { deferral.Complete(); } catch { }
             try { deferral.Dispose();  } catch { }
         }
+    }
+
+    // Phase 6 / P1 — the response side of the network layer.
+    //
+    // WebResourceRequested (above) sees where a request is GOING; it carries
+    // e.Request and therefore no response headers. Media cannot be recognised
+    // from that alone: P0 measured 370 requests and found zero URLs ending in
+    // .mp4/.m3u8/.mpd/.m4s (YouTube serves one videoplayback? endpoint driven
+    // by Range headers), and CoreWebView2WebResourceContext lied too — the
+    // actual video stream arrived tagged XmlHttpRequest while the only
+    // requests tagged Media were four UI sound effects. What identifies media
+    // is the response's Content-Type, and this is the only event that has it.
+    //
+    // Gate 1 hangs the classifier + per-tab MediaInventory off this handler.
+    // Today it only feeds MediaProbeLog, which is Gate 0 instrumentation and
+    // is deleted once the measured Content-Type table lands in the analysis
+    // doc — the handler and its registration stay.
+    private void OnWebResourceResponseReceived(
+        object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
+    {
+        if (!MediaProbeLog.Enabled) return;
+
+        try
+        {
+            var response = e.Response;
+            if (response is null) return;
+
+            var headers = response.Headers;
+            string Header(string name) =>
+                headers is not null && headers.Contains(name) ? headers.GetHeader(name) : "";
+
+            // The Range header lives on the REQUEST, and it is the tell for
+            // YouTube's single-endpoint delivery — without it a videoplayback?
+            // response looks like one ordinary file fetch.
+            var reqHeaders = e.Request?.Headers;
+            var range = reqHeaders is not null && reqHeaders.Contains("Range")
+                ? reqHeaders.GetHeader("Range")
+                : "";
+
+            MediaProbeLog.Record(
+                _tabId,
+                e.Request?.Uri ?? "",
+                response.StatusCode,
+                Header("Content-Type"),
+                Header("Content-Length"),
+                range,
+                Header("Content-Range"));
+        }
+        catch { /* instrumentation must never take a page down */ }
     }
 
     private Task ProcessRequestAsync(CoreWebView2WebResourceRequestedEventArgs e)
@@ -420,6 +470,15 @@ public partial class BrowserTab
                     _pasteGuard.Process(_tabId, senderHost, signal);
                     break;
                 }
+                // Phase 6 / P1 Gate 0.5 — read-only media inventory from the
+                // page. Uses `kind` like every other feature; `type` is taken
+                // by the Council fast-path above. Carries structure only
+                // (MIME strings, container box names, counts) — no media bytes.
+                // Gate 1 turns this into a per-tab MediaInventory; today it
+                // only feeds the measurement log.
+                case "media-detect" when MediaProbeLog.Enabled:
+                    MediaProbeLog.RecordPage(_tabId, senderHost, json ?? "");
+                    break;
                 case "glance-show":
                 {
                     var url = node["url"]?.GetValue<string>() ?? "";

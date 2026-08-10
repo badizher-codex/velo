@@ -222,7 +222,9 @@ Throwaway instrumented build, no production code, discarded afterwards.
 - Bridge via `window.__veloBridge` with the `chrome.webview` fallback, injected **after** `webview-cloak.js` (V-1) → `OnWebMessageReceived` → per-tab `MediaInventory`.
 - Classify: progressive · HLS · DASH · **DRM-protected** · unknown.
 
-**Verification:** unit tests on the classifier (URL/MIME → class) · smoke test that the script is valid and its bridge shape matches the C# parser (the `WiringSmokeTests` pattern) · runtime on the P0 reference set, where the inventory must match what P0 measured. Iteration is ~10 s per change (scripts are re-read per tab, lesson #42).
+**Verification:** unit tests on the classifier · smoke test that the script is valid and its bridge shape matches the C# parser (the `WiringSmokeTests` pattern) · runtime on the reference set, where the inventory must match what was measured. Iteration is ~10 s per change — but note `LoadScriptResourceAsync` runs inside `EnsureWebViewInitializedAsync`, so the loop is "open a **new tab**", not "reload the current one" (lesson #42).
+
+⚠️ **Superseded in part by §9.** P1 opens with **Gate 0**, which measured the Content-Type rule §8 assumed and found it insufficient. The classifier signature is `(url, contentType, contentLength, contentRange, manifestProvenance, pageMseEvidence)` — *not* URL/MIME → class. Read §9 before writing it.
 
 ### P2 — Download engine
 
@@ -313,8 +315,162 @@ Needs discrete audio segment URLs. YouTube does not expose them as separate file
 
 ---
 
-## 9. What is deliberately not in this plan
+## 9. P1 Gate 0 — the Content-Type table, measured 2026-08-10
+
+### Why this gate exists
+
+§8 concluded "classification must be by response `Content-Type`". That conclusion was reached **by elimination** — URL extensions matched nothing, `ResourceContext` reported the video stream as `XmlHttpRequest` — and not by measurement: P0 instrumented `WebResourceRequested`, which carries the request and therefore **no response headers**. Not one Content-Type was ever observed. Lesson #40 says measure the hypothesis before coding against it, so this gate measured it.
+
+Two things had to be built first, both verified against real code:
+
+- **There was no response hook anywhere.** A grep for `WebResourceResponseReceived|ResponseReceived|ContentType|Content-Type` over `src/` returned zero matches. The only network hook was `WebResourceRequested` (`BrowserTab.xaml.cs:410` → `ProcessRequestAsync`, `BrowserTab.Events.cs:50`). `CoreWebView2.WebResourceResponseReceived` is new event surface that the P1 plan did not list. It is now registered next to the request hook and **stays** — the Gate 1 classifier hangs off it.
+- **The probe itself is temporary.** `MediaProbeLog` (`src/VELO.UI/Utilities/MediaProbeLog.cs`) is off unless `VELO_MEDIA_PROBE=1`, writes `%LOCALAPPDATA%\VELO\logs\media-probe.tsv`, and is deleted once this section is settled. The switch was run in **both directions** before any capture was trusted: with it unset, no file is created at all; with it set, rows appear.
+
+One API correction worth recording: `CoreWebView2WebResourceResponseReceivedEventArgs` exposes only `Request` and `Response` — **no `ResourceContext`**. P0's "the stream arrives tagged `XmlHttpRequest`" cannot be re-confirmed on this event, so the probe records `Content-Range` in that column instead.
+
+### What was captured
+
+765 responses across three sites: the w3schools `<video>` page (progressive), a YouTube video, and the hls.js demo (real HLS — the source P0 never got, since dash.js loaded nothing without interaction).
+
+### The result: the Content-Type rule fails, in four different ways
+
+**1. A `video/*` or `audio/*` filter over the whole capture matches exactly seven rows — and four of them are wrong.**
+
+| Content-Type | URL | What it actually is |
+|---|---|---|
+| `video/mp4` ×3 | `w3schools.com/html/mov_bbb.mp4` | ✅ the real progressive video |
+| `audio/mpeg` ×4 | `youtube.com/s/search/audio/{open,success,failure,no_input}.mp3` | ❌ UI sound effects |
+
+Those are **the same four false positives** P0 found under `ResourceContext == Media`. The naive Content-Type rule reproduces P0's failure exactly: it finds the four beeps and misses the video.
+
+**2. YouTube's stream is not a media type at all.**
+
+```
+200  application/vnd.yt-ump   rr10---sn-0opoxu-j8we.googlevideo.com/videoplayback?expire=…
+```
+
+`vnd.yt-ump` is YouTube's proprietary UMP framing. No `Content-Length`, no `Range` request header, and the URL carries **no `mime=` and no `range=` parameter** — the itag-style parameters the older delivery used are gone. Only **two** `videoplayback` responses appeared for the whole session, i.e. the media arrives over a long-lived multiplexed connection rather than as discrete segment fetches.
+
+This is bigger than a classification problem, and it lands on §0/§4: the audio-video split P0 observed at the MSE layer (two SourceBuffers, `audio/webm opus` + `video/mp4 av01`) is demultiplexed **client-side out of one UMP stream**.
+
+**Confirmed with real playback.** A second pass with the video actually playing produced 9 more `videoplayback` responses — a burst of 5 in 3 s (buffer fill) then a steady top-up every 12–15 s. Every one of them `application/vnd.yt-ump`, no `Content-Length`, no `Range`, no `Content-Range`. Comparing all 12 URLs parameter by parameter:
+
+- all 12 URLs are **distinct**, but the **only parameter that varies is `rn`** — a request counter;
+- `id` is identical across all of them — one stream identifier, not one per track;
+- there is **no `itag`, no `mime`, no `range`** parameter anywhere in the URL;
+- the URL carries **`sabr`**.
+
+So YouTube addresses everything through **one URL**, and track selection plus byte ranges travel in the request body (SABR), not the address. There is no audio URL and no video URL to capture — "grab the audio stream" has nothing to grab, and no amount of response-header classification will change that. (The HTTP method was not recorded by the probe; that SABR uses POST with a protobuf body is inference, not measurement.)
+
+**3. The HLS manifest lies about being audio.**
+
+```
+200  audio/mpegurl   test-streams.mux.dev/x36xhzz/x36xhzz.m3u8          (master)
+200  audio/mpegurl   …/url_8/193039199_mp4_h264_aac_fhd_7.m3u8          (variant)
+```
+
+Not `application/vnd.apple.mpegurl`, and it says **audio** for an H.264+AAC *video* stream. A classifier mapping `audio/*` → "audio track" would offer an audio-only download for a video.
+
+**4. HLS segments are invisible, and share their type with fonts.**
+
+```
+200  application/octet-stream   …/url_591/193039199_mp4_h264_aac_fhd_7.ts   13184440
+200  application/octet-stream   …/url_592/…                                  6507432
+…   (591 → 601 sequential — playback genuinely ran here)
+200  application/octet-stream; charset=utf-8   cdnjs.cloudflare.com/…/fa-solid-900.woff2
+```
+
+Segments answer `application/octet-stream`. So does Font Awesome. Content-Type cannot separate them.
+
+### Decision — classification is multi-signal, and Content-Type is only one axis
+
+The P0 exit-gate conclusion is **necessary but not sufficient**. Content-Type is authoritative for exactly one case and useless or actively misleading for the rest:
+
+| Case | What identifies it | Content-Type's role |
+|---|---|---|
+| Progressive file | `video/*` (excluding known-UI audio), plus `Content-Range`/`Content-Length` | **authoritative** |
+| HLS/DASH **manifest** | `*mpegurl` / `dash+xml` **and** parsing the body to confirm it is a playlist | necessary, not sufficient — the type lies about audio-vs-video |
+| HLS/DASH **segment** | **being referenced by a manifest we already parsed** | none — `octet-stream` is shared with fonts |
+| YouTube / UMP | page-layer MSE evidence + the `videoplayback` URL family | none — `vnd.yt-ump` is in no registry |
+
+So the segment rule is **provenance, not headers**: a response is a segment because a manifest we fetched names it. That also settles the audio/video split for real HLS — it comes from the manifest's `EXT-X-MEDIA` / `AdaptationSet` declarations, not from any header.
+
+**Consequence for the plan:** Gate 1's classifier takes `(url, contentType, contentLength, contentRange, manifestProvenance, pageMseEvidence)`, not `(url, contentType)`. The negative tests listed for Gate 1 now have measured strings behind them: `audio/mpegurl` must **not** classify as an audio track, `application/octet-stream` must **not** classify as media on its own, and `youtube.com/s/search/audio/open.mp3` must **not** appear in an inventory.
+
+### Open, carried forward
+
+- **OPEN-2** — the mix is now three sites, still small, but the shape is clearer: progressive is trivial, standards-compliant HLS is fully addressable via manifest provenance, and YouTube is its own problem.
+- **OPEN-4** — now unblocked for the first time: `test-streams.mux.dev` gives real discrete `.ts` segments to test concatenation against.
+- **YouTube/UMP — resolved as a measurement, open as a decision.** UMP/SABR holds under real playback, so **D-2 ("YouTube is in scope, except anything paid") and §10 ("no YouTube-specific extraction path") are now in direct conflict** and one of them has to give. Three ways out, none of them free:
+
+  **(a) Drop YouTube from scope.** Amend D-2. The generic detector sees one opaque `vnd.yt-ump` stream from one URL and can honestly offer nothing. Consistent with §10, costs the site the request named first.
+
+  **(b) A YouTube-specific SABR path.** Parse the request body, reconstruct per-track fetches. This is precisely the per-site treadmill §10 forbids, against a protocol Google changes at will. The ad-block precedent is the argument against: v0.1 never worked, v0.2 broke playback, v0.3 took three attempts — and that was against the DOM, which is *more* stable than a private wire protocol.
+
+  **(c) Capture at the MSE layer instead of the network.** Hook `SourceBuffer.appendBuffer` and take the bytes the player has already demultiplexed in memory. This never touches UMP or SABR — it is generic MSE and would work on any adaptive site, YouTube included, with no per-site code. P0 already proved the hook point fires and reports the codecs per SourceBuffer.
+
+  **(c) is unmeasured** — a design claim of the same kind V-8 was before P0 tested it, and it must be treated that way. Its known costs: the capture is real-time (you get the video no faster than you watch it), it buffers the media in page memory, and it yields only what was actually played. Its known bonus: on DRM content the buffers are encrypted, so it declines protected content by construction rather than by policy — the same place §5 already draws the line.
+
+### Exit gate
+
+**Not passed as originally written.** The rule this gate existed to check does not survive contact: single-signal Content-Type classification fails on three of the four cases measured. Gate 1 may start on the revised multi-signal design above; it may **not** start on the §8 rule.
+
+---
+
+## 10. P1 Gate 0.5 — the MSE capture claim, measured 2026-08-10
+
+Gate 0 left option **(c)** — capture at the MSE layer instead of the network — as the only route that keeps YouTube in scope without per-site code, and explicitly flagged it as **unmeasured**. This gate measured it.
+
+**Instrument:** `resources/scripts/media-detect.js`, injected after `webview-cloak.js`, gated on `VELO_MEDIA_PROBE` (wrapping the media path is what broke playback in YouTube ad-block v0.2, so it stays opt-in until proven inert). It wraps `MediaSource.addSourceBuffer` and `SourceBuffer.appendBuffer` and reports **structure only** — MIME strings, container box names, append counts, byte totals. No media bytes cross the bridge.
+
+**One bug found on the way in, worth recording because it is invisible:** the script first posted its payload as an object, copying `council-bridge.js`. Nothing arrived and nothing was logged. `TryGetWebMessageAsString()` (`BrowserTab.Events.cs:380`) **throws `ArgumentException`** for a non-string message — it does not return null — and `OnWebMessageReceived` wraps its body in a `try/catch` that swallows it. Every page→host message must be `JSON.stringify`'d, as `autofill.js:28` and `glance-hover.js:24` do. `council-bridge.js` does not, which is filed separately.
+
+### Result — the claim holds, and the MSE layer normalises what the network obfuscates
+
+**hls.js demo** (network layer: `audio/mpegurl` manifests, `application/octet-stream` segments):
+
+| SourceBuffer | MIME | First append | Later appends |
+|---|---|---|---|
+| 0 | `audio/mp4;codecs=mp4a.40.2` | `ftyp,moov` (628 B) | `moof+mdat` ×14, `ftyp+moov` ×1 |
+| 1 | `video/mp4;codecs=avc1.64001f` | `ftyp,moov` (729 B) | `moof+mdat` ×14, `ftyp+moov` ×1 |
+
+Two cleanly separated tracks, each a textbook fMP4 stream: initialisation segment followed by media segments. hls.js **transmuxes the MPEG-TS segments into fMP4 in the browser** before appending — so the bytes at this layer are standard and per-track, even though the network delivered opaque `.ts` blobs. The stray mid-stream `ftyp+moov` is a re-initialisation on a quality switch, and it is a design constraint: a capture must handle a mid-stream init change.
+
+**YouTube** (network layer: one `videoplayback` URL, `application/vnd.yt-ump`, SABR):
+
+| SourceBuffer | MIME | First append | Later appends |
+|---|---|---|---|
+| 0 | `audio/webm; codecs="opus"` | `EBML` (259 B) | `Cluster` ×3, unaligned ×40 |
+| 1 | `video/mp4; codecs="av01.0.08M.08"` | `ftyp,moov` (700 B) | `moof+mdat` ×5, unaligned ×162 |
+
+**The UMP/SABR opacity is completely bypassed.** The page receives YouTube's audio and video as two separate, labelled, unencrypted byte streams — the exact audio/video split the feature is built on, on the site the network layer could say nothing about.
+
+The "unaligned" appends are the important nuance: YouTube feeds the SourceBuffer **arbitrary byte slices** as they arrive from the UMP stream, so an individual append does not start on a container boundary. That is not corruption — it is a continuous per-track byte stream cut at arbitrary offsets. **A capture must concatenate in append order and must never assume an append boundary is a segment boundary.**
+
+### What this does and does not prove
+
+**Proves:** the tracks are separable, labelled with codecs, unencrypted on free content, and arrive as a coherent per-track byte stream on both a standards-compliant HLS source and on YouTube. The audio track alone is a standalone Opus-in-WebM stream — concatenated, that is a playable audio file with **no muxer**, which is what §4 hoped for and D-1 deferred.
+
+**Does not prove:** that a concatenation actually plays. This gate measured **structure, not validity**. Writing bytes to disk and playing the result is P2's job, and OPEN-4 stays open until it does.
+
+**Also measured:** playback ran normally on both sites with the hooks installed (hls.js 16 appends per track, YouTube 168 video appends), so the wrapper is inert on the media path so far. That is the v2.4.53 failure mode checked, not assumed.
+
+### Consequences for the plan
+
+1. **The D-2 / §11 conflict dissolves.** YouTube stays in scope with **zero** YouTube-specific code — the detector is generic MSE, and it would work identically on any adaptive site. Neither decision has to give.
+2. **The network layer is demoted.** After Gate 0 it looked load-bearing; it is not. Its remaining jobs are the progressive case (`video/mp4` direct fetch, which needs no MSE at all) and manifest provenance for HLS/DASH. It cannot see YouTube and no longer needs to.
+3. **Capture cannot buffer in the page.** The hls.js video track alone reached **91 MB in about 40 seconds**. A full film would be gigabytes of page memory. Whatever P2 builds must stream appended bytes to the host as they arrive, chunked, not accumulate them in JS. This is a firm constraint discovered here, not a preference.
+4. **Capture is real-time by construction.** You get what was played, at the speed it was played. That is a product decision to state in the UI, not a bug to fix.
+5. **The DRM rule gets its correct shape.** `pssh`/`sinf` in the initialisation segment, plus `setMediaKeys` and `encrypted` events, are all recorded separately from mere `requestMediaKeySystemAccess` probes. Both free sources measured clean on all counters. The positive case still needs a protected source — that is Gate 3's YouTube-rental check.
+
+### Exit gate
+
+**Passed.** Option (c) is real. Gate 1 proceeds on the multi-signal classifier with MSE evidence as the primary axis for adaptive streams and Content-Type as the authority for progressive files.
+
+---
+
+## 11. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).
-- A YouTube-specific extraction path. If the generic detector cannot see it, it is out of scope — a per-site extractor is a maintenance treadmill and the ad-block history says so.
+- A YouTube-specific extraction path. If the generic detector cannot see it, it is out of scope — a per-site extractor is a maintenance treadmill and the ad-block history says so. **§10 removed the pressure on this rule**: the generic MSE detector sees YouTube's tracks perfectly well, so nothing site-specific is needed and this stays intact.
