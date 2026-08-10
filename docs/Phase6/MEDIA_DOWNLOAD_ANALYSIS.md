@@ -226,7 +226,7 @@ Throwaway instrumented build, no production code, discarded afterwards.
 
 ⚠️ **Superseded in part by §9.** P1 opens with **Gate 0**, which measured the Content-Type rule §8 assumed and found it insufficient. The classifier signature is `(url, contentType, contentLength, contentRange, manifestProvenance, pageMseEvidence)` — *not* URL/MIME → class. Read §9 before writing it.
 
-### P2 — Download engine
+### P2 — Download engine ⚠️ **SPLIT — see §12.** P2a-1 done; P2a-2 (manifests) and P2b (MSE capture) open
 
 `MediaDownloader` in `VELO.Core`: `HttpClient`, streaming to disk, progress, cancel, resume. `DownloadItem` extended to represent a multi-part job (N URLs, total unknown until the manifest is parsed).
 
@@ -523,7 +523,49 @@ Per-tab isolation held: with several tabs open, each inventory described its own
 
 ---
 
-## 12. What is deliberately not in this plan
+## 12. P2 — the engine, and why it is two engines
+
+### P2 as written no longer describes the problem
+
+§7 planned one `MediaDownloader`: HttpClient, streaming to disk, progress, cancel, resume. That covers the paths where media has a URL. §10 measured that one of the three paths has **no URL at all** — YouTube's SABR transport addresses everything through a single `videoplayback` endpoint whose only varying parameter is a request counter, and the per-track bytes exist only inside the page.
+
+So the engine splits, and the split is not a preference:
+
+| Path | How the bytes are obtained | Engine |
+|---|---|---|
+| Progressive file | one HTTP GET | **P2a** — HTTP downloader |
+| Standards-compliant HLS/DASH | parse manifest → one GET per segment | **P2a** + a manifest parser |
+| MSE-only (YouTube, and any SABR-style site) | no URL exists; bytes arrive at `appendBuffer` | **P2b** — a capture sink over the bridge |
+
+### P2a-1 — done 2026-08-10
+
+`MediaDownloader` (`src/VELO.Core/Media/`). Streams one URL to disk with progress, cancel and resume. 13 tests, 782 total.
+
+Bytes land in a sibling `.part` and are renamed into place only on success, so the destination never holds a half-written file. A cancelled transfer **keeps** its `.part` — that is the resume point — which differs from `UpdateDownloader` deliberately: an interrupted update is worthless, an interrupted film is not.
+
+Two behaviours exist because they were measured, not because they are good practice in the abstract:
+
+- **Browser-realistic headers.** OPEN-3 measured a public `.mp4` answering **403 with no User-Agent and 206 with one**. Every other `HttpClient` in VELO announces itself as `VELO-Browser/…` (`TLSGuard.cs:38`, `BlocklistManager.cs:88`, `SentinelModelInstaller.cs:56`, and three more) — correct for VELO's own APIs, exactly wrong here. The caller should pass `CoreWebView2Settings.UserAgent` from the tab that is playing the media; the constant is a fallback, not the intended path. Tested in both directions: a browser UA gets the file, a VELO-branded one gets 403.
+- **Resume must survive a server that ignores `Range`.** Asking for `bytes=100000-` and getting `200` means the body starts at zero. Appending it produces a corrupt file **of exactly the expected length** — length checks pass, the transfer reports success, and only playback fails later on the user's machine. The downloader detects the `200` and restarts. Verified red: disabling that branch fails exactly that test and no other.
+
+### Not done in P2a, and named rather than implied
+
+- **Manifest parsing and multi-segment jobs.** The original P2 included both. `MediaDownloader` fetches one URL; nothing yet parses an `.m3u8`/`.mpd` to produce the segment list, and `DownloadItem` still models one URL → one file with a known `TotalBytes` (P5 in §3). That is **P2a-2**.
+- **Nothing is wired to the UI or to `DownloadManager`.** The engine exists and is tested; no call-site uses it yet. That is deliberate — P3's guard lane has to exist before anything issues hundreds of segment requests, or `DownloadGuard` blocks the second one (V-6).
+
+### P2b — needs its own gate before it is designed
+
+**The unmeasured assumption is the same shape as the one Gate 0 caught:** that the page→host bridge can carry media-rate data without wrecking playback.
+
+What is known: one track reached **91 MB in about 40 seconds** (~2.3 MB/s), `postMessage` carries **strings only** — a non-string message is thrown away silently (§11) — so bytes need base64, which is +33%, and every message is marshalled and parsed on the **UI thread**, through the same `OnWebMessageReceived` that runs every other feature. That is roughly 3 MB/s of string marshalling on the thread that also draws the browser. Wrapping the media path is what broke playback in YouTube ad-block v0.2.
+
+**Gate P2b-0 must measure, before any sink is written:** actual sustained throughput of the bridge with base64 chunks; whether playback degrades while it runs; and whether an alternative channel is needed. Candidate alternatives, all unmeasured: a loopback HTTP endpoint the page POSTs to (much higher bandwidth, off the UI thread, but opens a local port on a privacy browser and needs an origin-bound token), or a host object. **No sink design is committed to until that measurement exists.**
+
+Also carried into P2b from §10: the capture is **real-time by construction** (you get what you watch, at the speed you watch it), it must never accumulate in page memory, and it must concatenate in append order without assuming append boundaries are segment boundaries.
+
+---
+
+## 13. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).
