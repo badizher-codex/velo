@@ -153,6 +153,10 @@ public sealed class BrowserTabHost
         browserTab.SetYouTubeAdBlocker(
             _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>());
 
+        // Phase 6 — media detection opt-out, read per tab at WebView init.
+        browserTab.SetMediaDetectionGate(
+            _services.GetRequiredService<VELO.Core.Media.MediaDetectionGate>());
+
         // Phase 3 / Sprint 1E — IA menu (composes the inner ContextMenuBuilder).
         browserTab.SetAIContextMenuBuilder(
             _services.GetRequiredService<AIContextMenuBuilder>());

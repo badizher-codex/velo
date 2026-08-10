@@ -540,7 +540,7 @@ public class WiringSmokeTests
             // only bridge member VELO uses — it never posts anything. Same
             // trap as Every_path_that_hands_a_tab_to_the_user, and a guard
             // that fires on prose is not a guard.
-            var contents = StripJsComments(File.ReadAllText(path));
+            var contents = StripComments(File.ReadAllText(path));
 
             // Checked AT THE CALL SITE, not per file. The first version of
             // this test asked whether the file contained JSON.stringify
@@ -678,6 +678,47 @@ public class WiringSmokeTests
             Path.Combine(repoRoot, "src", "VELO.UI", "Controls", "UrlBar.xaml.cs"));
         Assert.Contains("StatusWarningSoftBrush",  urlBarCode);
         Assert.Contains("StatusSuccessSoftBrush",  urlBarCode);
+    }
+
+    [Fact]
+    public void The_media_detection_off_switch_is_wired_end_to_end()
+    {
+        // Lesson #21, and the specific failure this guards: a Settings toggle
+        // that persists happily while nothing reads it. The point of this
+        // switch is that a user whose site misbehaves can turn detection off;
+        // a toggle that saves but does not gate is worse than none, because it
+        // looks like it worked.
+        //
+        // The two subscription sites and the load/save symmetry are covered by
+        // the two SettingsWindow tests above. This asserts the rest of the
+        // chain: registered → refreshed → handed to each tab → consulted.
+
+        var srcRoot = LocateSrcRoot();
+
+        var depConfig = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "Startup", "DependencyConfig.cs"));
+        Assert.Contains("AddSingleton<VELO.Core.Media.MediaDetectionGate>", depConfig);
+
+        // Refreshed at startup, or the first session after a change keeps the
+        // stale cached default.
+        var mainWindow = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs"));
+        Assert.Contains("MediaDetectionGate>().RefreshAsync()", mainWindow);
+        Assert.Contains("OnMediaDetectionChanged", mainWindow);
+
+        // Handed to every tab.
+        var tabHost = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "Controllers", "BrowserTabHost.cs"));
+        Assert.Contains("SetMediaDetectionGate", tabHost);
+
+        // And consulted before the script is injected. Comments are stripped
+        // first: the injection block is wrapped in prose that names the gate,
+        // and matching that would pass with the check deleted — the same trap
+        // Every_path_that_hands_a_tab_to_the_user documents.
+        var code = StripComments(File.ReadAllText(
+            Path.Combine(srcRoot, "VELO.UI", "Controls", "BrowserTab.xaml.cs")));
+
+        Assert.True(
+            code.Contains("_mediaDetectionGate?.IsEnabled", StringComparison.Ordinal),
+            "BrowserTab injects media-detect.js without consulting MediaDetectionGate — " +
+            "the Settings toggle would persist and do nothing.");
     }
 
     [Fact]
@@ -984,15 +1025,30 @@ public class WiringSmokeTests
     /// <summary>
     /// Removes // line comments and /* block */ comments so a scan matches
     /// code rather than the prose explaining it.
+    ///
+    /// Line comments are stripped FIRST, and the order is the whole point. The
+    /// first version ran the block-comment regex first, and BrowserTab.xaml.cs
+    /// contains the line comment "a council/* payload" — that stray /* opened a
+    /// phantom block which the lazy matcher closed ~200 lines later at the next
+    /// real */, deleting the code in between. It surfaced as a test failing on
+    /// a field that was plainly there.
+    ///
+    /// The direction of the mistake matters: over-stripping makes a Contains
+    /// assertion go red (safe, noisy), but it makes a COUNT go down — and this
+    /// helper feeds a test that counts postMessage call sites, where
+    /// under-counting would be a false green. Stripping line comments first can
+    /// at worst truncate a block that contains a //, leaving it unclosed and so
+    /// unstripped, which errs the safe way.
     /// </summary>
-    private static string StripJsComments(string source)
+    private static string StripComments(string source)
     {
-        var withoutBlocks = Regex.Replace(source, @"/\*.*?\*/", "", RegexOptions.Singleline);
-        return string.Join('\n', withoutBlocks.Split('\n').Select(line =>
+        var withoutLines = string.Join('\n', source.Split('\n').Select(line =>
         {
             var idx = line.IndexOf("//", StringComparison.Ordinal);
             return idx >= 0 ? line[..idx] : line;
         }));
+
+        return Regex.Replace(withoutLines, @"/\*.*?\*/", "", RegexOptions.Singleline);
     }
 
     private static HashSet<string> SettingKeyMatches(string text, string pattern)

@@ -97,6 +97,14 @@ public static class SettingKeys
     /// off in Settings → Privacy if they want to support a specific creator).</summary>
     public const string YouTubeAdsBlocked         = "youtube.ads_blocked";
 
+    // ── Phase 6 — media detection ────────────────────────────────────────
+    /// <summary>Phase 6 — when "yes" (default), VELO detects media playing on
+    /// the page so the URL-bar chip can offer it. Detection is read-only and
+    /// nothing leaves the machine, but it installs page-side wrappers on
+    /// MediaSource/SourceBuffer, so it gets an off switch: a site where those
+    /// wrappers misbehave must be recoverable without downgrading.</summary>
+    public const string MediaDetectionEnabled     = "media.detection_enabled";
+
     // ── VELO Sentinel (S-C) ──────────────────────────────────────────────
     /// <summary>S-C — When "yes", Sentinel's Block-level verdicts actually cancel
     /// requests. Default "no" = shadow mode: the classifier runs and records what

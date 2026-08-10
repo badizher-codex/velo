@@ -693,9 +693,19 @@ All three headers absent, on a 200. Across the whole run **34.1 % of responses c
 
 **Not fixed here, deliberately.** The obvious fallback is to trust the URL extension when Content-Type is absent, and that is precisely the rule §9 spent a measurement demolishing. As a *tie-breaker for an absent authoritative signal* it is defensible and cannot re-introduce the YouTube failure (that URL has no extension at all) — but re-admitting extensions in any form is a policy decision, not a tidy-up, and it needs its own measurement of how often the fallback would fire and on what. Recorded here as the next item rather than slipped in.
 
-### Still missing: an off switch
+### The off switch — done
 
-The detector now runs on every page with no way for a user to turn it off. The established pattern for anything on-by-default that touches page behaviour is a Settings toggle read per tab — `YouTubeAdBlocker.IsEnabled` does exactly this, for exactly this reason. Until that exists, a site where the wrapper misbehaves has no recourse short of downgrading. This should land before any release that ships the feature.
+`MediaDetectionGate` (`src/VELO.Core/Media/`), deliberately a mirror of `YouTubeAdBlocker`: cached flag refreshed at startup, flipped by Settings → Privacy, read synchronously by `BrowserTab` inside the WebView init path. Default on — a feature nobody can see is not a safe default, it is a hidden one, which is what the env-var gate turned out to be.
+
+Turning it off also clears the inventory of every open tab and hides the chip immediately. Without that, the chip built by a detector the user just disabled stays on screen and the switch looks broken.
+
+**Verification.** 6 unit tests on the round-trip (default, optimistic pre-refresh value, persist off, persist back on, a stored value that is not "yes" reads as off). One smoke test on the chain: registered → refreshed at startup → handed to each tab → **consulted before injection**. Run red by replacing the gate check with `if (true)`, which is exactly the failure it guards — a toggle that persists and does nothing. The two existing SettingsWindow smoke tests cover the rest, and the "every event subscribed at every construction site" one was also run red by removing one of the two subscriptions.
+
+829 tests.
+
+**A bug in the test helper, found by this.** `StripComments` ran its block-comment regex *before* stripping line comments, and `BrowserTab.xaml.cs` contains the line comment `a council/* payload`. That stray `/*` opened a phantom block which the lazy matcher closed ~200 lines later at the next real `*/`, deleting the code in between — the new test failed on a field that was plainly there. Order is now line comments first. This mattered beyond the false red: the same helper feeds the `postMessage` stringify test, which **counts** call sites, and there over-stripping is a false green.
+
+**Not localised.** The checkbox strings are English in XAML and not wired through `LocalizationService`, unlike its neighbour. Consistent with the stated UI language, inconsistent with the control next to it; noted rather than half-done.
 
 ---
 

@@ -47,6 +47,12 @@ public partial class SettingsWindow : Window
     /// need a refresh (script-on-document-created fires once per webview).</summary>
     public event EventHandler<bool>? YouTubeAdBlockChanged;
 
+    /// <summary>Phase 6 — Raised after Save when the user toggles media
+    /// detection, so the host can refresh MediaDetectionGate.IsEnabled. Same
+    /// contract as the ad-block toggle: new tabs pick it up from the cached
+    /// flag, already-open tabs need a reload.</summary>
+    public event EventHandler<bool>? MediaDetectionChanged;
+
     /// <summary>S-C — Raised after Save when the user toggles "apply Sentinel
     /// verdicts" so the host can flip SentinelClassifier.Mode live (shadow ↔
     /// enforce) without a restart.</summary>
@@ -347,6 +353,11 @@ public partial class SettingsWindow : Window
         var ytRaw = await _settings.GetAsync(SettingKeys.YouTubeAdsBlocked, "yes");
         YouTubeAdBlockCheck.IsChecked = string.Equals(ytRaw, "yes", StringComparison.OrdinalIgnoreCase);
 
+        // Phase 6 — media detection opt-out. Same "yes"/"no" string convention.
+        var mediaRaw = await _settings.GetAsync(
+            SettingKeys.MediaDetectionEnabled, VELO.Core.Media.MediaDetectionGate.DefaultSettingValue);
+        MediaDetectionCheck.IsChecked = string.Equals(mediaRaw, "yes", StringComparison.OrdinalIgnoreCase);
+
         // S-C — VELO Sentinel status + enforce opt-in.
         SentinelEnforceCheck.IsChecked = await _settings.GetBoolAsync(SettingKeys.SentinelEnforce, defaultValue: false);
         RefreshSentinelStatus();
@@ -480,6 +491,11 @@ public partial class SettingsWindow : Window
         await _settings.SetAsync(SettingKeys.YouTubeAdsBlocked,
             YouTubeAdBlockCheck.IsChecked == true ? "yes" : "no");
         YouTubeAdBlockChanged?.Invoke(this, YouTubeAdBlockCheck.IsChecked == true);
+
+        // Phase 6 — media detection opt-out. Same persist-then-hot-apply shape.
+        await _settings.SetAsync(SettingKeys.MediaDetectionEnabled,
+            MediaDetectionCheck.IsChecked == true ? "yes" : "no");
+        MediaDetectionChanged?.Invoke(this, MediaDetectionCheck.IsChecked == true);
 
         // S-C — Sentinel shadow ↔ enforce. Persist + apply hot.
         await _settings.SetBoolAsync(SettingKeys.SentinelEnforce, SentinelEnforceCheck.IsChecked == true);

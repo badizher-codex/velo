@@ -170,6 +170,9 @@ public static class DependencyConfig
         // v2.4.53 — YouTube ad-block opt-out service. Refreshed at bootstrap +
         // on Settings → Privacy toggle change.
         services.AddSingleton<VELO.Security.Guards.YouTubeAdBlocker>();
+        // Phase 6 — media detection opt-out. Same shape as the ad-block gate:
+        // refreshed at bootstrap and on the Settings → Privacy toggle.
+        services.AddSingleton<VELO.Core.Media.MediaDetectionGate>();
 
         // Phase 4.1 chunk D (v2.4.44) — Council adapters registry. Loads the four
         // bundled per-provider JSON selector files on construction; resolved by

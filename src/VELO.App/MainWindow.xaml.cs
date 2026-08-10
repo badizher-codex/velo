@@ -401,6 +401,10 @@ public partial class MainWindow : Window
         _ = ApplyCtLogSettingAtStartupAsync();
         // v2.4.53 — same pattern for the YouTube ad-block opt-out flag.
         _ = _services.GetRequiredService<VELO.Security.Guards.YouTubeAdBlocker>().RefreshAsync();
+        // Phase 6 — same pattern for the media-detection opt-out. Fire-and-forget:
+        // the gate defaults to enabled, so a tab opened before this lands gets
+        // detection, which is the same answer the setting almost always gives.
+        _ = _services.GetRequiredService<VELO.Core.Media.MediaDetectionGate>().RefreshAsync();
         // S-C — Sentinel: load the model (fail-soft) and apply the enforce
         // opt-in. Fire-and-forget so a 130 ms ONNX session build never sits in
         // front of WebView2 boot; until it lands the classifier answers Allow.
@@ -1443,12 +1447,14 @@ public partial class MainWindow : Window
             settingsWin.CtLogCheckChanged      += OnCtLogCheckChanged;
             settingsWin.SentinelEnforceChanged += OnSentinelEnforceChanged;
             settingsWin.SentinelModelInstalled += OnSentinelModelInstalled;
+            settingsWin.MediaDetectionChanged  += OnMediaDetectionChanged;
             settingsWin.ShowDialog();
             settingsWin.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
             settingsWin.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
             settingsWin.CtLogCheckChanged      -= OnCtLogCheckChanged;
             settingsWin.SentinelEnforceChanged -= OnSentinelEnforceChanged;
             settingsWin.SentinelModelInstalled -= OnSentinelModelInstalled;
+            settingsWin.MediaDetectionChanged  -= OnMediaDetectionChanged;
             var bootstrapper = _services.GetRequiredService<AppBootstrapper>();
             await bootstrapper.ConfigureAIAdapterAsync();
             await bootstrapper.ConfigureAgentAdaptersAsync();
@@ -2253,6 +2259,32 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Phase 6 — Settings toggled media detection. Flips the cached gate so
+    /// new tabs pick it up, and clears the URL-bar chip immediately when the
+    /// user turns it off: the inventory of the tab they are looking at was
+    /// built by a detector they just disabled, and leaving the chip up would
+    /// make the switch look broken.
+    /// </summary>
+    private async void OnMediaDetectionChanged(object? sender, bool enabled)
+    {
+        try
+        {
+            var gate = _services.GetRequiredService<VELO.Core.Media.MediaDetectionGate>();
+            await gate.SetEnabledAsync(enabled);
+            if (!enabled)
+            {
+                foreach (var bt in _browserTabs.Values) bt.Media.Reset();
+                RefreshMediaChip();
+            }
+            Log.Information("MediaDetectionGate.IsEnabled toggled to {Enabled} via Settings", enabled);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to toggle MediaDetectionGate.IsEnabled");
+        }
+    }
+
     // ── VELO Sentinel (S-C) ──────────────────────────────────────────────
 
     /// <summary>S-C — Settings toggled "apply Sentinel verdicts". Flips the live
@@ -2865,12 +2897,14 @@ public partial class MainWindow : Window
                     sw.YouTubeAdBlockChanged  += OnYouTubeAdBlockChanged;
                     sw.SentinelEnforceChanged += OnSentinelEnforceChanged;
                     sw.SentinelModelInstalled += OnSentinelModelInstalled;
+                    sw.MediaDetectionChanged  += OnMediaDetectionChanged;
                     sw.ShowDialog();
                     sw.DomainAgeCheckChanged  -= OnDomainAgeCheckChanged;
                     sw.CtLogCheckChanged      -= OnCtLogCheckChanged;
                     sw.YouTubeAdBlockChanged  -= OnYouTubeAdBlockChanged;
                     sw.SentinelEnforceChanged -= OnSentinelEnforceChanged;
                     sw.SentinelModelInstalled -= OnSentinelModelInstalled;
+                    sw.MediaDetectionChanged  -= OnMediaDetectionChanged;
                     var bs = _services.GetRequiredService<AppBootstrapper>();
                     await bs.ConfigureAIAdapterAsync();
                     await bs.ConfigureAgentAdaptersAsync();

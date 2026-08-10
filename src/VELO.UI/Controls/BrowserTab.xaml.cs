@@ -201,6 +201,12 @@ public partial class BrowserTab : UserControl
     private YouTubeAdBlocker? _youtubeAdBlocker;
     public void SetYouTubeAdBlocker(YouTubeAdBlocker svc) => _youtubeAdBlocker = svc;
 
+    // Phase 6 — media detection opt-out. Null means "not wired", which is
+    // treated as enabled: the detector is on by default and a missing service
+    // must not silently disable a feature the user can see in the URL bar.
+    private MediaDetectionGate? _mediaDetectionGate;
+    public void SetMediaDetectionGate(MediaDetectionGate gate) => _mediaDetectionGate = gate;
+
     // FillCredentialAsync, OpenDevTools, SetContainer live in BrowserTab.PublicApi.cs (v2.4.31).
 
     public string TabId => _tabId;
@@ -310,28 +316,31 @@ public partial class BrowserTab : UserControl
         // page script, since it wraps MediaSource/SourceBuffer and only sees
         // what is created after it installs.
         //
-        // Unconditional since the gate came off. It was behind VELO_MEDIA_PROBE
-        // while the wrapper was unproven, because wrapping the media path is
-        // exactly what broke playback in YouTube ad-block v0.2 — but a gate
-        // that hides the feature from every real user is not a safety measure,
-        // it is an off switch nobody can find. What makes it safe to run
-        // always: the per-append work is now a bounded box-type peek (the
+        // On by default, with a user-facing off switch (Settings → Privacy)
+        // rather than the VELO_MEDIA_PROBE env var it used to hide behind — a
+        // gate no user can find is not a safety measure. What makes it safe to
+        // run always: the per-append work is a bounded box-type peek (the
         // expensive encryption scan happens once per track, on the
         // initialisation segment), every hook calls through to the original,
         // and inspection is wrapped separately from the call so a bug in the
-        // sniffer can never stop the player being fed.
-        try
+        // sniffer can never stop the player being fed. The switch exists for
+        // the case none of that covers — a site where the wrapper misbehaves,
+        // which is what YouTube ad-block v0.2 turned out to be.
+        if (_mediaDetectionGate?.IsEnabled != false)
         {
-            var mediaScript = await LoadScriptResourceAsync("media-detect.js");
-            if (mediaScript != null)
-                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
-            else
-                System.Diagnostics.Trace.WriteLine(
-                    "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Trace.WriteLine($"[VELO] Media detect inject failed: {ex.Message}");
+            try
+            {
+                var mediaScript = await LoadScriptResourceAsync("media-detect.js");
+                if (mediaScript != null)
+                    await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
+                else
+                    System.Diagnostics.Trace.WriteLine(
+                        "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[VELO] Media detect inject failed: {ex.Message}");
+            }
         }
 
         // Cookie consent auto-dismiss (embedded — no external files)

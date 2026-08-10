@@ -366,6 +366,19 @@
                         </StackPanel>
                     </CheckBox>
 
+                    <!-- Phase 6 — media detection opt-out. Default ON. Detection is
+                         read-only and no media bytes leave the page, but it installs
+                         wrappers on MediaSource/SourceBuffer — the media hot path —
+                         so it gets a switch the user can find. -->
+                    <CheckBox x:Name="MediaDetectionCheck" Margin="0,12,0,4">
+                        <StackPanel>
+                            <TextBlock x:Name="MediaDetectionTitle" Text="Detect media on pages" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="MediaDetectionDesc" Text="Shows a chip in the address bar when a page is playing video or audio, so you can see what is there and download what is downloadable. Detection is read-only and nothing leaves your machine. Turn this off if a site misbehaves. The change applies to new tabs — reload open ones for it to take effect."
+                                       FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </CheckBox>
+
                     <!-- S-C — VELO Sentinel: the embedded offline classifier.
                          Status is read-only (the download channel is S-D); the
                          checkbox is the shadow→enforce opt-in and stays off by
