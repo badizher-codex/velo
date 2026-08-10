@@ -305,30 +305,33 @@ public partial class BrowserTab : UserControl
             System.Diagnostics.Trace.WriteLine($"[VELO] WebView cloak inject failed: {ex.Message}");
         }
 
-        // Phase 6 / P1 Gate 0.5 — media detection, read-only.
+        // Phase 6 — media detection, read-only.
         // Must come after the cloak (it resolves __veloBridge) and before any
         // page script, since it wraps MediaSource/SourceBuffer and only sees
         // what is created after it installs.
         //
-        // Gated on the probe switch on purpose: this wraps the media path, and
-        // wrapping the media path is exactly what broke playback in YouTube
-        // ad-block v0.2. It goes unconditional in Gate 1, once a play-through
-        // has proven it inert.
-        if (MediaProbeLog.Enabled)
+        // Unconditional since the gate came off. It was behind VELO_MEDIA_PROBE
+        // while the wrapper was unproven, because wrapping the media path is
+        // exactly what broke playback in YouTube ad-block v0.2 — but a gate
+        // that hides the feature from every real user is not a safety measure,
+        // it is an off switch nobody can find. What makes it safe to run
+        // always: the per-append work is now a bounded box-type peek (the
+        // expensive encryption scan happens once per track, on the
+        // initialisation segment), every hook calls through to the original,
+        // and inspection is wrapped separately from the call so a bug in the
+        // sniffer can never stop the player being fed.
+        try
         {
-            try
-            {
-                var mediaScript = await LoadScriptResourceAsync("media-detect.js");
-                if (mediaScript != null)
-                    await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
-                else
-                    System.Diagnostics.Trace.WriteLine(
-                        "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"[VELO] Media detect inject failed: {ex.Message}");
-            }
+            var mediaScript = await LoadScriptResourceAsync("media-detect.js");
+            if (mediaScript != null)
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
+            else
+                System.Diagnostics.Trace.WriteLine(
+                    "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Media detect inject failed: {ex.Message}");
         }
 
         // Cookie consent auto-dismiss (embedded — no external files)

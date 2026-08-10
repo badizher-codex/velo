@@ -650,7 +650,56 @@ Both match §9–§10 exactly: 788 493 bytes reads as 770 KB, and the two YouTub
 
 ---
 
-## 15. What is deliberately not in this plan
+## 15. The gate comes off — 2026-08-10
+
+`media-detect.js` is now injected unconditionally. It had been behind `VELO_MEDIA_PROBE` since Gate 0.5 because wrapping the media path is what broke playback in YouTube ad-block v0.2 — but the consequence was that in ordinary use **the panel only ever saw progressive files**, so on YouTube the chip never appeared at all. A gate that hides the feature from every real user is not a safety measure; it is an off switch nobody can find.
+
+### What was changed to make it safe to run always
+
+The per-append work was cut down first. The gated version called an O(n·m) scan for `pssh` and `sinf` over up to 64 KB **on every append** — roughly 21 M byte comparisons per track per 40 s of YouTube, for information that cannot change. Encryption boxes live in the initialisation segment, and the measured ones were 259–729 bytes, so that scan now runs **once per SourceBuffer**, on the first append. Subsequent appends do a bounded box-type peek and nothing else.
+
+The other properties that make it safe were already there and are worth naming: every hook calls through to the original, inspection is wrapped in its own `try` separate from the call so a bug in the sniffer can never stop the player being fed, and no media bytes cross the bridge.
+
+### Verification — playback, with no env var set
+
+Measured as a time series from the inventory rather than by eye. **YouTube**, hook unconditional:
+
+```
+14:09:37   Audio 0app/0B          Video 0app/0B          ← SourceBuffers created
+14:09:41   Audio 19app/328929B    Video 65app/2919052B
+14:09:58   Audio 0app/0B          Video 0app/0B          ← a new MediaSource (quality switch)
+14:10:02   Audio 21app/496936B    Video 83app/3658555B   ← 83 appends in 4 s
+```
+
+**hls.js demo**: 5 → 14 → 15 appends, 20 MB → 85 MB over ~44 s.
+
+Both stream normally. The chip and both tracks appear with `VELO_MEDIA_PROBE` unset, which is the point.
+
+Note the reset to zero mid-stream: a fresh `MediaSource` replaces the page report wholesale, so the counters restart. Expected from the design, briefly visible in the panel as `0 B buffered`, and worth revisiting when the panel gets more attention.
+
+### Found on the way: a 200 can arrive with no headers at all 🔴
+
+The hls.js run reported `manifests=0` where Gate 3 had reported `manifests=3` on the same page. The cause is not a regression in the classifier — it is the input:
+
+```
+14:32:22.292  status=200  Content-Type=''  Content-Length=''  Content-Range=''  …/x36xhzz.m3u8
+14:32:22.349  status=200  Content-Type=''  Content-Length=''  Content-Range=''  …/url_0/…
+14:32:22.537  status=200  Content-Type=''  Content-Length=''  Content-Range=''  …/url_8/…
+```
+
+All three headers absent, on a 200. Across the whole run **34.1 % of responses carried no Content-Type** (82 responses), against **17.6 %** in the earlier cold run (136 responses) — the signature of responses served from cache, which `WebResourceResponseReceived` surfaces without headers.
+
+**Consequence:** the classifier's only signal disappears, and manifests are silently lost on a repeat visit. A stream that showed an HLS row yesterday shows nothing today. This does not affect the MSE path — YouTube and hls.js both still show their tracks, because those come from the page — but the network side of the inventory is unreliable on a warm cache.
+
+**Not fixed here, deliberately.** The obvious fallback is to trust the URL extension when Content-Type is absent, and that is precisely the rule §9 spent a measurement demolishing. As a *tie-breaker for an absent authoritative signal* it is defensible and cannot re-introduce the YouTube failure (that URL has no extension at all) — but re-admitting extensions in any form is a policy decision, not a tidy-up, and it needs its own measurement of how often the fallback would fire and on what. Recorded here as the next item rather than slipped in.
+
+### Still missing: an off switch
+
+The detector now runs on every page with no way for a user to turn it off. The established pattern for anything on-by-default that touches page behaviour is a Settings toggle read per tab — `YouTubeAdBlocker.IsEnabled` does exactly this, for exactly this reason. Until that exists, a site where the wrapper misbehaves has no recourse short of downgrading. This should land before any release that ships the feature.
+
+---
+
+## 16. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).

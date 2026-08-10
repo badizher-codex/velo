@@ -94,7 +94,15 @@
         return false;
     };
 
-    const sniff = (u8) => {
+    // `deep` controls the pssh/sinf scan, which is O(n·m) over the head of the
+    // buffer. It runs ONLY on the first append of each SourceBuffer, because
+    // that is the initialisation segment and that is where encryption boxes
+    // live — the measured ones were 259 to 729 bytes. Running it on every
+    // append (as the gated version did) burned ~21 M byte comparisons per
+    // track per 40 s of YouTube for information that cannot change, on the
+    // media hot path. That is the kind of cost that turns a detector into a
+    // playback bug, which is what the YouTube ad-block v0.2 was.
+    const sniff = (u8, deep) => {
         if (!u8 || u8.length < 8) return { container: 'unknown', boxes: [] };
 
         // WebM / Matroska: EBML magic 1A 45 DF A3.
@@ -109,8 +117,8 @@
             return {
                 container: 'isobmff',
                 boxes: boxes,
-                pssh: scanFor(u8, 'pssh'),
-                sinf: scanFor(u8, 'sinf'),
+                pssh: deep ? scanFor(u8, 'pssh') : false,
+                sinf: deep ? scanFor(u8, 'sinf') : false,
             };
         }
         return { container: 'unknown', boxes: [] };
@@ -152,8 +160,9 @@
                         entry.appends++;
                         entry.bytes += len;
 
+                        const isInitSegment = entry.first === null;
                         const u8 = asBytes(data);
-                        const s = u8 ? sniff(u8) : null;
+                        const s = u8 ? sniff(u8, isInitSegment) : null;
                         if (s) {
                             if (s.pssh || s.sinf) entry.encrypted = true;
                             if (entry.first === null) {
