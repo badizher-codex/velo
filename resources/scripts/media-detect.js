@@ -305,6 +305,56 @@
         return buffers.filter(b => b.srcUrl === newest);
     };
 
+    // ── Gate P2b-0 — bridge throughput bench (TEMPORARY) ─────────────────
+    //
+    // Runs only when the host prepends window.__VELO_BENCH__, the same shape
+    // webrtc-spoof.js uses for its mode constant. Delete this block and the
+    // prepend in BrowserTab once §18 records the numbers.
+    //
+    // The question it answers: can postMessage carry media-rate data? A
+    // capture sink for MSE would need ~3 MB/s (measured: 91 MB in 40 s on one
+    // track), postMessage takes strings only, so bytes need base64 (+33 %),
+    // and every message is parsed on the UI thread. Encode cost and drain
+    // rate are reported separately, because if the bottleneck is the encoding
+    // the fix is a different encoding, and if it is the bridge the fix is a
+    // different channel.
+    try {
+        if (window.__VELO_BENCH__) {
+            const cfg = window.__VELO_BENCH__;
+            const size = cfg.bytes | 0, count = cfg.chunks | 0;
+
+            setTimeout(() => {
+                // Only the visible tab. The host-side accumulator is a static,
+                // so several restored tabs running this at once interleave
+                // their counts — the first run reported 367 and 400 chunks for
+                // a 200-chunk config, which is two benches in one bucket.
+                if (document.visibilityState !== 'visible') return;
+
+                // Build the payload ONCE so the loop measures the bridge, not
+                // the generator.
+                const t0 = performance.now();
+                const raw = new Uint8Array(size);
+                for (let i = 0; i < size; i++) raw[i] = i & 0xff;
+                let binary = '';
+                for (let i = 0; i < size; i += 8192) {
+                    binary += String.fromCharCode.apply(null, raw.subarray(i, Math.min(i + 8192, size)));
+                }
+                const payload = btoa(binary);
+                const encodeMs = performance.now() - t0;
+
+                post({ kind: 'bridge-bench', phase: 'start', bytes: size, chunks: count, encodeMs: encodeMs });
+
+                const t1 = performance.now();
+                for (let n = 0; n < count; n++) {
+                    post({ kind: 'bridge-bench', phase: 'chunk', n: n, data: payload });
+                }
+                const postMs = performance.now() - t1;
+
+                post({ kind: 'bridge-bench', phase: 'end', postMs: postMs, encodeMs: encodeMs });
+            }, cfg.delayMs || 8000);
+        }
+    } catch (_) { }
+
     setInterval(() => {
         if (!dirty) return;
         dirty = false;

@@ -808,7 +808,63 @@ That last row is the one worth reading twice. Discontinuities are expected here:
 
 ---
 
-## 18. What is deliberately not in this plan
+## 18. Gate P2b-0 — the bridge, measured. The assumption was wrong.
+
+P2b was gated on a fear: that `postMessage` could not carry media-rate data because it takes strings only, so bytes need base64 (+33 %), and every message is parsed on the UI thread — the same thread that draws the browser. §12 put the requirement at ~3 MB/s and called the gate "roughly 3 MB/s of string marshalling on the thread that also draws the browser".
+
+Measured, that fear does not survive.
+
+### Throughput
+
+A page-side bench posts a pre-encoded base64 payload N times; the host times the interval between the **first and last arrival**, which is the UI thread actually doing the work.
+
+| Chunk | Chunks | Payload | Host drain | Payload MB/s | Wire MB/s | Encode |
+|---|---|---|---|---|---|---|
+| 64 KB | 200 | 12.8 MB | 108 ms | **115.9** | 154.6 | 1.2 ms |
+| 64 KB | 200 | 12.8 MB | 140 ms | **89.6** | 119.4 | 0.7 ms |
+| 256 KB | 400 | 100 MB | 1094 ms | **91.4** | 121.9 | 1.3 ms |
+| 256 KB | 400 | 100 MB | 819 ms | **122.0** | 162.6 | 2.0 ms |
+
+**90–122 MB/s of payload against a 3 MB/s requirement — thirty to forty times the headroom.** Base64 encoding is 1–2 ms per 256 KB, i.e. not a factor either.
+
+### Does it disturb playback?
+
+The measurement that matters, and it needed a control before it meant anything. The first attempt ran the flood against a YouTube tab and saw media reports stop afterwards — but a control run **without** the bench stopped at exactly the same point, so nothing had been playing in either condition: YouTube fills its initial buffer and then waits for a gesture. The flood was exonerated by the control, not by the result.
+
+Re-run on the hls.js demo, which autoplays and sustains appends:
+
+```
+09:45:11   10 appends
+09:45:13   11 appends
+09:45:17   ← BENCH start
+09:45:18   ← BENCH end — 100 MB drained in 819 ms
+09:45:23   12 appends
+09:45:33   13          one every 10 s, unchanged
+…
+09:46:33   19 appends
+```
+
+The append cadence is identical before, during and after a 100 MB flood, and matches the §15 baseline taken with no bench at all.
+
+### Decision
+
+**P2b is designed on `postMessage`.** No loopback HTTP endpoint, no host object, no new channel — and specifically not the loopback listener §12 floated, which would have opened a local port on a privacy browser and needed an origin-bound token to be safe. That whole branch is closed by a measurement that took an afternoon.
+
+The remaining P2b constraints are the ones §10 already established and this does not change: the capture must stream to the host rather than accumulate in page memory, it is real-time by construction, and it must concatenate in append order without assuming append boundaries are segment boundaries.
+
+### What this does not cover
+
+- The payload is one pre-encoded string re-sent, so it measures the bridge rather than a full encode-per-chunk pipeline. Encode cost was measured separately and is ~150 MB/s, so it is not the limit — but the two have not been run as one pipeline.
+- The flood is a burst of about a second, not a sustained ten-minute capture. Sustained memory and GC behaviour over a real film is untested.
+- One machine, one dev build.
+
+### Bench code
+
+Lives behind `VELO_BRIDGE_BENCH="bytes,chunks"` in `media-detect.js` and `MediaProbeLog`, and is deleted together with the rest of the probe instrumentation. One detail worth keeping: the bench only fires on a **visible** document, because the host-side accumulator is static and several session-restored tabs running it at once interleaved their counts — the first run reported 367 and 400 chunks for a 200-chunk config, which is two benches in one bucket.
+
+---
+
+## 19. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).

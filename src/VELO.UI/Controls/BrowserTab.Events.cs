@@ -497,6 +497,27 @@ public partial class BrowserTab
                 // (MIME strings, container box names, counts) — no media bytes.
                 // Gate 1 turns this into a per-tab MediaInventory; today it
                 // only feeds the measurement log.
+                // Gate P2b-0 — TEMPORARY. Delete with the bench block in
+                // media-detect.js once the numbers are recorded.
+                case "bridge-bench" when MediaProbeLog.Enabled:
+                {
+                    switch (node["phase"]?.GetValue<string>())
+                    {
+                        case "start":
+                            MediaProbeLog.BenchStart(
+                                node["bytes"]?.GetValue<int>() ?? 0,
+                                node["chunks"]?.GetValue<int>() ?? 0,
+                                node["encodeMs"]?.GetValue<double>() ?? 0);
+                            break;
+                        case "chunk":
+                            MediaProbeLog.BenchChunk(node["data"]?.GetValue<string>()?.Length ?? 0);
+                            break;
+                        case "end":
+                            MediaProbeLog.BenchEnd(node["postMs"]?.GetValue<double>() ?? 0);
+                            break;
+                    }
+                    break;
+                }
                 case "media-detect":
                 {
                     if (!MediaPageReport.TryParse(json ?? "", out var report)) break;

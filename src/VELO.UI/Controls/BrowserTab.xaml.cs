@@ -332,10 +332,29 @@ public partial class BrowserTab : UserControl
             {
                 var mediaScript = await LoadScriptResourceAsync("media-detect.js");
                 if (mediaScript != null)
+                {
+                    // Gate P2b-0 — TEMPORARY. VELO_BRIDGE_BENCH="bytes,chunks"
+                    // turns on the throughput bench inside the script. Same
+                    // prepended-constant shape webrtc-spoof.js uses for its
+                    // mode. Delete with the bench block.
+                    var bench = Environment.GetEnvironmentVariable("VELO_BRIDGE_BENCH");
+                    if (!string.IsNullOrWhiteSpace(bench))
+                    {
+                        var parts = bench.Split(',');
+                        var bytes  = parts.Length > 0 && int.TryParse(parts[0], out var b) ? b : 65536;
+                        var chunks = parts.Length > 1 && int.TryParse(parts[1], out var c) ? c : 200;
+                        mediaScript =
+                            $"window.__VELO_BENCH__ = {{ bytes: {bytes}, chunks: {chunks}, delayMs: 8000 }};\n"
+                            + mediaScript;
+                    }
+
                     await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
+                }
                 else
+                {
                     System.Diagnostics.Trace.WriteLine(
                         "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
+                }
             }
             catch (Exception ex)
             {

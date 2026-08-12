@@ -103,6 +103,56 @@ public static class MediaProbeLog
         catch { /* the probe must never take the browser down */ }
     }
 
+    // ── Gate P2b-0 — bridge throughput bench (TEMPORARY) ─────────────────
+    //
+    // Times how fast the host can drain page→host messages carrying base64
+    // payloads. The page reports how long IT took to hand them off; what
+    // matters more is the interval between the first and last arrival here,
+    // because that is the UI thread actually doing the work.
+
+    private static long     _benchBytes;
+    private static int      _benchChunks;
+    private static DateTime _benchFirst;
+    private static DateTime _benchLast;
+    private static double   _benchEncodeMs;
+    private static int      _benchChunkBytes;
+
+    public static void BenchStart(int chunkBytes, int chunks, double encodeMs)
+    {
+        _benchBytes      = 0;
+        _benchChunks     = 0;
+        _benchFirst      = default;
+        _benchEncodeMs   = encodeMs;
+        _benchChunkBytes = chunkBytes;
+        RecordPage("bench", "", $"BENCH start chunkBytes={chunkBytes} chunks={chunks} encodeMs={encodeMs:F1}");
+    }
+
+    public static void BenchChunk(int base64Length)
+    {
+        if (_benchFirst == default) _benchFirst = DateTime.UtcNow;
+        _benchLast = DateTime.UtcNow;
+        _benchChunks++;
+        _benchBytes += base64Length;
+    }
+
+    public static void BenchEnd(double pagePostMs)
+    {
+        if (_benchChunks == 0) { RecordPage("bench", "", "BENCH end — no chunks arrived"); return; }
+
+        var hostMs = (_benchLast - _benchFirst).TotalMilliseconds;
+
+        // Payload bytes are what a sink would actually be moving; wire bytes
+        // are what the bridge carried, base64 inflation included.
+        var payloadBytes = (long)_benchChunks * _benchChunkBytes;
+        var wireMBs      = hostMs > 0 ? _benchBytes / 1048576.0 / (hostMs / 1000.0) : 0;
+        var payloadMBs   = hostMs > 0 ? payloadBytes / 1048576.0 / (hostMs / 1000.0) : 0;
+
+        RecordPage("bench", "",
+            $"BENCH end chunks={_benchChunks} wireBytes={_benchBytes} payloadBytes={payloadBytes} " +
+            $"hostDrainMs={hostMs:F0} pagePostMs={pagePostMs:F0} encodeMs={_benchEncodeMs:F1} " +
+            $"wireMB/s={wireMBs:F2} payloadMB/s={payloadMBs:F2}");
+    }
+
     private static void EnsureStarted()
     {
         if (_flushTimer != null) return;
