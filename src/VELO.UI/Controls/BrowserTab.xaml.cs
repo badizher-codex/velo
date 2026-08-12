@@ -58,6 +58,41 @@ public partial class BrowserTab : UserControl
     /// </summary>
     public event EventHandler? MediaInventoryChanged;
 
+    /// <summary>Phase 6 / P2b — a capture finished (or failed). Arg is the result.</summary>
+    public event EventHandler<MediaCaptureResult>? MediaCaptureFinished;
+
+    private (string Id, string Kind)? _armedCapture;
+    private readonly MediaCaptureSink _captureSink = new();
+
+    /// <summary>
+    /// Arms a capture of the given track kind (<c>audio</c>/<c>video</c>) and
+    /// reloads, because that is the only way to get a whole file: the player
+    /// will not re-append data it already holds, so a fresh document with a
+    /// new MediaSource is what makes the capture start at byte zero. The file
+    /// then fills in real time as the media plays.
+    /// </summary>
+    public void StartMediaCapture(string trackKind, string destinationPath)
+    {
+        var id = Guid.NewGuid().ToString("N")[..12];
+        _armedCapture = (id, trackKind);
+        _captureSink.Begin(id, destinationPath);
+        WebView.CoreWebView2?.Reload();
+    }
+
+    /// <summary>Stops a running capture and writes what was gathered.</summary>
+    public void StopMediaCapture()
+    {
+        _armedCapture = null;
+        try { _ = WebView.CoreWebView2?.ExecuteScriptAsync("window.__veloStopCapture && window.__veloStopCapture()"); }
+        catch { /* the page may be gone; the sink still closes below */ }
+    }
+
+    /// <summary>Bytes captured so far, for progress.</summary>
+    public long MediaCaptureBytes => _captureSink.Bytes;
+
+    /// <summary>True while a capture is armed or running.</summary>
+    public bool IsCapturingMedia => _armedCapture is not null || _captureSink.IsCapturing;
+
     private readonly VELO.UI.Utilities.DebouncedAction _mediaChanged = new(TimeSpan.FromMilliseconds(600));
 
     private void RaiseMediaInventoryChanged() =>
@@ -337,6 +372,18 @@ public partial class BrowserTab : UserControl
                     // turns on the throughput bench inside the script. Same
                     // prepended-constant shape webrtc-spoof.js uses for its
                     // mode. Delete with the bench block.
+                    // P2b — a capture armed for this tab is prepended so it
+                    // survives into the fresh document. Capture can only get
+                    // what is appended from now on, and a player will not
+                    // re-append data it already holds, so the whole-file case
+                    // needs a new MediaSource: arm, reload, capture.
+                    if (_armedCapture is { } armed)
+                    {
+                        mediaScript =
+                            $"window.__VELO_CAPTURE__ = {{ id: '{armed.Id}', kind: '{armed.Kind}' }};\n"
+                            + mediaScript;
+                    }
+
                     var bench = Environment.GetEnvironmentVariable("VELO_BRIDGE_BENCH");
                     if (!string.IsNullOrWhiteSpace(bench))
                     {

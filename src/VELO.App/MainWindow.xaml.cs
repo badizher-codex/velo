@@ -2704,6 +2704,74 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Phase 6 / P2b — captures one MSE track to a file.
+    ///
+    /// The awkward part is inherent, not a shortcut: capture only ever gets
+    /// what the page appends from now on, and a player will not re-append data
+    /// it already holds, so getting a whole file means a fresh MediaSource —
+    /// which means reloading. And it fills at playback speed, because the
+    /// bytes only exist as the media plays. Both are said plainly up front
+    /// rather than discovered afterwards from a short file.
+    /// </summary>
+    private void StartTrackCapture(BrowserTab tab, VELO.Core.Media.MediaOffer offer)
+    {
+        var isAudio = offer.Kind == VELO.Core.Media.MediaOfferKind.AudioTrack;
+        var kind    = isAudio ? "audio" : "video";
+
+        // The container comes from the SourceBuffer MIME — audio/webm and
+        // video/mp4 were both measured on the same YouTube page, so guessing
+        // one extension for both would be wrong half the time.
+        var mime      = (offer.TrackMime ?? "").ToLowerInvariant();
+        var extension = mime.Contains("webm") ? ".webm"
+                      : mime.Contains("mp4")  ? ".mp4"
+                      : mime.Contains("mpeg") ? ".mp3"
+                      : ".bin";
+
+        var confirm = MessageBox.Show(this,
+            $"VELO will capture the {kind} track as it plays.\n\n" +
+            "The page reloads and the capture starts from the beginning. " +
+            "Leave the media playing until it ends — the file only fills as " +
+            "fast as it plays, and closing the tab or navigating away stops it.",
+            "Capture " + kind, MessageBoxButton.OKCancel, MessageBoxImage.Information);
+        if (confirm != MessageBoxResult.OK) return;
+
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = kind + extension,
+            Filter   = $"Captured {kind}|*{extension}|All files|*.*",
+            Title    = "Save captured " + kind,
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        var manager = _services.GetRequiredService<DownloadManager>();
+        var item    = manager.StartDownload(
+            tab.CurrentUrl, System.IO.Path.GetFileName(dialog.FileName), dialog.FileName, 0);
+
+        void OnFinished(object? _, VELO.Core.Media.MediaCaptureResult result)
+        {
+            tab.MediaCaptureFinished -= OnFinished;
+            Dispatcher.Invoke(() =>
+            {
+                item.ReceivedBytes = result.Bytes;
+                item.State = result.Outcome == VELO.Core.Media.CaptureOutcome.Completed
+                    ? DownloadState.Completed
+                    : DownloadState.Interrupted;
+
+                if (result.Outcome != VELO.Core.Media.CaptureOutcome.Completed)
+                    MessageBox.Show(this, result.Error ?? "The capture produced nothing.",
+                        "Capture stopped", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                RefreshMediaChip();
+            });
+        }
+
+        tab.MediaCaptureFinished += OnFinished;
+        tab.StartMediaCapture(kind, dialog.FileName);
+
+        Log.Information("Media capture armed: {Kind} → {Path}", kind, dialog.FileName);
+    }
+
     private void SwitchToTabByNumber(int zeroBasedIndex)
     {
         var tabs = _tabManager.Tabs;
@@ -2746,8 +2814,21 @@ public partial class MainWindow : Window
     /// </summary>
     private async void UrlBar_MediaDownloadRequested(object? sender, VELO.Core.Media.MediaOffer offer)
     {
-        if (!offer.CanDownload || string.IsNullOrEmpty(offer.Url)) return;
+        if (!offer.CanDownload) return;
         if (ActiveBrowserTab() is not { } tab) return;
+
+        // P2b — a track row is a capture, not a fetch: there is no URL to get,
+        // only bytes the page hands to its SourceBuffer. It needs its own flow
+        // and its own warning, because the page has to reload and the file
+        // fills only as fast as the media plays.
+        if (offer.Kind is VELO.Core.Media.MediaOfferKind.AudioTrack
+                       or VELO.Core.Media.MediaOfferKind.VideoTrack)
+        {
+            StartTrackCapture(tab, offer);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(offer.Url)) return;
 
         var guard   = _services.GetRequiredService<DownloadGuard>();
         var manager = _services.GetRequiredService<DownloadManager>();

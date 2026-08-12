@@ -153,6 +153,75 @@
         return { container: 'unknown', boxes: [] };
     };
 
+    // ── P2b — capture sink ───────────────────────────────────────────────
+    //
+    // Armed by the host prepending window.__VELO_CAPTURE__ = {id, kind}
+    // before this script, so the arming survives the reload the flow depends
+    // on: capture can only ever get what is appended from now on, and the
+    // start of a video that is already playing is gone — the player will not
+    // re-append data it already holds. A fresh document builds a new
+    // MediaSource and appends from byte zero, which is the only way to get
+    // the whole thing.
+    //
+    // Armed by KIND, not by index: SourceBuffer indices are assigned as the
+    // page creates them, so they do not exist yet at arming time.
+    const capture = (window.__VELO_CAPTURE__ && window.__VELO_CAPTURE__.id)
+        ? { id: String(window.__VELO_CAPTURE__.id),
+            kind: String(window.__VELO_CAPTURE__.kind || 'video'),
+            target: null, seq: 0, done: false }
+        : null;
+
+    // 256 KB pieces — the size Gate P2b-0 benchmarked at 91-122 MB/s. An
+    // append can be several MB and one giant base64 string per append would
+    // be a needlessly large single message.
+    const CHUNK = 262144;
+
+    const toBase64 = (u8) => {
+        let binary = '';
+        for (let i = 0; i < u8.length; i += 8192) {
+            binary += String.fromCharCode.apply(null, u8.subarray(i, Math.min(i + 8192, u8.length)));
+        }
+        return btoa(binary);
+    };
+
+    const captureBytes = (data) => {
+        if (!capture || capture.done) return;
+        try {
+            let u8 = null;
+            if (data instanceof ArrayBuffer) u8 = new Uint8Array(data);
+            else if (ArrayBuffer.isView(data)) u8 = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+            if (!u8 || !u8.length) return;
+
+            // Streamed straight out, never accumulated: §10 measured 91 MB in
+            // 40 s on one track, and holding that in the page is the one thing
+            // the design cannot do.
+            for (let off = 0; off < u8.length; off += CHUNK) {
+                post({
+                    kind: 'media-capture', phase: 'chunk', id: capture.id,
+                    seq: capture.seq++,
+                    data: toBase64(u8.subarray(off, Math.min(off + CHUNK, u8.length))),
+                });
+            }
+        } catch (e) {
+            capture.done = true;
+            post({ kind: 'media-capture', phase: 'error', id: capture.id, message: String(e) });
+        }
+    };
+
+    const endCapture = (reason) => {
+        if (!capture || capture.done) return;
+        capture.done = true;
+        post({ kind: 'media-capture', phase: 'end', id: capture.id, chunks: capture.seq, reason: reason || 'ended' });
+    };
+
+    // The host stops a capture through this; the page never decides on its
+    // own except when playback genuinely ends.
+    window.__veloStopCapture = () => { endCapture('stopped'); };
+
+    try {
+        document.addEventListener('ended', () => endCapture('ended'), true);
+    } catch (_) { }
+
     // ── MSE hooks ────────────────────────────────────────────────────────
     try {
         if (window.MediaSource && window.MediaSource.prototype.addSourceBuffer) {
@@ -181,6 +250,20 @@
                     // above shifts indices and would silently rebind old
                     // SourceBuffers to the wrong entry.
                     sb.__veloEntry = entry;
+
+                    // Bind the capture to the first SourceBuffer of the armed
+                    // kind. Binding here rather than at append time means the
+                    // very first append — the initialisation segment, which
+                    // every fMP4 file must lead with — is captured too.
+                    if (capture && !capture.target &&
+                        entry.mime.toLowerCase().indexOf(capture.kind + '/') === 0) {
+                        capture.target = sb;
+                        post({
+                            kind: 'media-capture', phase: 'begin', id: capture.id,
+                            trackKind: capture.kind, mime: entry.mime,
+                        });
+                    }
+
                     dirty = true;
                 } catch (_) { }
                 return sb;
@@ -190,6 +273,13 @@
         if (window.SourceBuffer && window.SourceBuffer.prototype.appendBuffer) {
             const origAppend = window.SourceBuffer.prototype.appendBuffer;
             window.SourceBuffer.prototype.appendBuffer = function (data) {
+                // Capture first and in its own try: these are the bytes, and
+                // a failure here must neither corrupt the file silently nor
+                // stop the player being fed.
+                try {
+                    if (capture && capture.target === this) captureBytes(data);
+                } catch (_) { }
+
                 // Inspection is wrapped separately from the call so a bug in
                 // the sniffer can never stop the player from being fed.
                 try {

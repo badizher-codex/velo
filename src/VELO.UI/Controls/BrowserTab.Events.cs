@@ -518,6 +518,31 @@ public partial class BrowserTab
                     }
                     break;
                 }
+                // Phase 6 / P2b — bytes from the page's SourceBuffer. The sink
+                // rejects anything that is not the running capture, so a page
+                // posting these unprompted writes nothing.
+                case "media-capture":
+                {
+                    var id = node["id"]?.GetValue<string>() ?? "";
+                    switch (node["phase"]?.GetValue<string>())
+                    {
+                        case "chunk":
+                            _captureSink.Write(id,
+                                node["seq"]?.GetValue<int>() ?? -1,
+                                node["data"]?.GetValue<string>() ?? "");
+                            break;
+
+                        case "end":
+                        case "error":
+                        {
+                            _armedCapture = null;
+                            var result = _captureSink.Finish();
+                            Dispatcher.Invoke(() => MediaCaptureFinished?.Invoke(this, result));
+                            break;
+                        }
+                    }
+                    break;
+                }
                 case "media-detect":
                 {
                     if (!MediaPageReport.TryParse(json ?? "", out var report)) break;

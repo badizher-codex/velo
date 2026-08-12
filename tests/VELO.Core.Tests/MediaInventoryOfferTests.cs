@@ -111,15 +111,19 @@ public class MediaInventoryOfferTests
     }
 
     [Fact]
-    public void Adaptive_tracks_are_listed_but_not_downloadable_yet()
+    public void Adaptive_tracks_are_capturable_and_carry_the_mime_to_save_as()
     {
+        // Capturable since P2b. The MIME rides along because it is the only
+        // thing that says which container the captured bytes are — audio/webm
+        // and video/mp4 were both measured on the same YouTube page.
         var inventory = new MediaInventory();
         inventory.ApplyPageReport(PageWith(Track(TrackKind.Audio, "opus")));
 
         var offer = Assert.Single(inventory.BuildOffers());
 
-        Assert.False(offer.CanDownload);
-        Assert.Contains("not implemented", offer.BlockedReason!, StringComparison.OrdinalIgnoreCase);
+        Assert.True(offer.CanDownload);
+        Assert.Null(offer.BlockedReason);
+        Assert.Equal("audio/webm", offer.TrackMime);
     }
 
     // ── The path that works today ────────────────────────────────────────

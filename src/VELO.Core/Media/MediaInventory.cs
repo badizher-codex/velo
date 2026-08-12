@@ -22,7 +22,12 @@ public sealed record MediaOffer(
     string  Detail,
     string? Url,
     bool    CanDownload,
-    string? BlockedReason);
+    string? BlockedReason,
+    /// <summary>
+    /// For track rows: the SourceBuffer MIME, which is what tells the caller
+    /// the container to save as. Null for everything else.
+    /// </summary>
+    string? TrackMime = null);
 
 /// <summary>An adaptive-streaming manifest seen on the network.</summary>
 public sealed record ManifestItem(string Url, MediaClass Kind);
@@ -199,12 +204,15 @@ public sealed class MediaInventory
                     ? MediaOfferKind.AudioTrack
                     : MediaOfferKind.VideoTrack;
 
+                // Capturable since P2b. The reason line stays, because this
+                // one has a condition the user has to know before clicking:
+                // capture can only get what is appended from now on, so the
+                // page reloads and the track fills as it plays.
                 offers.Add(new MediaOffer(
                     kind,
                     track.Kind == TrackKind.Audio ? "Audio track" : "Video track",
                     $"{(string.IsNullOrEmpty(track.Codecs) ? track.Mime : track.Codecs)} · {FormatBytes(track.Bytes)} buffered",
-                    null, false,
-                    "This stream is assembled inside the page. Capturing it is not implemented yet."));
+                    null, true, null, track.Mime));
             }
 
             foreach (var manifest in _manifests.Values)
