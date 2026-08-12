@@ -536,6 +536,7 @@ public partial class BrowserTab
                         case "error":
                         {
                             _armedCapture = null;
+                            StopCaptureWatchdog();
                             var result = _captureSink.Finish();
                             Dispatcher.Invoke(() => MediaCaptureFinished?.Invoke(this, result));
                             break;

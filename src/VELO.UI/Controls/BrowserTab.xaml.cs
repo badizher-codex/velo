@@ -63,6 +63,70 @@ public partial class BrowserTab : UserControl
 
     private (string Id, string Kind)? _armedCapture;
     private readonly MediaCaptureSink _captureSink = new();
+    private string? _mediaScriptId;
+    private System.Windows.Threading.DispatcherTimer? _captureWatchdog;
+
+    /// <summary>
+    /// (Re)registers media-detect.js, carrying whatever capture is armed right
+    /// now as a prepended constant.
+    ///
+    /// It has to be re-registered rather than merely reloaded, and that cost a
+    /// bug: AddScriptToExecuteOnDocumentCreated runs the text as it was at
+    /// REGISTRATION time, so arming a capture and reloading re-ran the old
+    /// script with no capture constant in it. The page never started
+    /// capturing, no chunks arrived, and the download sat "in progress"
+    /// forever with nothing to end it.
+    ///
+    /// The previous registration is removed first. Adding a second one would
+    /// be worse than useless: the script's own idempotence guard means the
+    /// FIRST copy to run wins, and that is the stale one.
+    /// </summary>
+    private async Task InjectMediaDetectAsync()
+    {
+        try
+        {
+            var mediaScript = await LoadScriptResourceAsync("media-detect.js");
+            if (mediaScript == null)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
+                return;
+            }
+
+            if (_mediaScriptId is { } previous)
+            {
+                try { WebView.CoreWebView2.RemoveScriptToExecuteOnDocumentCreated(previous); }
+                catch { /* already gone */ }
+                _mediaScriptId = null;
+            }
+
+            // P2b — the armed capture rides into the fresh document here.
+            if (_armedCapture is { } armed)
+            {
+                mediaScript =
+                    $"window.__VELO_CAPTURE__ = {{ id: '{armed.Id}', kind: '{armed.Kind}' }};\n" + mediaScript;
+            }
+
+            // Gate P2b-0 — TEMPORARY. VELO_BRIDGE_BENCH="bytes,chunks" turns on
+            // the throughput bench inside the script. Delete with the bench block.
+            var bench = Environment.GetEnvironmentVariable("VELO_BRIDGE_BENCH");
+            if (!string.IsNullOrWhiteSpace(bench))
+            {
+                var parts  = bench.Split(',');
+                var bytes  = parts.Length > 0 && int.TryParse(parts[0], out var b) ? b : 65536;
+                var chunks = parts.Length > 1 && int.TryParse(parts[1], out var c) ? c : 200;
+                mediaScript =
+                    $"window.__VELO_BENCH__ = {{ bytes: {bytes}, chunks: {chunks}, delayMs: 8000 }};\n" + mediaScript;
+            }
+
+            _mediaScriptId =
+                await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[VELO] Media detect inject failed: {ex.Message}");
+        }
+    }
 
     /// <summary>
     /// Arms a capture of the given track kind (<c>audio</c>/<c>video</c>) and
@@ -71,20 +135,74 @@ public partial class BrowserTab : UserControl
     /// new MediaSource is what makes the capture start at byte zero. The file
     /// then fills in real time as the media plays.
     /// </summary>
-    public void StartMediaCapture(string trackKind, string destinationPath)
+    public async Task StartMediaCaptureAsync(string trackKind, string destinationPath)
     {
         var id = Guid.NewGuid().ToString("N")[..12];
         _armedCapture = (id, trackKind);
         _captureSink.Begin(id, destinationPath);
+
+        // Re-register BEFORE reloading, or the new document runs the script as
+        // it was registered at tab-init time — with no capture in it.
+        await InjectMediaDetectAsync();
         WebView.CoreWebView2?.Reload();
+
+        StartCaptureWatchdog();
+    }
+
+    /// <summary>
+    /// Gives up when nothing has arrived. A capture that silently never starts
+    /// is the worst outcome available: the download sits "in progress" with no
+    /// bytes and no way out, which is exactly how the missing re-registration
+    /// presented before it was found.
+    /// </summary>
+    private void StartCaptureWatchdog()
+    {
+        _captureWatchdog?.Stop();
+        _captureWatchdog = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(25),
+        };
+        _captureWatchdog.Tick += (_, _) =>
+        {
+            _captureWatchdog?.Stop();
+            _captureWatchdog = null;
+
+            if (_captureSink.Bytes > 0) return;   // it started; let it run
+
+            _armedCapture = null;
+            var result = _captureSink.Finish(cancelled: true) with
+            {
+                Error = "nothing was captured — the media never started playing, " +
+                        "or this page does not use MSE for the track you picked",
+            };
+            MediaCaptureFinished?.Invoke(this, result);
+        };
+        _captureWatchdog.Start();
+    }
+
+    private void StopCaptureWatchdog()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            _captureWatchdog?.Stop();
+            _captureWatchdog = null;
+        });
     }
 
     /// <summary>Stops a running capture and writes what was gathered.</summary>
     public void StopMediaCapture()
     {
+        _captureWatchdog?.Stop();
+        _captureWatchdog = null;
         _armedCapture = null;
+
         try { _ = WebView.CoreWebView2?.ExecuteScriptAsync("window.__veloStopCapture && window.__veloStopCapture()"); }
-        catch { /* the page may be gone; the sink still closes below */ }
+        catch { /* the page may be gone */ }
+
+        // Do not wait on the page: if it cannot answer, close here so the
+        // caller always gets an outcome.
+        if (_captureSink.IsCapturing)
+            MediaCaptureFinished?.Invoke(this, _captureSink.Finish());
     }
 
     /// <summary>Bytes captured so far, for progress.</summary>
@@ -363,50 +481,7 @@ public partial class BrowserTab : UserControl
         // which is what YouTube ad-block v0.2 turned out to be.
         if (_mediaDetectionGate?.IsEnabled != false)
         {
-            try
-            {
-                var mediaScript = await LoadScriptResourceAsync("media-detect.js");
-                if (mediaScript != null)
-                {
-                    // Gate P2b-0 — TEMPORARY. VELO_BRIDGE_BENCH="bytes,chunks"
-                    // turns on the throughput bench inside the script. Same
-                    // prepended-constant shape webrtc-spoof.js uses for its
-                    // mode. Delete with the bench block.
-                    // P2b — a capture armed for this tab is prepended so it
-                    // survives into the fresh document. Capture can only get
-                    // what is appended from now on, and a player will not
-                    // re-append data it already holds, so the whole-file case
-                    // needs a new MediaSource: arm, reload, capture.
-                    if (_armedCapture is { } armed)
-                    {
-                        mediaScript =
-                            $"window.__VELO_CAPTURE__ = {{ id: '{armed.Id}', kind: '{armed.Kind}' }};\n"
-                            + mediaScript;
-                    }
-
-                    var bench = Environment.GetEnvironmentVariable("VELO_BRIDGE_BENCH");
-                    if (!string.IsNullOrWhiteSpace(bench))
-                    {
-                        var parts = bench.Split(',');
-                        var bytes  = parts.Length > 0 && int.TryParse(parts[0], out var b) ? b : 65536;
-                        var chunks = parts.Length > 1 && int.TryParse(parts[1], out var c) ? c : 200;
-                        mediaScript =
-                            $"window.__VELO_BENCH__ = {{ bytes: {bytes}, chunks: {chunks}, delayMs: 8000 }};\n"
-                            + mediaScript;
-                    }
-
-                    await WebView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(mediaScript);
-                }
-                else
-                {
-                    System.Diagnostics.Trace.WriteLine(
-                        "[VELO] media-detect.js not found in resources/scripts/ — check the csproj Content Include.");
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"[VELO] Media detect inject failed: {ex.Message}");
-            }
+            await InjectMediaDetectAsync();
         }
 
         // Cookie consent auto-dismiss (embedded — no external files)

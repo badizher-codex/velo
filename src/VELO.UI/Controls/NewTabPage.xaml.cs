@@ -221,10 +221,16 @@ public partial class NewTabPage : UserControl
         };
 
         // Tile container
+        // No explicit Height. It used to be TileSize — the full height of the
+        // tile — and a StackPanel lays its children out from the top, so the
+        // circle and label (44 + 6 + ~14 ≈ 64 px) sat flush against the top
+        // edge with all 24 px of slack below them. VerticalAlignment.Center
+        // could not help: the panel already filled the tile, so centring it
+        // was a no-op. Sizing to content makes the centring real, and lifts
+        // the block back down by ~12 px.
         var tileContent = new StackPanel
         {
             Width               = TileSize,
-            Height              = TileSize,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment   = VerticalAlignment.Center,
         };

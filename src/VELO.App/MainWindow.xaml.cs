@@ -2714,7 +2714,7 @@ public partial class MainWindow : Window
     /// bytes only exist as the media plays. Both are said plainly up front
     /// rather than discovered afterwards from a short file.
     /// </summary>
-    private void StartTrackCapture(BrowserTab tab, VELO.Core.Media.MediaOffer offer)
+    private async void StartTrackCapture(BrowserTab tab, VELO.Core.Media.MediaOffer offer)
     {
         var isAudio = offer.Kind == VELO.Core.Media.MediaOfferKind.AudioTrack;
         var kind    = isAudio ? "audio" : "video";
@@ -2767,7 +2767,7 @@ public partial class MainWindow : Window
         }
 
         tab.MediaCaptureFinished += OnFinished;
-        tab.StartMediaCapture(kind, dialog.FileName);
+        await tab.StartMediaCaptureAsync(kind, dialog.FileName);
 
         Log.Information("Media capture armed: {Kind} → {Path}", kind, dialog.FileName);
     }
