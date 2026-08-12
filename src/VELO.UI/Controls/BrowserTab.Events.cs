@@ -523,14 +523,33 @@ public partial class BrowserTab
                 // posting these unprompted writes nothing.
                 case "media-capture":
                 {
-                    var id = node["id"]?.GetValue<string>() ?? "";
-                    switch (node["phase"]?.GetValue<string>())
+                    var id    = node["id"]?.GetValue<string>() ?? "";
+                    var phase = node["phase"]?.GetValue<string>();
+
+                    // Traced so a capture that produces nothing can be told
+                    // apart from a capture that never began — the field report
+                    // could not distinguish them and neither could I.
+                    if (MediaProbeLog.Enabled && phase != "chunk")
+                        MediaProbeLog.RecordPage(_tabId, senderHost,
+                            $"CAPTURE {phase} id={id} mime={node["mime"]?.GetValue<string>() ?? ""} " +
+                            $"kind={node["trackKind"]?.GetValue<string>() ?? ""} " +
+                            $"reason={node["reason"]?.GetValue<string>() ?? ""}");
+
+                    switch (phase)
                     {
                         case "chunk":
-                            _captureSink.Write(id,
-                                node["seq"]?.GetValue<int>() ?? -1,
-                                node["data"]?.GetValue<string>() ?? "");
+                        {
+                            var seq = node["seq"]?.GetValue<int>() ?? -1;
+                            _captureSink.Write(id, seq, node["data"]?.GetValue<string>() ?? "");
+                            // Every 10th: audio is low bitrate, so a 256 KB
+                            // chunk size means a whole minute can pass without
+                            // reaching seq 50 — the first trace was too sparse
+                            // to tell a working capture from a dead one.
+                            if (MediaProbeLog.Enabled && seq % 10 == 0)
+                                MediaProbeLog.RecordPage(_tabId, senderHost,
+                                    $"CAPTURE chunk seq={seq} bytes={_captureSink.Bytes}");
                             break;
+                        }
 
                         case "end":
                         case "error":

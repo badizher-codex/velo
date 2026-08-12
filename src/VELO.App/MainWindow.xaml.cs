@@ -2748,9 +2748,22 @@ public partial class MainWindow : Window
         var item    = manager.StartDownload(
             tab.CurrentUrl, System.IO.Path.GetFileName(dialog.FileName), dialog.FileName, 0);
 
+        // A capture runs for as long as the media plays — minutes — and has no
+        // known total, so the only honest feedback is the running byte count.
+        // Without this the row sat at zero for the whole video and read as
+        // frozen; it was in fact working, which is worse, because the user
+        // cancels something that was going to succeed.
+        var ticker = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1),
+        };
+        ticker.Tick += (_, _) => item.ReceivedBytes = tab.MediaCaptureBytes;
+        ticker.Start();
+
         void OnFinished(object? _, VELO.Core.Media.MediaCaptureResult result)
         {
             tab.MediaCaptureFinished -= OnFinished;
+            ticker.Stop();
             Dispatcher.Invoke(() =>
             {
                 item.ReceivedBytes = result.Bytes;
