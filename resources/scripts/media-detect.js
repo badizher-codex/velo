@@ -168,8 +168,39 @@
     const capture = (window.__VELO_CAPTURE__ && window.__VELO_CAPTURE__.id)
         ? { id: String(window.__VELO_CAPTURE__.id),
             kind: String(window.__VELO_CAPTURE__.kind || 'video'),
+            rate: Number(window.__VELO_CAPTURE__.rate || 1),
             target: null, seq: 0, done: false }
         : null;
+
+    // Capture is real-time by construction, so a film takes as long as the
+    // film. Measured: at rate 8 the player advances ~6 s of media per second
+    // of wall clock and appends at ~5.2 MB/s, well inside what the bridge
+    // drains. Muted because nobody wants a film at 8x out loud, and played
+    // because setting a rate on a paused element does nothing — that omission
+    // is what made the first three measurements meaningless.
+    const applyCaptureRate = () => {
+        if (!capture || capture.rate <= 1 || capture.done) return;
+        try {
+            document.querySelectorAll('video,audio').forEach((el) => {
+                el.muted = true;
+                if (el.playbackRate !== capture.rate) el.playbackRate = capture.rate;
+                if (el.paused && !el.ended) { try { el.play(); } catch (_) { } }
+            });
+        } catch (_) { }
+    };
+
+    // Put the page back how it was found. Without this the user is left with a
+    // muted video running at 8x and no idea why.
+    const restoreRate = () => {
+        try {
+            document.querySelectorAll('video,audio').forEach((el) => {
+                el.playbackRate = 1;
+                el.muted = false;
+            });
+        } catch (_) { }
+    };
+
+    if (capture && capture.rate > 1) setInterval(applyCaptureRate, 1000);
 
     // 256 KB pieces — the size Gate P2b-0 benchmarked at 91-122 MB/s. An
     // append can be several MB and one giant base64 string per append would
@@ -211,6 +242,7 @@
     const endCapture = (reason) => {
         if (!capture || capture.done) return;
         capture.done = true;
+        restoreRate();
         post({ kind: 'media-capture', phase: 'end', id: capture.id, chunks: capture.seq, reason: reason || 'ended' });
     };
 

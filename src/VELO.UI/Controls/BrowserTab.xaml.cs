@@ -61,6 +61,16 @@ public partial class BrowserTab : UserControl
     /// <summary>Phase 6 / P2b — a capture finished (or failed). Arg is the result.</summary>
     public event EventHandler<MediaCaptureResult>? MediaCaptureFinished;
 
+    /// <summary>
+    /// Playback rate used while capturing. Measured rather than picked: at 8
+    /// the player advances ~6 s of media per second of wall clock — the gap is
+    /// network and buffering, not the rate being ignored — and appends at
+    /// ~5.2 MB/s, comfortably inside the 90–122 MB/s the bridge drains. So a
+    /// ten-minute video captures in under two, and raising it further would
+    /// buy little while risking stalls.
+    /// </summary>
+    private const int CapturePlaybackRate = 8;
+
     private (string Id, string Kind)? _armedCapture;
     private readonly MediaCaptureSink _captureSink = new();
     private string? _mediaScriptId;
@@ -104,7 +114,8 @@ public partial class BrowserTab : UserControl
             if (_armedCapture is { } armed)
             {
                 mediaScript =
-                    $"window.__VELO_CAPTURE__ = {{ id: '{armed.Id}', kind: '{armed.Kind}' }};\n" + mediaScript;
+                    $"window.__VELO_CAPTURE__ = {{ id: '{armed.Id}', kind: '{armed.Kind}', " +
+                    $"rate: {CapturePlaybackRate} }};\n" + mediaScript;
             }
 
             // Gate P2b-0 — TEMPORARY. VELO_BRIDGE_BENCH="bytes,chunks" turns on

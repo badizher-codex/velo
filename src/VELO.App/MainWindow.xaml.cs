@@ -2730,9 +2730,12 @@ public partial class MainWindow : Window
 
         var confirm = MessageBox.Show(this,
             $"VELO will capture the {kind} track as it plays.\n\n" +
-            "The page reloads and the capture starts from the beginning. " +
-            "Leave the media playing until it ends — the file only fills as " +
-            "fast as it plays, and closing the tab or navigating away stops it.",
+            "The page reloads and the video then plays fast and muted — that is " +
+            "how the capture goes quicker than the running time, not a fault. " +
+            "Measured at roughly six times normal speed, so ten minutes of video " +
+            "take under two.\n\n" +
+            "Leave it running until it ends. Closing the tab or navigating away " +
+            "stops the capture, and sound and speed go back to normal when it finishes.",
             "Capture " + kind, MessageBoxButton.OKCancel, MessageBoxImage.Information);
         if (confirm != MessageBoxResult.OK) return;
 
