@@ -864,7 +864,30 @@ Lives behind `VELO_BRIDGE_BENCH="bytes,chunks"` in `media-detect.js` and `MediaP
 
 ---
 
-## 19. What is deliberately not in this plan
+## 19. Capture speed — playbackRate measured
+
+MSE capture is real-time by construction: the bytes only exist as the player fetches and appends them, so a 40-minute video takes 40 minutes. Raising `playbackRate` is the obvious escape, and it works.
+
+**Measured at rate 8 on the hls.js demo:** the video advanced **420 s of media in about 70 s of wall clock** — 53 appends, 364 MB buffered, playing rather than paused. **A 6× speedup.** The player honours the rate and fetches to match; network and buffering set the ceiling below the requested 8.
+
+No control run is needed for the factor: at 1× media time advances one second per wall second by definition, so media-time over wall-time *is* the speedup.
+
+It also stays inside the transport budget. 364 MB in 70 s is ~5.2 MB/s of appends against the 90–122 MB/s §18 measured the bridge draining, so accelerating the capture does not move the bottleneck to `postMessage`.
+
+**A 10-minute video therefore captures in under two.**
+
+### Two harness bugs that made every earlier attempt meaningless
+
+Both are worth naming, because between them they produced a confident wrong answer that was recorded and then retracted.
+
+1. **The probe set `playbackRate` and never called `play()`.** Setting a rate on a paused element applies the value and does nothing else — every "measurement" reported `rate=8` next to `t=0 PAUSED`, three identical idle conditions, and I read the absence of appends as the player fighting the rate.
+2. **The log filter compared timestamps as strings.** `"10:47" -gt "09:32"` is true, so rows from a previous day sorted after a morning mark and leaked into results, while other runs silently dropped their own rows. Line-count offsets replaced it.
+
+The first controlled run reported a stall that never happened. The lesson is the phase's own, applied to the measuring apparatus rather than the code: **when a measurement disagrees with the mechanism, suspect the measurement first.**
+
+---
+
+## 20. What is deliberately not in this plan
 
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).
