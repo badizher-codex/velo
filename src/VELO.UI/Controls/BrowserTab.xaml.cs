@@ -109,6 +109,14 @@ public partial class BrowserTab : UserControl
 
             // Gate P2b-0 — TEMPORARY. VELO_BRIDGE_BENCH="bytes,chunks" turns on
             // the throughput bench inside the script. Delete with the bench block.
+            // TEMPORARY — playback-rate probe. VELO_PLAYBACK_RATE=8 asks the
+            // page to play at 8x muted, to measure whether a player fetches
+            // and appends faster when told to. Delete with the rest of the
+            // probe instrumentation.
+            var rate = Environment.GetEnvironmentVariable("VELO_PLAYBACK_RATE");
+            if (!string.IsNullOrWhiteSpace(rate) && double.TryParse(rate, out var r) && r > 0)
+                mediaScript = $"window.__VELO_RATE__ = {r.ToString(System.Globalization.CultureInfo.InvariantCulture)};\n" + mediaScript;
+
             var bench = Environment.GetEnvironmentVariable("VELO_BRIDGE_BENCH");
             if (!string.IsNullOrWhiteSpace(bench))
             {

@@ -222,6 +222,28 @@
         document.addEventListener('ended', () => endCapture('ended'), true);
     } catch (_) { }
 
+    // ── Playback-rate probe (TEMPORARY) ──────────────────────────────────
+    //
+    // Capture is real-time by construction: the bytes only exist as the player
+    // fetches and appends them, so a 40-minute video takes 40 minutes. If a
+    // player honours a high playbackRate it will fetch and append faster, and
+    // the capture finishes in a fraction of the time. Whether YouTube's player
+    // honours it or fights it is the question — measured before it becomes a
+    // feature. Re-applied on a timer because players reset the rate.
+    try {
+        const wanted = Number(window.__VELO_RATE__ || 0);
+        if (wanted > 0) {
+            setInterval(() => {
+                try {
+                    document.querySelectorAll('video,audio').forEach((el) => {
+                        if (el.playbackRate !== wanted) el.playbackRate = wanted;
+                        el.muted = true;
+                    });
+                } catch (_) { }
+            }, 1000);
+        }
+    } catch (_) { }
+
     // ── MSE hooks ────────────────────────────────────────────────────────
     try {
         if (window.MediaSource && window.MediaSource.prototype.addSourceBuffer) {
