@@ -236,8 +236,15 @@
             setInterval(() => {
                 try {
                     document.querySelectorAll('video,audio').forEach((el) => {
-                        if (el.playbackRate !== wanted) el.playbackRate = wanted;
+                        // Muted first, then play. The first controlled run
+                        // measured nothing because the probe set the rate on a
+                        // PAUSED element — rate=8, t=0, paused — so all three
+                        // conditions were identical and idle. Setting a rate
+                        // does not start playback; muted autoplay is what is
+                        // permitted without a gesture.
                         el.muted = true;
+                        if (el.playbackRate !== wanted) el.playbackRate = wanted;
+                        if (el.paused && !el.ended) { try { el.play(); } catch (_) { } }
                     });
                 } catch (_) { }
             }, 1000);
@@ -380,6 +387,14 @@
             document.querySelectorAll('video,audio').forEach((el) => {
                 const src = el.currentSrc || el.src || '';
                 out.push({
+                    // Playback state. Without these a stalled capture and a
+                    // finished one look identical from the host: appends stop
+                    // either way. currentTime advancing is the only thing that
+                    // says the media is actually moving.
+                    t:      isFinite(el.currentTime) ? Math.round(el.currentTime) : -1,
+                    paused: !!el.paused,
+                    rate:   el.playbackRate,
+                    ended:  !!el.ended,
                     tag: el.tagName.toLowerCase(),
                     // The scheme is what matters: a blob: src means the real
                     // addresses exist only on the network layer (P0 §8).
@@ -468,7 +483,11 @@
     } catch (_) { }
 
     setInterval(() => {
-        if (!dirty) return;
+        // Change-gated normally, unconditional while the rate probe runs. The
+        // gate is why the first playbackRate measurement was ambiguous: when
+        // appends stopped the reports stopped too, so there was no way to see
+        // whether the video was still advancing, paused, or ended.
+        if (!dirty && !window.__VELO_RATE__) return;
         dirty = false;
         post({
             kind: 'media-detect',

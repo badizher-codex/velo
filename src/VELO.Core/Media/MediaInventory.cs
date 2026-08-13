@@ -262,8 +262,13 @@ public sealed class MediaInventory
             var tracks = string.Join(", ", _page.Tracks.Select(t =>
                 $"{t.Kind}:{t.Codecs} {t.Appends}app/{t.Bytes}B{(t.Encrypted ? " ENCRYPTED" : "")}"));
 
+            var media = string.Join(", ", _page.Elements.Select(e =>
+                $"{e.Tag} t={e.CurrentTimeSeconds}/{e.DurationSeconds} rate={e.Rate}" +
+                $"{(e.Paused ? " PAUSED" : "")}{(e.Ended ? " ENDED" : "")}"));
+
             return $"progressive={_progressive.Count} manifests={_manifests.Count} " +
-                   $"tracks=[{tracks}] protected={MediaClassifier.IsProtected(_page.Drm)}";
+                   $"tracks=[{tracks}] protected={MediaClassifier.IsProtected(_page.Drm)} " +
+                   $"media=[{media}]";
         }
     }
 }

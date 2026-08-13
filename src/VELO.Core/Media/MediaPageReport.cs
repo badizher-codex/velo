@@ -19,7 +19,14 @@ public sealed record MediaTrack(
 /// real addresses exist only on the network layer — measured on both YouTube
 /// and the hls.js demo.
 /// </param>
-public sealed record MediaElementInfo(string Tag, string SrcKind, int DurationSeconds);
+public sealed record MediaElementInfo(
+    string Tag,
+    string SrcKind,
+    int    DurationSeconds,
+    int    CurrentTimeSeconds = -1,
+    bool   Paused = false,
+    double Rate = 1,
+    bool   Ended = false);
 
 /// <summary>
 /// The parsed form of one <c>media-detect.js</c> report.
@@ -92,7 +99,11 @@ public sealed record MediaPageReport(
                     elements.Add(new MediaElementInfo(
                         el["tag"]?.GetValue<string>()     ?? "",
                         el["srcKind"]?.GetValue<string>() ?? "none",
-                        el["duration"]?.GetValue<int>()   ?? 0));
+                        el["duration"]?.GetValue<int>()   ?? 0,
+                        el["t"]?.GetValue<int>()          ?? -1,
+                        el["paused"]?.GetValue<bool>()    ?? false,
+                        el["rate"]?.GetValue<double>()    ?? 1,
+                        el["ended"]?.GetValue<bool>()     ?? false));
                 }
             }
 
