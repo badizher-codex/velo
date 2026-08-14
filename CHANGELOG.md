@@ -11,6 +11,37 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.6.0] — 2026-08-14 — Download the media you are watching
+
+VELO can now download what a page is playing. Not by guessing at URLs — the network layer cannot identify media on the modern web — but by watching what the player actually feeds to the browser's media pipeline.
+
+### What you can download
+
+A chip appears in the address bar when VELO finds something on the page. Open it and you get a list: progressive files with their size, adaptive streams, and where the distinction exists, **audio and video as separate rows** with their codecs, so you can take just the audio of a music video.
+
+Two paths carry the bytes, and both are verified in the field:
+
+- **HLS streams** are fetched segment by segment and concatenated. A 479 MB reference download came out as 2 671 300 transport-stream packets with no broken synchronisation, and decodes as H.264 + AAC.
+- **YouTube and anything else using MSE** is captured from the media pipeline itself, which sidesteps delivery protocols VELO cannot read from the network side. A 3m25s track was captured in about 35 seconds and decodes as Opus.
+
+That speed is not free, and the limitation is inherent: MSE capture only ever gets what is actually played, because the bytes do not exist until the player asks for them. VELO plays the media silently at 8× to shorten the wait and puts the page back the way it found it when the capture ends.
+
+### Protected content is declined, and it now stops declining
+
+VELO refuses to download DRM-protected media. This is not a technical limitation dressed up as a policy — making protected content playable means extracting keys, and that is circumvention. The refusal is explicit: an amber chip and a row that says why, rather than a dead control or a file of unplayable bytes.
+
+The rule keys on **use, never capability**. A page that merely asks the browser which DRM systems it supports is not playing anything protected — one demo probes thirteen on load — so the check looks for keys actually attached to the element, an `encrypted` event, or encryption boxes in the stream itself.
+
+Verifying that refusal against genuinely protected content found a second bug, and it is fixed in the same release. The signals were counters that only ever went up, so after watching one protected title, a site's ordinary pages stayed marked as protected for the rest of the session and **every** download offer was suppressed — on exactly the sites where people want this feature. The verdict now describes the present rather than the page's history.
+
+### Known gaps
+
+- Audio and video download as **separate files**. Combining them needs a muxer, which VELO does not bundle.
+- There is **no stop button** for a capture in progress.
+- DASH streams are listed but not downloadable — they are named as such rather than silently missing.
+
+---
+
 ## [2.5.0] — 2026-08-06 — Light and dark themes
 
 Two things in this release. VELO can be light now, which took rebuilding the colour layer rather than painting a second palette over the old one. And session restore finally restores the session — it had been quietly dropping a tab on every launch.
