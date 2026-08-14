@@ -876,6 +876,22 @@ It also stays inside the transport budget. 364 MB in 70 s is ~5.2 MB/s of append
 
 **A 10-minute video therefore captures in under two.**
 
+### Wired, and verified end to end at speed
+
+The rate is part of the capture rather than a probe: the armed capture carries it into the page, which mutes, sets it and plays — setting a rate on a paused element does nothing, and that omission is what made the first three measurements meaningless — and the page is put back to 1× and unmuted when the capture ends.
+
+Confirmed on a real YouTube capture of a 3m25s track, taken at 8×:
+
+| Check | Result |
+|---|---|
+| Container | `1a45dfa3` EBML, doctype **webm** |
+| Codec | **OpusHead** present |
+| Clusters | **21** — real media blocks, not a fragment |
+| Duration | **205.7 s**, matching the track |
+| Size | 3 472 895 bytes → **135 kbps**, exactly YouTube's Opus track |
+
+Whole track, correct container, right bitrate, captured in roughly 35 seconds instead of three and a half minutes. **P2b is complete: arming, acceleration, capture and close are all verified in the field.**
+
 ### Two harness bugs that made every earlier attempt meaningless
 
 Both are worth naming, because between them they produced a confident wrong answer that was recorded and then retracted.
