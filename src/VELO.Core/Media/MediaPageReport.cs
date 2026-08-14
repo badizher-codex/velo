@@ -83,7 +83,7 @@ public sealed record MediaPageReport(
             var drm = new DrmSignals(
                 KeySystemsProbed:   (eme?["probed"]   as JsonArray)?.Count ?? 0,
                 KeySystemsResolved: (eme?["resolved"] as JsonArray)?.Count ?? 0,
-                SetMediaKeysCalls:  eme?["setMediaKeys"]?.GetValue<int>() ?? 0,
+                MediaKeysAttached:  eme?["mediaKeysAttached"]?.GetValue<int>() ?? 0,
                 EncryptedEvents:    eme?["encryptedEvents"]?.GetValue<int>() ?? 0,
                 // Encryption boxes are reported per track; the page-level
                 // verdict is "any track carries them".

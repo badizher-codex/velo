@@ -307,20 +307,41 @@ public class MediaClassifierTests
     }
 
     [Theory]
-    [InlineData(1, 0, false, false)]   // keys actually attached
+    [InlineData(1, 0, false, false)]   // keys attached to the live element
     [InlineData(0, 1, false, false)]   // an encrypted event fired
     [InlineData(0, 0, true,  false)]   // pssh in the init segment
     [InlineData(0, 0, false, true)]    // sinf in the init segment
-    public void Actual_use_is_protected(int setMediaKeys, int encrypted, bool pssh, bool sinf)
+    public void Actual_use_is_protected(int mediaKeys, int encrypted, bool pssh, bool sinf)
     {
         var used = new DrmSignals(
             KeySystemsProbed: 1,
             KeySystemsResolved: 1,
-            SetMediaKeysCalls: setMediaKeys,
+            MediaKeysAttached: mediaKeys,
             EncryptedEvents: encrypted,
             InitSegmentHasPssh: pssh,
             InitSegmentHasSinf: sinf);
 
         Assert.True(MediaClassifier.IsProtected(used));
+    }
+
+    [Fact]
+    public void Protection_is_about_the_present_not_the_history()
+    {
+        // §21, measured on Prime Video: after playing a protected title, the
+        // SPA's catalogue pages kept reporting protected because the page-side
+        // EME counters were cumulative per document and a route change is not
+        // a navigation. The amber chip then suppressed every offer for the
+        // rest of the session.
+        //
+        // The host half of the fix is that the verdict reads only what the
+        // latest report says. Capability may stay high — the page really did
+        // resolve five key systems — and the verdict must still be clean once
+        // nothing protected is attached to the live element.
+        var afterLeavingProtectedContent = new DrmSignals(
+            KeySystemsProbed: 5, KeySystemsResolved: 3,
+            MediaKeysAttached: 0, EncryptedEvents: 0,
+            InitSegmentHasPssh: false, InitSegmentHasSinf: false);
+
+        Assert.False(MediaClassifier.IsProtected(afterLeavingProtectedContent));
     }
 }

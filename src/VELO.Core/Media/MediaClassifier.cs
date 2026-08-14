@@ -32,7 +32,17 @@ public sealed record ResponseSignals(
 public sealed record DrmSignals(
     int KeySystemsProbed     = 0,
     int KeySystemsResolved   = 0,
-    int SetMediaKeysCalls    = 0,
+    /// <summary>
+    /// Media elements backing the live MediaSource that have MediaKeys attached
+    /// <em>right now</em>. Deliberately not a call count: a counter only grows,
+    /// and §21 measured that a cumulative one keeps a page marked protected for
+    /// the rest of an SPA session long after the protected media is gone.
+    /// </summary>
+    int MediaKeysAttached    = 0,
+    /// <summary>
+    /// <c>encrypted</c> events seen on the element backing the live MediaSource.
+    /// Scoped the same way and for the same reason as <see cref="MediaKeysAttached"/>.
+    /// </summary>
     int EncryptedEvents      = 0,
     bool InitSegmentHasPssh  = false,
     bool InitSegmentHasSinf  = false);
@@ -253,9 +263,14 @@ public static class MediaClassifier
     /// downloads on any site that merely feature-detects. What counts is the
     /// page actually attaching keys, an encrypted event firing, or the
     /// initialisation segment carrying encryption boxes.
+    ///
+    /// Every signal here is about the CURRENT state of the page, never its
+    /// history. §21 measured what happens otherwise: cumulative counters kept
+    /// Prime Video's catalogue pages marked protected long after playback
+    /// ended, which suppressed every offer for the rest of the session.
     /// </summary>
     public static bool IsProtected(DrmSignals signals) =>
-        signals.SetMediaKeysCalls   > 0 ||
+        signals.MediaKeysAttached   > 0 ||
         signals.EncryptedEvents     > 0 ||
         signals.InitSegmentHasPssh  ||
         signals.InitSegmentHasSinf;

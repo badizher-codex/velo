@@ -590,7 +590,7 @@ public class WiringSmokeTests
         foreach (var field in new[]
         {
             "buffers", "mime", "appends", "bytes", "encrypted", "first", "container",
-            "pssh", "sinf", "eme", "probed", "resolved", "setMediaKeys",
+            "pssh", "sinf", "eme", "probed", "resolved", "mediaKeysAttached",
             "encryptedEvents", "elements", "tag", "srcKind", "duration", "url",
         })
         {
@@ -599,6 +599,17 @@ public class WiringSmokeTests
             Assert.True(parser.Contains($"\"{field}\"", StringComparison.Ordinal),
                 $"MediaPageReport.TryParse does not read the '{field}' field media-detect.js produces");
         }
+
+        // §21 — the DRM verdict must describe the present, not the document's
+        // history. A cumulative counter cannot go back down, and that is what
+        // kept Prime Video's catalogue pages marked protected for a whole
+        // session. There is no JS test harness in this repo (lesson #55: the
+        // place that cannot be tested is the place the bugs live), so this
+        // string guard is the only thing standing between that fix and a
+        // silent regression by whoever finds `eme.setMediaKeys++` more natural.
+        Assert.DoesNotContain("eme.setMediaKeys", js);
+        Assert.DoesNotContain("eme.encryptedEvents++", js);
+        Assert.Contains("el.mediaKeys", js);
 
         // Read-only means read-only: the script must never ship media bytes
         // over the bridge. It reports counts and box names.

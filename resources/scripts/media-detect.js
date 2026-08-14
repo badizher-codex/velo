@@ -44,7 +44,10 @@
 
     // ── State ────────────────────────────────────────────────────────────
     const buffers = [];   // one entry per addSourceBuffer call
-    const eme = { probed: [], resolved: [], setMediaKeys: 0, encryptedEvents: 0 };
+    // Sólo capacidad, y sólo acumulativo: `probed`/`resolved` NO entran en el
+    // veredicto (bitmovin sondea 13 key systems sin reproducir nada protegido).
+    // El uso real se deriva del DOM en cada reporte — ver emeState().
+    const eme = { probed: [], resolved: [] };
     let dirty = false;
 
     // blob: URL -> MediaSource, so a SourceBuffer can be traced back to the
@@ -370,18 +373,57 @@
             };
         }
 
+        // El hook ya NO cuenta: sólo despierta el reporte. Lo que se reporta se
+        // lee de `el.mediaKeys` en emeState(), que es estado del navegador y no
+        // contabilidad nuestra — un contador que sólo sube no puede volver a
+        // bajar, y ése era exactamente el bug.
         if (window.HTMLMediaElement && HTMLMediaElement.prototype.setMediaKeys) {
             const origSet = HTMLMediaElement.prototype.setMediaKeys;
             HTMLMediaElement.prototype.setMediaKeys = function () {
-                try { eme.setMediaKeys++; dirty = true; } catch (_) { }
+                try { dirty = true; } catch (_) { }
                 return origSet.apply(this, arguments);
             };
         }
 
-        document.addEventListener('encrypted', () => {
-            try { eme.encryptedEvents++; dirty = true; } catch (_) { }
+        // Se anota EN EL ELEMENTO, no en un global. Cuando el player crea un
+        // elemento nuevo para lo siguiente que reproduce, el contador del nuevo
+        // empieza en cero por construcción y el del viejo se va con él.
+        document.addEventListener('encrypted', (e) => {
+            try {
+                const t = e.target;
+                if (t) t.__veloEnc = (t.__veloEnc || 0) + 1;
+                dirty = true;
+            } catch (_) { }
         }, true);
     } catch (_) { }
+
+    // El uso REAL de cifrado, derivado en cada reporte en vez de acumulado.
+    //
+    // Medido 2026-08-14 en Prime Video (§21 del análisis): tras reproducir un
+    // título protegido, `/storefront` y `/movie` —catálogo, sin reproducir
+    // nada— seguían dando protected=true. Los contadores globales de EME eran
+    // acumulativos por DOCUMENTO y una navegación SPA no cambia el documento,
+    // así que el ámbar duraba toda la sesión y suprimía todas las ofertas.
+    //
+    // Se mira SÓLO el elemento que respalda el MediaSource vivo, que es el
+    // mismo criterio con el que liveBuffers() elige las pistas: la pregunta que
+    // importa no es "¿esta página usó cifrado alguna vez?" sino "¿está cifrado
+    // lo que estamos a punto de ofrecer?". En aquella corrida las pistas vivas
+    // de /storefront ya daban pssh=false sinf=false — eran un tráiler limpio;
+    // lo único que mentía eran los contadores.
+    const emeState = () => {
+        const live = liveSourceUrl();
+        let mediaKeysAttached = 0, encryptedEvents = 0;
+        try {
+            document.querySelectorAll('video,audio').forEach((el) => {
+                const src = el.currentSrc || el.src || '';
+                if (live && src !== live) return;
+                if (el.mediaKeys) mediaKeysAttached++;
+                encryptedEvents += el.__veloEnc || 0;
+            });
+        } catch (_) { }
+        return { mediaKeysAttached: mediaKeysAttached, encryptedEvents: encryptedEvents };
+    };
 
     // ── Media elements ───────────────────────────────────────────────────
     const elements = () => {
@@ -440,6 +482,7 @@
     setInterval(() => {
         if (!dirty) return;
         dirty = false;
+        const use = emeState();
         post({
             kind: 'media-detect',
             url: location.href,
@@ -447,7 +490,12 @@
                 i: b.i, mime: b.mime, appends: b.appends, bytes: b.bytes,
                 first: b.first, encrypted: b.encrypted,
             })),
-            eme: eme,
+            eme: {
+                probed: eme.probed,
+                resolved: eme.resolved,
+                mediaKeysAttached: use.mediaKeysAttached,
+                encryptedEvents: use.encryptedEvents,
+            },
             elements: elements(),
         });
     }, 2000);

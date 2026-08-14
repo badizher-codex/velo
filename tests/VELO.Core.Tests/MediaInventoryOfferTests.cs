@@ -31,7 +31,7 @@ public class MediaInventoryOfferTests
         inventory.ApplyPageReport(new MediaPageReport(
             "https://site.example/watch",
             [Track(TrackKind.Video, "avc1")],
-            new DrmSignals(KeySystemsProbed: 1, KeySystemsResolved: 1, SetMediaKeysCalls: 1),
+            new DrmSignals(KeySystemsProbed: 1, KeySystemsResolved: 1, MediaKeysAttached: 1),
             []));
 
         var offers = inventory.BuildOffers();
@@ -63,6 +63,48 @@ public class MediaInventoryOfferTests
         Assert.Single(offers);
         Assert.Equal(MediaOfferKind.ProgressiveFile, offers[0].Kind);
         Assert.True(offers[0].CanDownload);
+    }
+
+    [Fact]
+    public void Leaving_protected_content_brings_the_offers_back()
+    {
+        // The second direction of the refusal, and the one that was broken.
+        // §21, measured on Prime Video: /storefront and /movie — catalogue
+        // pages playing nothing — kept reporting protected after a protected
+        // title had played, because the page-side EME counters were cumulative
+        // per document and an SPA route change raises no navigation, so
+        // Media.Reset() never ran. Since protected content short-circuits
+        // BuildOffers entirely, the user lost every offer for the rest of the
+        // session on that site.
+        //
+        // Guards get run both ways (#44): the case above proves it refuses,
+        // this one proves it stops refusing.
+        var inventory = new MediaInventory();
+        inventory.RecordResponse(new ResponseSignals(
+            "https://cdn.example/movie.mp4", "video/mp4", ContentLength: "900000"));
+
+        inventory.ApplyPageReport(new MediaPageReport(
+            "https://site.example/watch",
+            [Track(TrackKind.Video, "avc1")],
+            new DrmSignals(KeySystemsProbed: 5, KeySystemsResolved: 3, MediaKeysAttached: 1),
+            []));
+        Assert.True(inventory.IsProtected);
+        Assert.Equal(MediaOfferKind.Protected, Assert.Single(inventory.BuildOffers()).Kind);
+
+        // Same document, next thing on screen: a clean trailer. Capability
+        // stays high — those five key systems really were probed — but nothing
+        // protected is attached to the live element any more.
+        inventory.ApplyPageReport(new MediaPageReport(
+            "https://site.example/storefront",
+            [Track(TrackKind.Video, "avc1")],
+            new DrmSignals(KeySystemsProbed: 5, KeySystemsResolved: 3),
+            []));
+
+        Assert.False(inventory.IsProtected);
+        var offers = inventory.BuildOffers();
+        Assert.DoesNotContain(offers, o => o.Kind == MediaOfferKind.Protected);
+        Assert.Contains(offers, o => o.Kind == MediaOfferKind.ProgressiveFile && o.CanDownload);
+        Assert.Contains(offers, o => o.Kind == MediaOfferKind.VideoTrack);
     }
 
     // ── Every unactionable row explains itself ───────────────────────────

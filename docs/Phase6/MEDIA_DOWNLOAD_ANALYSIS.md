@@ -804,7 +804,7 @@ The maintainer clicked Download on an HLS row and produced a file. Verified agai
 
 That last row is the one worth reading twice. Discontinuities are expected here: each HLS segment is independently muxed, so its counters restart at every join. One per PID per boundary, spaced megabytes apart, is the signature of a clean concatenation; scattered small-gap discontinuities would have been corruption.
 
-**Still not verified: playback by a decoder.** `ffprobe` is not installed on the machine, so nothing has actually decoded the file — every check above is structural. Opening it in a player is the last step and it is one double-click.
+~~**Still not verified: playback by a decoder.**~~ **Verified 2026-08-14 — see §22.**
 
 ---
 
@@ -908,3 +908,173 @@ The first controlled run reported a stall that never happened. The lesson is the
 - Any form of DRM circumvention (§5).
 - Bundling ffmpeg (D-1).
 - A YouTube-specific extraction path. If the generic detector cannot see it, it is out of scope — a per-site extractor is a maintenance treadmill and the ad-block history says so. **§10 removed the pressure on this rule**: the generic MSE detector sees YouTube's tracks perfectly well, so nothing site-specific is needed and this stays intact.
+
+---
+
+## 21. The DRM refusal, verified against real protected content — 2026-08-14
+
+The oldest open item in the phase (§14 "Open", §12) is closed. Two independent
+sources of genuinely protected content produced `IsProtected == true` at
+runtime, through the whole chain: `media-detect.js` hooks → `MediaPageReport`
+→ `MediaClassifier.IsProtected` → `MediaInventory.BuildOffers` → amber chip.
+
+**No rental was needed.** The reason it had stayed open for so long was the
+assumption that testing it meant buying protected content. It did not: Shaka
+Player's demo hosts 19 DRM assets with public license servers, and Prime Video
+was already known to play with DRM active on this machine (`BACKLOG.md:15`,
+v2.4.68). Both are free.
+
+### What was measured
+
+Instrumentation: one temporary Serilog line on every `media-detect` report,
+logging the four DRM signals separately. Removed after (see below).
+
+| Case | Source | Result |
+|---|---|---|
+| A control | YouTube, free video | `protected=false probed=0 tracks=2 elements=1` |
+| B control | `velo-drm-check.html` | `protected=false probed=3 resolved=3` |
+| D | Shaka demo, *Angel One (multicodec, multilingual, Widevine)* | **`protected=true setMediaKeys=1 encrypted=2 pssh=true sinf=true`** |
+| D-bis | Prime Video, playback started | **`protected=true setMediaKeys=1 encrypted=4`** |
+
+All four signals the rule keys on fired on real Widevine content, and the two
+that are pure capability — `probed` and `resolved` — were non-zero in cases
+that correctly stayed `false`. The rule is now verified in **both** directions
+against real streams, not only unit tests.
+
+**A wrong assumption fell out of case A: YouTube does not probe key systems on
+free content** (`probed=0`). §10 had assumed it did. This matters because the
+first version of the instrumentation only logged when `protected || probed>0`,
+which made a clean page leave no trace at all — an absent line could not be
+told apart from a dead detector. A negative only counts if the positive was
+possible; the filter was removed and every report transition is logged.
+
+### What it also found: the verdict is sticky across SPA navigation 🔴
+
+Three consecutive reports on Prime Video, seconds apart:
+
+```
+10:24:32  protected=true   url=…/detail/0K16R3PLUFGC2JUE457C26O4OD
+10:24:36  protected=true   url=…/storefront
+10:24:38  protected=true   url=…/movie
+```
+
+`/storefront` and `/movie` are catalogue pages playing nothing. They report
+protected because:
+
+* `Media.Reset()` is called only from `OnNavigationStarting`
+  (`BrowserTab.Events.cs:301`), and an SPA route change raises no navigation;
+* the page-side `eme` object in `media-detect.js` is cumulative for the
+  lifetime of the **document**, and `setMediaKeys` never decrements.
+
+`ApplyPageReport` then replaces the host's view with a report that still
+carries the old counters, so `IsProtected` stays true until a real navigation.
+
+**User-visible consequence:** after watching one protected item, the amber chip
+sticks for the rest of the session on that site and suppresses every offer —
+including legitimate ones, since protected content short-circuits `BuildOffers`
+entirely (`MediaInventory.cs:177`). Netflix, Prime, YouTube and every other SPA
+player are affected.
+
+This is the second direction of the guard, and it is exactly what running a new
+guard both ways is for (#44). The refusal itself is correct; its *lifetime* is
+not. **Fixed the same day — see §23.**
+
+### Instrumentation removed
+
+The temporary `[VELO-DRM]` Serilog line and the `_lastDrmSignature` field were
+deleted once the measurements above were recorded, the same way `77d7f5b`
+removed P2b's probes. **There are no diagnostic logs on this path again**; if
+the sticky-verdict fix needs measuring, re-instrument temporarily.
+
+---
+
+## 22. Both outputs decoded by a real decoder — 2026-08-14
+
+§13 left one gap open: every check on the downloaded files was **structural**
+(packet counts, box walks, EBML parsing), because `ffprobe` is not on the
+machine. Nothing had actually decoded them.
+
+Closed. VLC is installed (`C:\Program Files\VideoLAN\VLC\vlc.exe`, not on PATH,
+which is why it was missed), and it ships the same libavcodec `ffprobe` would
+have used. Run headless so nothing renders:
+
+```
+vlc.exe -I dummy --vout dummy --aout dummy --play-and-exit --stop-time 10 \
+        --file-logging --logfile=<log> --log-verbose 2 <file>
+```
+
+| File | What the decoder said |
+|---|---|
+| `193039199_mp4_h264_aac_fhd_7.ts` (HLS, 479 MB) | `codec (h264) started` · `using video decoder module "avcodec"` · `using audio decoder module "faad"` · hardware path engaged (`Using D3D11VA`) |
+| `Benson Boone - Beautiful Things.webm` (MSE capture) | Matroska parsed: `Track Type=audio`, `Track CodecId=A_OPUS`, `Duration=192621` · `using audio decoder module "opus"` · `Opus audio with 2 channels` · **no error lines at all** |
+
+The only diagnostic in the `.ts` run was `blend error: no matching alpha
+blending routine (chroma: YUVA -> DX11)`, which is the OSD compositor against
+the dummy video output — an artefact of running headless, not of the file.
+
+So both paths produce files a real decoder accepts, not merely files that
+parse. The HLS concatenation in particular — 2 671 300 TS packets across
+hundreds of independently muxed segments — decodes as H.264 + AAC without the
+decoder complaining about the joins, which is the strongest evidence yet that
+the naive concatenation in §13 is sound.
+
+**Note for the next person:** absence of `ffprobe` is not absence of a decoder.
+VLC, mpv, and even Windows' own Media Foundation will all decode and report;
+VLC's `-I dummy` mode gives libavcodec's verdict in text, which is exactly what
+`ffprobe` would have given.
+
+---
+
+## 23. The DRM verdict stops describing history — 2026-08-14
+
+Fix for §21's sticky verdict. The principle: **stop counting, start observing.**
+
+The old signals were bookkeeping we did ourselves — `eme.setMediaKeys++` and
+`eme.encryptedEvents++`, both global to the document, both monotonic. A counter
+that only goes up cannot answer "is this protected *now*", and that is the whole
+bug. Nothing about it was fixable by adding a reset somewhere: the host had no
+event to reset on, because an SPA route change is not a navigation.
+
+### What the page reports now
+
+| Signal | Before | After |
+|---|---|---|
+| keys attached | `eme.setMediaKeys` — count of calls, per document, monotonic | `mediaKeysAttached` — how many live media elements have `el.mediaKeys` **right now** |
+| encrypted events | `eme.encryptedEvents` — global counter | counted on `e.target` and summed over elements present now |
+| `pssh` / `sinf` | already derived from `liveBuffers()` | unchanged — this half was always correct |
+| `probed` / `resolved` | cumulative | unchanged, and still excluded from the verdict |
+
+`el.mediaKeys` is the browser's own state, not ours. When the player builds a
+new element for the next thing it plays, the new element reports no keys by
+construction — there is no counter left to go stale. The `encrypted` tally
+moved onto the element for the same reason: it dies with the element.
+
+Both are then read **only from the element backing the live `MediaSource`**,
+which is the same criterion `liveBuffers()` already uses to pick the tracks
+(`media-detect.js:426`). That alignment is the point. The question the rule
+answers is not "did this page ever use encryption" but "is what we are about to
+offer encrypted" — and the tracks and the DRM verdict now answer it about the
+same media. The §21 log shows why that is sufficient: on `/storefront` the live
+tracks already read `pssh=false sinf=false`, a clean trailer. Only the counters
+were lying.
+
+`DrmSignals.SetMediaKeysCalls` was renamed to `MediaKeysAttached`, because the
+old name would have been a lie about what the number means, and a field whose
+name misdescribes it is how the next person reintroduces the counter.
+
+### Verification
+
+- **Host half, unit tested.** `Protection_is_about_the_present_not_the_history`
+  and `Leaving_protected_content_brings_the_offers_back` — the latter drives a
+  real `MediaInventory` protected → clean and asserts the offers come back,
+  which is the direction that was broken. 873 tests.
+- **Page half has no test harness**, and that is the honest state of it: there
+  is no JS runner in this repo (#55 — the untestable place is where the bugs
+  live). It is held by string guards in `WiringSmokeTests`: `eme.setMediaKeys`
+  must not appear, `el.mediaKeys` must. Both were verified to **fail against
+  the previous version of the file** rather than merely passing against the new
+  one (#60) — the old text contains the forbidden string and lacks the required
+  one.
+- **Runtime, still owed:** play something protected, then navigate the same
+  site's catalogue without a reload, and watch the chip go amber → green. No
+  instrumentation needed — the chip colour is the observable.
