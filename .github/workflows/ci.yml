@@ -5,6 +5,12 @@ on:
     branches: [ main, dev ]
   pull_request:
     branches: [ main ]
+  # Manual trigger. Added after the GitHub outage of 2026-08-12, during which
+  # pushes stopped starting workflows and there was no way to run CI by hand —
+  # the repo looked broken and nothing could prove otherwise (lesson #58: check
+  # githubstatus.com before blaming the repo). A dispatch entry costs nothing
+  # and turns "wait and hope" into a button.
+  workflow_dispatch:
 
 jobs:
   build-and-test:
