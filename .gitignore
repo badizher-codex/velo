@@ -3,6 +3,9 @@ bin/
 obj/
 publish/
 
+# Knowledge graph — repo git propio y privado, nunca se publica con VELO
+.velo-graph/
+
 # User-specific files
 *.user
 *.suo
