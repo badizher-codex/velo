@@ -629,8 +629,15 @@ public class WiringSmokeTests
         // Lifecycle — an inventory that outlives its page describes the wrong one.
         Assert.Contains("Media.Reset()", events);
 
-        // Consumer — P1's is the measurement log; P4 replaces it with the chip.
-        Assert.Contains("Media.Describe()", events);
+        // Consumer. This used to be the measurement log, which was temporary
+        // scaffolding; the real one is the URL-bar chip, so assert the chain
+        // that actually reaches the screen — the tab raises, the host handles
+        // it, and the handler reads the inventory into the bar.
+        Assert.Contains("MediaInventoryChanged", events);
+
+        var mainWindow = File.ReadAllText(Path.Combine(srcRoot, "VELO.App", "MainWindow.xaml.cs"));
+        Assert.Contains("OnMediaInventoryChanged", mainWindow);
+        Assert.Contains("SetMediaInventory(", mainWindow);
     }
 
     [Fact]

@@ -60,10 +60,7 @@ public partial class BrowserTab
     // requests tagged Media were four UI sound effects. What identifies media
     // is the response's Content-Type, and this is the only event that has it.
     //
-    // Gate 1 hangs the classifier + per-tab MediaInventory off this handler.
-    // Today it only feeds MediaProbeLog, which is Gate 0 instrumentation and
-    // is deleted once the measured Content-Type table lands in the analysis
-    // doc — the handler and its registration stay.
+    // Feeds the per-tab MediaInventory, which the URL-bar chip reads.
     private void OnWebResourceResponseReceived(
         object? sender, CoreWebView2WebResourceResponseReceivedEventArgs e)
     {
@@ -76,38 +73,17 @@ public partial class BrowserTab
             string Header(string name) =>
                 headers is not null && headers.Contains(name) ? headers.GetHeader(name) : "";
 
-            // The Range header lives on the REQUEST, and it is the tell for
-            // YouTube's single-endpoint delivery — without it a videoplayback?
-            // response looks like one ordinary file fetch.
-            var reqHeaders = e.Request?.Headers;
-            var range = reqHeaders is not null && reqHeaders.Contains("Range")
-                ? reqHeaders.GetHeader("Range")
-                : "";
-
             var signals = new ResponseSignals(
                 e.Request?.Uri ?? "",
                 Header("Content-Type"),
                 Header("Content-Length"),
                 Header("Content-Range"));
 
-            // Progressive files never touch MSE, so the page never reports and
-            // the inventory would be invisible in the measurement log without
-            // this. Only fires when the response actually contributed — the
-            // reference capture had 765 responses and 9 contributors.
+            // Only signals the chip when the response actually contributed:
+            // the reference capture had 765 responses and 9 contributors, so
+            // raising on every one would rebuild the URL bar for nothing.
             if (Media.RecordResponse(signals) != MediaClass.NotMedia)
-            {
-                MediaProbeLog.RecordPage(_tabId, GetHost(signals.Url), Media.Describe());
                 RaiseMediaInventoryChanged();
-            }
-
-            MediaProbeLog.Record(
-                _tabId,
-                signals.Url,
-                response.StatusCode,
-                signals.ContentType,
-                signals.ContentLength,
-                range,
-                signals.ContentRange);
         }
         catch { /* detection must never take a page down */ }
     }
@@ -495,29 +471,6 @@ public partial class BrowserTab
                 // page. Uses `kind` like every other feature; `type` is taken
                 // by the Council fast-path above. Carries structure only
                 // (MIME strings, container box names, counts) — no media bytes.
-                // Gate 1 turns this into a per-tab MediaInventory; today it
-                // only feeds the measurement log.
-                // Gate P2b-0 — TEMPORARY. Delete with the bench block in
-                // media-detect.js once the numbers are recorded.
-                case "bridge-bench" when MediaProbeLog.Enabled:
-                {
-                    switch (node["phase"]?.GetValue<string>())
-                    {
-                        case "start":
-                            MediaProbeLog.BenchStart(
-                                node["bytes"]?.GetValue<int>() ?? 0,
-                                node["chunks"]?.GetValue<int>() ?? 0,
-                                node["encodeMs"]?.GetValue<double>() ?? 0);
-                            break;
-                        case "chunk":
-                            MediaProbeLog.BenchChunk(node["data"]?.GetValue<string>()?.Length ?? 0);
-                            break;
-                        case "end":
-                            MediaProbeLog.BenchEnd(node["postMs"]?.GetValue<double>() ?? 0);
-                            break;
-                    }
-                    break;
-                }
                 // Phase 6 / P2b — bytes from the page's SourceBuffer. The sink
                 // rejects anything that is not the running capture, so a page
                 // posting these unprompted writes nothing.
@@ -526,28 +479,13 @@ public partial class BrowserTab
                     var id    = node["id"]?.GetValue<string>() ?? "";
                     var phase = node["phase"]?.GetValue<string>();
 
-                    // Traced so a capture that produces nothing can be told
-                    // apart from a capture that never began — the field report
-                    // could not distinguish them and neither could I.
-                    if (MediaProbeLog.Enabled && phase != "chunk")
-                        MediaProbeLog.RecordPage(_tabId, senderHost,
-                            $"CAPTURE {phase} id={id} mime={node["mime"]?.GetValue<string>() ?? ""} " +
-                            $"kind={node["trackKind"]?.GetValue<string>() ?? ""} " +
-                            $"reason={node["reason"]?.GetValue<string>() ?? ""}");
-
                     switch (phase)
                     {
                         case "chunk":
                         {
-                            var seq = node["seq"]?.GetValue<int>() ?? -1;
-                            _captureSink.Write(id, seq, node["data"]?.GetValue<string>() ?? "");
-                            // Every 10th: audio is low bitrate, so a 256 KB
-                            // chunk size means a whole minute can pass without
-                            // reaching seq 50 — the first trace was too sparse
-                            // to tell a working capture from a dead one.
-                            if (MediaProbeLog.Enabled && seq % 10 == 0)
-                                MediaProbeLog.RecordPage(_tabId, senderHost,
-                                    $"CAPTURE chunk seq={seq} bytes={_captureSink.Bytes}");
+                            _captureSink.Write(id,
+                                node["seq"]?.GetValue<int>() ?? -1,
+                                node["data"]?.GetValue<string>() ?? "");
                             break;
                         }
 
@@ -568,12 +506,6 @@ public partial class BrowserTab
                     if (!MediaPageReport.TryParse(json ?? "", out var report)) break;
                     Media.ApplyPageReport(report);
                     RaiseMediaInventoryChanged();
-
-                    // The measurement log is P1's consumer. It is deliberately
-                    // the only one: an event with no subscriber is the dormant
-                    // wiring WiringSmokeTests exists to catch (lesson #21), and
-                    // the real consumer — the URL-bar chip — is P4.
-                    MediaProbeLog.RecordPage(_tabId, senderHost, Media.Describe());
                     break;
                 }
                 case "glance-show":

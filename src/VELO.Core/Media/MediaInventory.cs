@@ -254,21 +254,4 @@ public sealed class MediaInventory
         _                => $"{bytes} B",
     };
 
-    /// <summary>One-line summary for the measurement log and, later, the panel.</summary>
-    public string Describe()
-    {
-        lock (_lock)
-        {
-            var tracks = string.Join(", ", _page.Tracks.Select(t =>
-                $"{t.Kind}:{t.Codecs} {t.Appends}app/{t.Bytes}B{(t.Encrypted ? " ENCRYPTED" : "")}"));
-
-            var media = string.Join(", ", _page.Elements.Select(e =>
-                $"{e.Tag} t={e.CurrentTimeSeconds}/{e.DurationSeconds} rate={e.Rate}" +
-                $"{(e.Paused ? " PAUSED" : "")}{(e.Ended ? " ENDED" : "")}"));
-
-            return $"progressive={_progressive.Count} manifests={_manifests.Count} " +
-                   $"tracks=[{tracks}] protected={MediaClassifier.IsProtected(_page.Drm)} " +
-                   $"media=[{media}]";
-        }
-    }
 }

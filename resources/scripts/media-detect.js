@@ -254,35 +254,6 @@
         document.addEventListener('ended', () => endCapture('ended'), true);
     } catch (_) { }
 
-    // ── Playback-rate probe (TEMPORARY) ──────────────────────────────────
-    //
-    // Capture is real-time by construction: the bytes only exist as the player
-    // fetches and appends them, so a 40-minute video takes 40 minutes. If a
-    // player honours a high playbackRate it will fetch and append faster, and
-    // the capture finishes in a fraction of the time. Whether YouTube's player
-    // honours it or fights it is the question — measured before it becomes a
-    // feature. Re-applied on a timer because players reset the rate.
-    try {
-        const wanted = Number(window.__VELO_RATE__ || 0);
-        if (wanted > 0) {
-            setInterval(() => {
-                try {
-                    document.querySelectorAll('video,audio').forEach((el) => {
-                        // Muted first, then play. The first controlled run
-                        // measured nothing because the probe set the rate on a
-                        // PAUSED element — rate=8, t=0, paused — so all three
-                        // conditions were identical and idle. Setting a rate
-                        // does not start playback; muted autoplay is what is
-                        // permitted without a gesture.
-                        el.muted = true;
-                        if (el.playbackRate !== wanted) el.playbackRate = wanted;
-                        if (el.paused && !el.ended) { try { el.play(); } catch (_) { } }
-                    });
-                } catch (_) { }
-            }, 1000);
-        }
-    } catch (_) { }
-
     // ── MSE hooks ────────────────────────────────────────────────────────
     try {
         if (window.MediaSource && window.MediaSource.prototype.addSourceBuffer) {
@@ -464,62 +435,10 @@
         return buffers.filter(b => b.srcUrl === newest);
     };
 
-    // ── Gate P2b-0 — bridge throughput bench (TEMPORARY) ─────────────────
-    //
-    // Runs only when the host prepends window.__VELO_BENCH__, the same shape
-    // webrtc-spoof.js uses for its mode constant. Delete this block and the
-    // prepend in BrowserTab once §18 records the numbers.
-    //
-    // The question it answers: can postMessage carry media-rate data? A
-    // capture sink for MSE would need ~3 MB/s (measured: 91 MB in 40 s on one
-    // track), postMessage takes strings only, so bytes need base64 (+33 %),
-    // and every message is parsed on the UI thread. Encode cost and drain
-    // rate are reported separately, because if the bottleneck is the encoding
-    // the fix is a different encoding, and if it is the bridge the fix is a
-    // different channel.
-    try {
-        if (window.__VELO_BENCH__) {
-            const cfg = window.__VELO_BENCH__;
-            const size = cfg.bytes | 0, count = cfg.chunks | 0;
-
-            setTimeout(() => {
-                // Only the visible tab. The host-side accumulator is a static,
-                // so several restored tabs running this at once interleave
-                // their counts — the first run reported 367 and 400 chunks for
-                // a 200-chunk config, which is two benches in one bucket.
-                if (document.visibilityState !== 'visible') return;
-
-                // Build the payload ONCE so the loop measures the bridge, not
-                // the generator.
-                const t0 = performance.now();
-                const raw = new Uint8Array(size);
-                for (let i = 0; i < size; i++) raw[i] = i & 0xff;
-                let binary = '';
-                for (let i = 0; i < size; i += 8192) {
-                    binary += String.fromCharCode.apply(null, raw.subarray(i, Math.min(i + 8192, size)));
-                }
-                const payload = btoa(binary);
-                const encodeMs = performance.now() - t0;
-
-                post({ kind: 'bridge-bench', phase: 'start', bytes: size, chunks: count, encodeMs: encodeMs });
-
-                const t1 = performance.now();
-                for (let n = 0; n < count; n++) {
-                    post({ kind: 'bridge-bench', phase: 'chunk', n: n, data: payload });
-                }
-                const postMs = performance.now() - t1;
-
-                post({ kind: 'bridge-bench', phase: 'end', postMs: postMs, encodeMs: encodeMs });
-            }, cfg.delayMs || 8000);
-        }
-    } catch (_) { }
-
+    // Change-gated: appendBuffer fires constantly during playback and the
+    // bridge must not become the bottleneck.
     setInterval(() => {
-        // Change-gated normally, unconditional while the rate probe runs. The
-        // gate is why the first playbackRate measurement was ambiguous: when
-        // appends stopped the reports stopped too, so there was no way to see
-        // whether the video was still advancing, paused, or ended.
-        if (!dirty && !window.__VELO_RATE__) return;
+        if (!dirty) return;
         dirty = false;
         post({
             kind: 'media-detect',
