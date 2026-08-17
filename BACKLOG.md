@@ -92,6 +92,27 @@ El historial del diagnóstico de junio-julio queda abajo como referencia.
 - CHANGELOG catch-up v2.0.0→v2.4.30
 - Council Mode chunk H + verificación synthesis (PAUSADO — no retomar sin decisión explícita del maintainer)
 
+### La landing repite la versión 20 veces en cada release (anotado 2026-08-17)
+
+**Problema:** publicar una versión obliga a tocar **20 referencias** a mano en `docs/index.html`. Hoy se cubre con un `Edit replace_all`, así que no se rompe — pero es un paso manual del checklist que solo existe porque la versión está incrustada por todas partes.
+
+**Desglose medido (2026-08-17, sobre v2.7.0):**
+
+| Dónde | Refs | Qué es |
+|---|---|---|
+| URLs de descarga | **6** | 3 enlaces × 2 (el `/v2.7.0/` de la ruta + el `VELO-v2.7.0-…` del nombre de fichero) |
+| Texto visible en HTML | **4** | badge, etiqueta del botón, y los 2 `<span>` con el nombre del asset |
+| Tabla i18n | **10** | 5 idiomas × 2 claves (`hero_badge`, `hero_cta_installer`) |
+
+**El fix son dos mitades, y hace falta la segunda.** Lo obvio es apuntar a `releases/latest/download/<asset>`, que GitHub resuelve solo — pero **eso solo mata 6 de 20**, y además hoy ni siquiera funciona: los assets llevan la versión en el nombre, así que `latest/download/VELO-v2.7.0-Setup.exe` deja de existir en cuanto salga la 2.8.0.
+
+1. **Assets con nombre estable** (mata las 6 de URL). Que el workflow de release (id `259455799`) suba *además* una copia con nombre fijo — `VELO-Setup.exe` y `VELO-win-x64-portable.zip` — y cambiar los enlaces de la landing a `releases/latest/download/VELO-Setup.exe`. Los nombres versionados se quedan para quien quiera una versión concreta.
+2. **Una sola fuente para la versión mostrada** (mata las 14 restantes). Un `const VELO_VERSION` en la landing y un marcador `{v}` en las cadenas i18n, interpolado al aplicar el idioma. El release pasaría a tocar **1 string** en `docs/index.html`.
+
+**No** resolverlo pidiéndoselo a `api.github.com` desde la landing: añade una llamada de red en runtime a una página cuyo argumento entero es "cero llamadas ocultas", y encima falla si GitHub tiene un outage.
+
+**Al cerrarlo hay que actualizar el checklist de release** (`feedback_release_checklist.md` en memoria dice hoy "20 refs").
+
 ## Bugs encontrados y arreglados el 2026-07-27 (en main, SIN release)
 
 | Bug | Release | Detalle |
