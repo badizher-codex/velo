@@ -11,6 +11,50 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.7.0] — 2026-08-17 — Downloads you can actually use
+
+2.6.0 could download what a page was playing. The files were valid — and then you tried to put one on a USB stick for the car, and it would not play. This release is about the distance between producing a file and handing someone something they can use.
+
+### The file is named after what you were listening to
+
+The save dialog used to say `audio.webm`. It now arrives with the track already written in — read from the same information a site publishes so Windows can show what is playing on the lock screen, which means it works the same way on YouTube, Spotify, SoundCloud and anywhere else, with no per-site rules.
+
+Where a page offers nothing usable, the old name is still used. Nothing gets worse.
+
+### You choose the format, and the choice is explained
+
+Audio captures now offer three, ordered by how many things will play the result:
+
+- **M4A (AAC)** — the default. Car stereos, phones, almost anything.
+- **Ogg Opus** — the same audio, but computers only.
+- **WebM** — exactly as captured, no rewrapping.
+
+Both of the first two are **lossless**. Nothing is re-encoded and no quality is lost: the audio is moved into a different container, not compressed again. Picking `.m4a` also asks the page for AAC before the capture starts, so the file is built from the format your stereo wants rather than converted into it afterwards.
+
+That ordering is not a guess. It follows the published format lists for Uconnect, Ford SYNC, Toyota and Volkswagen: all four play AAC in an `.m4a`, and **none of them lists Opus** — so the dialog says plainly that Opus is for computers.
+
+The `.m4a` path was verified where it counts: a track captured in VELO plays in a 2014 Jeep.
+
+If a rewrap ever fails, the captured audio is kept rather than discarded — you waited through a whole playback for it — and VELO says what happened and what it saved instead.
+
+### A notice you can dismiss
+
+The explanation of how a capture works — the page reloads, the video plays fast and muted — now has a "don't show this again for the rest of this session" checkbox. It is also a proper VELO dialog rather than a Windows one, so it no longer flashes a light box in the middle of a dark browser.
+
+It is not remembered between runs, deliberately: a capture reloads the page and speeds up playback, and that is worth a reminder if you come back to it another day.
+
+### Under the hood
+
+Browser extension support is switched on at the engine level. Nothing ships with VELO and nothing is installed for you — this release only makes it possible, and the interface for it comes later.
+
+### Known gaps, unchanged
+
+- Audio and video still download as **separate files**; combining them needs a muxer VELO does not carry.
+- There is still **no stop button** for a capture in progress.
+- DASH streams are listed but not downloadable.
+
+---
+
 ## [2.6.0] — 2026-08-14 — Download the media you are watching
 
 VELO can now download what a page is playing. Not by guessing at URLs — the network layer cannot identify media on the modern web — but by watching what the player actually feeds to the browser's media pipeline.
