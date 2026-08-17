@@ -172,8 +172,57 @@
         ? { id: String(window.__VELO_CAPTURE__.id),
             kind: String(window.__VELO_CAPTURE__.kind || 'video'),
             rate: Number(window.__VELO_CAPTURE__.rate || 1),
+            preferMp4: !!window.__VELO_CAPTURE__.preferMp4,
             target: null, seq: 0, done: false }
         : null;
+
+    // Steering the player towards AAC instead of Opus.
+    //
+    // A site with adaptive streaming asks the browser which containers it can
+    // decode and serves accordingly. Answering "no" for WebM audio makes it
+    // fall back to MP4/AAC — which older hardware (car stereos, 2014-era head
+    // units) can actually play, while Opus post-dates most of it.
+    //
+    // Two things keep this honest. It is scoped to a capture that the user
+    // explicitly started by choosing .m4a — ordinary browsing is never
+    // affected, and the capture reloads the page anyway, so the player
+    // re-negotiates from scratch. And it only lies about AUDIO: video
+    // capability is passed through untouched, so the picture is unaffected.
+    //
+    // If a site has no AAC audio at all, playback will fail rather than
+    // degrade. That is what the host's capture watchdog is for — no bytes
+    // inside its window aborts the capture and says why.
+    if (capture && capture.preferMp4) {
+        const isWebmAudio = (type) => String(type || '').toLowerCase().indexOf('audio/webm') === 0;
+
+        try {
+            if (window.MediaSource && window.MediaSource.isTypeSupported) {
+                const origSupported = window.MediaSource.isTypeSupported.bind(window.MediaSource);
+                window.MediaSource.isTypeSupported = function (type) {
+                    if (isWebmAudio(type)) return false;
+                    return origSupported(type);
+                };
+            }
+        } catch (_) { }
+
+        // Newer players ask MediaCapabilities instead of, or as well as,
+        // isTypeSupported. Missing this one would let a player go on choosing
+        // Opus and the whole thing would silently do nothing.
+        try {
+            const mc = navigator.mediaCapabilities;
+            if (mc && mc.decodingInfo) {
+                const origInfo = mc.decodingInfo.bind(mc);
+                mc.decodingInfo = function (config) {
+                    try {
+                        if (config && config.audio && isWebmAudio(config.audio.contentType))
+                            return Promise.resolve(
+                                { supported: false, smooth: false, powerEfficient: false });
+                    } catch (_) { }
+                    return origInfo(config);
+                };
+            }
+        } catch (_) { }
+    }
 
     // Capture is real-time by construction, so a film takes as long as the
     // film. Measured: at rate 8 the player advances ~6 s of media per second
@@ -425,6 +474,62 @@
         return { mediaKeysAttached: mediaKeysAttached, encryptedEvents: encryptedEvents };
     };
 
+    // Qué se está reproduciendo, para poder nombrar el fichero descargado.
+    //
+    // La fuente buena es `navigator.mediaSession.metadata`: es la API que los
+    // sitios rellenan para que el SISTEMA sepa qué suena — es lo que llena el
+    // overlay de medios de Windows y la pantalla de bloqueo. Da título y
+    // artista por separado, así que sale "Artista - Título" sin adivinar, y la
+    // rellenan YouTube, Spotify, SoundCloud y Prime entre otros. Nada de esto
+    // necesita una regla por sitio, que es justo lo que el historial del
+    // ad-block dice que hay que evitar.
+    //
+    // El fallback es `document.title`, que siempre existe pero viene con la
+    // decoración del sitio. Se le quitan dos cosas, las dos genéricas:
+    // el contador de notificaciones que algunos ponen delante ("(2) …"), y el
+    // sufijo de marca del final — detectado contra el PROPIO hostname en vez
+    // de contra una lista de dominios, así que funciona igual en un sitio que
+    // no hayamos visto nunca.
+    const mediaTitle = () => {
+        try {
+            const md = navigator.mediaSession && navigator.mediaSession.metadata;
+            if (md && md.title) {
+                const t = String(md.title).trim();
+                const a = String(md.artist || '').trim();
+                if (!t) return '';
+
+                // Measured on real captures: YouTube reports the channel as
+                // artist and the full video title as title, and music titles
+                // are already written "Artist - Song". Prepending gave
+                // "Myke Towers - Myke Towers - Lala", and with a VEVO channel
+                // it was worse: "CoolioVEVO - Coolio - Gangsta's Paradise".
+                //
+                // So a title that already carries a separator is treated as
+                // complete. A podcast episode ("Episode 42") has none, and
+                // there the show name is exactly what makes the filename
+                // useful — that is the case this still prepends for.
+                const alreadyAttributed =
+                    / - | – | — /.test(t) ||
+                    (a && t.toLowerCase().indexOf(a.toLowerCase()) >= 0);
+
+                return (a && !alreadyAttributed) ? (a + ' - ' + t) : t;
+            }
+        } catch (_) { }
+
+        try {
+            let t = String(document.title || '').trim();
+            t = t.replace(/^\(\d+\)\s*/, '');
+            const brand = (location.hostname || '').replace(/^www\./, '').split('.')[0];
+            if (brand) {
+                const escaped = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                t = t.replace(new RegExp('\\s*[-\u2013\u2014|\u00b7]\\s*' + escaped + '\\s*$', 'i'), '');
+            }
+            return t.trim();
+        } catch (_) { }
+
+        return '';
+    };
+
     // ── Media elements ───────────────────────────────────────────────────
     const elements = () => {
         const out = [];
@@ -486,6 +591,7 @@
         post({
             kind: 'media-detect',
             url: location.href,
+            title: mediaTitle(),
             buffers: liveBuffers().map(b => ({
                 i: b.i, mime: b.mime, appends: b.appends, bytes: b.bytes,
                 first: b.first, encrypted: b.encrypted,

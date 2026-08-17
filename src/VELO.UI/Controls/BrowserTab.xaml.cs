@@ -71,7 +71,11 @@ public partial class BrowserTab : UserControl
     /// </summary>
     private const int CapturePlaybackRate = 8;
 
-    private (string Id, string Kind)? _armedCapture;
+    /// <summary>The rate the capture runs at, for the host's confirmation
+    /// notice — so the number the user is told is the number that is used.</summary>
+    public static int CaptureRate => CapturePlaybackRate;
+
+    private (string Id, string Kind, bool PreferMp4)? _armedCapture;
     private readonly MediaCaptureSink _captureSink = new();
     private string? _mediaScriptId;
     private System.Windows.Threading.DispatcherTimer? _captureWatchdog;
@@ -115,7 +119,8 @@ public partial class BrowserTab : UserControl
             {
                 mediaScript =
                     $"window.__VELO_CAPTURE__ = {{ id: '{armed.Id}', kind: '{armed.Kind}', " +
-                    $"rate: {CapturePlaybackRate} }};\n" + mediaScript;
+                    $"rate: {CapturePlaybackRate}, " +
+                    $"preferMp4: {(armed.PreferMp4 ? "true" : "false")} }};\n" + mediaScript;
             }
 
             _mediaScriptId =
@@ -134,10 +139,16 @@ public partial class BrowserTab : UserControl
     /// new MediaSource is what makes the capture start at byte zero. The file
     /// then fills in real time as the media plays.
     /// </summary>
-    public async Task StartMediaCaptureAsync(string trackKind, string destinationPath)
+    /// <param name="preferMp4">
+    /// Ask the page for AAC-in-MP4 rather than whatever it would pick on its
+    /// own. Set when the user chose <c>.m4a</c>, for players too old to know
+    /// what Opus is. Scoped to this capture only.
+    /// </param>
+    public async Task StartMediaCaptureAsync(
+        string trackKind, string destinationPath, bool preferMp4 = false)
     {
         var id = Guid.NewGuid().ToString("N")[..12];
-        _armedCapture = (id, trackKind);
+        _armedCapture = (id, trackKind, preferMp4);
         _captureSink.Begin(id, destinationPath);
 
         // Re-register BEFORE reloading, or the new document runs the script as
@@ -679,6 +690,84 @@ public partial class BrowserTab : UserControl
         }
 
         _webViewInitialized = true;
+
+        await TryLoadSpikeExtensionAsync();
+    }
+
+    // ── R-1 spike (2026-08-14) — THROWAWAY ────────────────────────────────
+    //
+    // Answers whether WebView2 loads an unpacked MV3 extension inside VELO,
+    // with the cloak and the hardening flags in place. Gated on an env var so
+    // it changes nothing for anyone who does not ask for it, and runs once per
+    // process because extensions live in the profile, not in the tab — adding
+    // the same one on every tab would be pointless work and noisy logs.
+    //
+    // Delete this method, its caller and the `_spikeExtensionTried` flag when
+    // R-1 concludes, whichever way it concludes.
+    private static bool _spikeExtensionTried;
+
+    private async Task TryLoadSpikeExtensionAsync()
+    {
+        if (_spikeExtensionTried) return;
+
+        var path  = Environment.GetEnvironmentVariable("VELO_SPIKE_EXTENSION");
+        var clean = Environment.GetEnvironmentVariable("VELO_SPIKE_EXTENSION_CLEAN") == "1";
+        if (string.IsNullOrWhiteSpace(path) && !clean) return;
+
+        _spikeExtensionTried = true;
+
+        try
+        {
+            var profile = WebView.CoreWebView2.Profile;
+
+            // Extensions persist in the profile, so a spike that only ever
+            // adds leaves the machine dirty and the NEXT run cannot tell a
+            // fresh success from a leftover. This is the way back out.
+            if (clean)
+            {
+                foreach (var e in await profile.GetBrowserExtensionsAsync())
+                {
+                    // The two Microsoft ones ship with WebView2 and were in the
+                    // profile before the spike touched anything.
+                    if (e.Name.StartsWith("Microsoft ", StringComparison.Ordinal)) continue;
+                    await e.RemoveAsync();
+                    Serilog.Log.Information("[VELO-SPIKE] REMOVED {Name} id={Id}", e.Name, e.Id);
+                }
+                var left = await profile.GetBrowserExtensionsAsync();
+                Serilog.Log.Information("[VELO-SPIKE] clean done, {Count} left", left.Count);
+                return;
+            }
+
+            // Listed first: AddBrowserExtensionAsync on an already-installed
+            // extension is not the interesting case, and the profile persists
+            // across runs, so a second run would otherwise look like a fresh
+            // success when it is really a leftover.
+            var before = await profile.GetBrowserExtensionsAsync();
+            Serilog.Log.Information("[VELO-SPIKE] extensions already in profile: {Count}", before.Count);
+            foreach (var e in before)
+                Serilog.Log.Information("[VELO-SPIKE]   existing: {Name} id={Id} enabled={Enabled}",
+                    e.Name, e.Id, e.IsEnabled);
+
+            if (!System.IO.Directory.Exists(path))
+            {
+                Serilog.Log.Warning("[VELO-SPIKE] path does not exist: {Path}", path);
+                return;
+            }
+
+            var added = await profile.AddBrowserExtensionAsync(path);
+            Serilog.Log.Information("[VELO-SPIKE] ADDED name={Name} id={Id} enabled={Enabled} from {Path}",
+                added.Name, added.Id, added.IsEnabled, path);
+
+            var after = await profile.GetBrowserExtensionsAsync();
+            Serilog.Log.Information("[VELO-SPIKE] extensions in profile now: {Count}", after.Count);
+        }
+        catch (Exception ex)
+        {
+            // The whole point of the spike is which exception, if any. A
+            // swallowed one would answer nothing.
+            Serilog.Log.Error(ex, "[VELO-SPIKE] AddBrowserExtensionAsync FAILED: {Type}: {Message}",
+                ex.GetType().Name, ex.Message);
+        }
     }
 
     // Public API methods (NavigateAsync, GoBack/Forward/Reload/Stop, Zoom*, Find*,

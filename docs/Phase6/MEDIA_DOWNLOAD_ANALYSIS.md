@@ -1078,3 +1078,96 @@ name misdescribes it is how the next person reintroduces the counter.
 - **Runtime, still owed:** play something protected, then navigate the same
   site's catalogue without a reload, and watch the chip go amber → green. No
   instrumentation needed — the chip colour is the observable.
+
+---
+
+## 24. A captured file that other things will actually play — 2026-08-17
+
+The download worked and the file was still useless: a captured audio track is
+Opus in WebM, and the maintainer's car stereo would not touch it. That is the
+gap between "we produced bytes" and "the user got what they wanted", and it
+took three pieces to close.
+
+### Naming
+
+The save dialog offered `audio.webm`. It now offers what is playing, from
+`navigator.mediaSession.metadata` — the API sites populate so the operating
+system can show what is on the lock screen. It gives artist and title
+separately, and it is generic: YouTube, Spotify, SoundCloud and Prime all set
+it, so no per-site rule is involved. `document.title` is the fallback, cleaned
+of a leading notification count and of a trailing brand matched against the
+page's **own hostname** rather than a list of domains.
+
+Sanitising is `MediaFileName`, pure and in Core with 11 tests, because a page
+title is hostile input: colons, slashes and question marks are ordinary
+punctuation, Windows strips trailing dots *silently* so the file lands
+somewhere other than the path requested, and `CON.webm` is still a reserved
+device name.
+
+**Measured correction:** the first version produced
+`Myke Towers - Myke Towers - Lala`, and with a VEVO channel
+`CoolioVEVO - Coolio - Gangsta's Paradise`. YouTube reports the channel as the
+artist while the title is already written "Artist - Song". A title that
+carries a separator is now treated as complete; a podcast episode, which has
+none, still gets the show name prepended, which is the case where it helps.
+
+### Containers
+
+Two rewraps, no transcoding, no ffmpeg — D-1's download stays deferred for the
+jobs that genuinely need a codec.
+
+| Target | Mechanism | Verified |
+|---|---|---|
+| `.opus` | `OggOpusRemuxer` — Opus packets out of Matroska, into Ogg pages. The `OpusHead` Ogg needs is already the WebM's 19-byte `CodecPrivate`. | VLC: `found opus header, channels: 2`, `decoder module "opus"`, no errors |
+| `.m4a` | Ask the page for AAC **before** capture, then `Mp4Flattener` rebuilds the sample index. | **A 2014 Jeep Uconnect plays it.** |
+
+The `.m4a` path has two halves. First, `MediaSource.isTypeSupported` and
+`MediaCapabilities.decodingInfo` are hooked to answer "no" for WebM audio, so
+the player negotiates MP4/AAC instead. That is a standard API every adaptive
+player calls, not a YouTube rule, and it is scoped to a capture the user
+started by choosing `.m4a` — ordinary browsing never sees it, and only audio is
+lied about.
+
+Second, what arrives is fragmented MP4: `ftyp` branded `dash`, a `moov` whose
+sample tables are **empty**, and the real timing spread across `moof` boxes.
+Software players rebuild that on the fly; fixed-function decoders do not. VLC
+named the failure exactly — `track[Id 0x1] read 0 samples`. `Mp4Flattener`
+rebuilds `stts`/`stsz`/`stsc`/`stco` from the fragments, drops `mvex`, rebrands
+`ftyp` as `M4A `, and writes **`moov` before `mdat`**, because hardware
+decoders often cannot seek backwards for a trailing index. After it: `read 1
+chunk`, `read 8526 samples length:197s`.
+
+### What the format research settled
+
+Checked against the published format lists of Uconnect, Ford SYNC, Toyota and
+VW MIB:
+
+* **MP3** is universal; **AAC/`.m4a`** is supported by all four, so effectively
+  universal on factory units from roughly 2010;
+* **Opus appears in none of them.** Toyota and VW list "OGG", but that is OGG
+  *Vorbis*, a different codec. `.opus` is a desktop format and the dialog now
+  says so.
+
+So the dialog is ordered by how many things will play the result — `.m4a`
+first and as the default, `.opus` labelled "computers only", `.webm` raw — and
+MP3 stays unbuilt, because it would add coverage only for pre-AAC units at the
+cost of a second lossy generation and a 65 MB download.
+
+Beyond format, worth knowing before blaming a file: many units read **FAT32
+only**, several cap at 32 GB, and Uconnect wants fewer than 8 root folders and
+≤255 files each.
+
+### The dialog
+
+The native `MessageBox` explaining a capture became `CaptureConfirmDialog`,
+for two reasons that both mattered: a MessageBox has nowhere to put a "don't
+show again" checkbox, and a native one cannot be themed, so it flashed a light
+dialog in the middle of a dark browser. Suppression is session-scoped and
+static rather than per-window — with tear-off, having the notice reappear
+because the capture started from a different window would read as the checkbox
+failing. It is deliberately not persisted: a capture reloads the page and
+speeds up playback, and someone returning tomorrow deserves the reminder once.
+
+It also fixed a lie. The text said "roughly six times normal speed" while the
+constant was 8; the dialog now reads `BrowserTab.CaptureRate`, so the number
+shown cannot drift from the number used.

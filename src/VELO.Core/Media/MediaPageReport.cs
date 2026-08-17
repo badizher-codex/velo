@@ -39,7 +39,14 @@ public sealed record MediaPageReport(
     string                        Url,
     IReadOnlyList<MediaTrack>     Tracks,
     DrmSignals                    Drm,
-    IReadOnlyList<MediaElementInfo> Elements)
+    IReadOnlyList<MediaElementInfo> Elements,
+    /// <summary>
+    /// What the page says is playing, from <c>mediaSession.metadata</c> with
+    /// <c>document.title</c> as fallback. Used to name the downloaded file.
+    /// Empty when the page offers nothing usable, which is not an error —
+    /// callers fall back to the name they used before.
+    /// </summary>
+    string MediaTitle = "")
 {
     public static readonly MediaPageReport Empty =
         new("", [], new DrmSignals(), []);
@@ -111,7 +118,8 @@ public sealed record MediaPageReport(
                 root["url"]?.GetValue<string>() ?? "",
                 tracks,
                 drm,
-                elements);
+                elements,
+                root["title"]?.GetValue<string>() ?? "");
             return true;
         }
         catch

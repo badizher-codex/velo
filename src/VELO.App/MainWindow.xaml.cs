@@ -53,6 +53,13 @@ public partial class MainWindow : Window
     private string _webRtcMode       = "Relay";
     private readonly Dictionary<string, BrowserTab> _browserTabs = [];
     private readonly HashSet<string> _navigatedTabs = [];
+    // Phase 6 — "don't show the capture notice again", for this run only.
+    // Static rather than per-window on purpose: with tear-off there can be
+    // several MainWindows, and having the notice come back because the capture
+    // was started from a different window would read as the checkbox failing.
+    // Not persisted to Settings — a capture reloads the page and speeds up
+    // playback, so someone returning tomorrow deserves the reminder once.
+    private static bool _captureNoticeSuppressed;
     // v2.4.60 F-2 — set just before CreateTab for a popup so OnTabCreated marks
     // the tab as navigated (Chromium navigates popups itself via e.NewWindow).
     // Safe as a plain field: the whole create→activate chain is inline on the
@@ -430,6 +437,12 @@ public partial class MainWindow : Window
             //     log anyway, so this bought no privacy — but it overrode the
             //     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS '--enable-logging'
             //     diagnostic path, making DRM failures undiagnosable in the field.
+            // R-1 spike 2026-08-14 — `--disable-extensions` was dropped from
+            // this list. It is not a telemetry flag like its neighbours; it
+            // turns off the extension host outright, so it would have made
+            // AreBrowserExtensionsEnabled below a lie and the spike would have
+            // measured the flag rather than the API. If R-1 is abandoned this
+            // line goes back.
             AdditionalBrowserArguments = string.Join(" ",
                 "--disable-features=msEdgeSidebarV2,EdgeShoppingAssistant,EdgeCollections",
                 "--disable-crash-reporter",
@@ -439,11 +452,17 @@ public partial class MainWindow : Window
                 "--disable-client-side-phishing-detection",
                 "--disable-sync",
                 "--disable-translate",
-                "--disable-extensions",
                 "--metrics-recording-only",
                 "--disable-hang-monitor",
                 "--disable-prompt-on-repost",
-                "--disable-domain-reliability")
+                "--disable-domain-reliability"),
+
+            // R-1 spike — an ENVIRONMENT option, so it must be set before
+            // CreateAsync and cannot be toggled later without recreating the
+            // environment. That constraint shapes R-1b: a Settings switch for
+            // extensions would need a restart, or this stays on always and the
+            // switch governs which extensions are installed.
+            AreBrowserExtensionsEnabled = true,
         };
 
         // v2.4.60 F-1 — Field-diagnosis hook. WebView2 IGNORES the standard
@@ -2728,28 +2747,70 @@ public partial class MainWindow : Window
                       : mime.Contains("mpeg") ? ".mp3"
                       : ".bin";
 
-        var confirm = MessageBox.Show(this,
-            $"VELO will capture the {kind} track as it plays.\n\n" +
-            "The page reloads and the video then plays fast and muted — that is " +
-            "how the capture goes quicker than the running time, not a fault. " +
-            "Measured at roughly six times normal speed, so ten minutes of video " +
-            "take under two.\n\n" +
-            "Leave it running until it ends. Closing the tab or navigating away " +
-            "stops the capture, and sound and speed go back to normal when it finishes.",
-            "Capture " + kind, MessageBoxButton.OKCancel, MessageBoxImage.Information);
-        if (confirm != MessageBoxResult.OK) return;
+        if (!_captureNoticeSuppressed)
+        {
+            var notice = new VELO.UI.Dialogs.CaptureConfirmDialog(
+                kind, VELO.UI.Controls.BrowserTab.CaptureRate) { Owner = this };
+            if (notice.ShowDialog() != true) return;
+            if (notice.SuppressForSession) _captureNoticeSuppressed = true;
+        }
+
+        // Name the file after what is playing rather than after the track kind.
+        // The page reports mediaSession.metadata when the site sets it, which
+        // gives "Artist - Title", and falls back to a cleaned document.title.
+        // When neither yields anything the old name is used, so a page without
+        // a title is no worse off than before.
+        // D-1 — an audio track arrives as Opus inside WebM, and plenty of
+        // players dispatch on the extension and treat .webm as video, so a
+        // perfectly good file gets rejected. Offering .opus here means the
+        // choice happens where the user already is, with no extra step and no
+        // conversion after the fact. It is a rewrap, not a transcode: the same
+        // Opus packets in a different envelope, so nothing is lost.
+        var audioChoices = isAudio && extension == ".webm";
 
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            FileName = kind + extension,
-            Filter   = $"Captured {kind}|*{extension}|All files|*.*",
-            Title    = "Save captured " + kind,
+            FileName = VELO.Core.Media.MediaFileName.Suggest(
+                tab.Media.MediaTitle, audioChoices ? ".m4a" : extension, kind),
+            // Ordered by how many things will actually play the result, which
+            // is not the order you would guess. Researched against the format
+            // lists of Uconnect, Ford SYNC, Toyota and VW: all four take AAC
+            // in an .m4a; none of them lists Opus at all.
+            Filter = audioChoices
+                ? "M4A (AAC) — car stereos, phones, almost anything|*.m4a" +
+                  "|Ogg Opus — same audio, but computers only|*.opus" +
+                  "|WebM — exactly as captured, no rewrapping|*.webm" +
+                  "|All files|*.*"
+                : $"Captured {kind}|*{extension}|All files|*.*",
+            Title = "Save captured " + kind,
         };
         if (dialog.ShowDialog(this) != true) return;
 
+        var chosen = System.IO.Path.GetExtension(dialog.FileName).ToLowerInvariant();
+
+        // Two different mechanisms, chosen by extension, and they work at
+        // opposite ends of the capture:
+        //
+        //   .opus — capture as usual (the page gives Opus in WebM), then
+        //           rewrap the finished file. Lossless, always available.
+        //   .m4a  — ask the page for AAC BEFORE it starts, then flatten the
+        //           fragmented MP4 that arrives into a plain one. Also
+        //           lossless, but it depends on the site having an AAC track.
+        var wantsOgg   = audioChoices && chosen == ".opus";
+        var preferMp4  = audioChoices && chosen == ".m4a";
+
+        var finalPath = dialog.FileName;
+        // Both rewrapping paths stage into a sibling file. A capture that dies
+        // halfway must never leave a .m4a that is really a fragmented stream,
+        // or a .opus that is really WebM — a file with the wrong name inside
+        // is worse than no file, because it fails somewhere else entirely.
+        var capturePath = wantsOgg  ? finalPath + ".webm.part"
+                        : preferMp4 ? finalPath + ".fmp4.part"
+                        : finalPath;
+
         var manager = _services.GetRequiredService<DownloadManager>();
         var item    = manager.StartDownload(
-            tab.CurrentUrl, System.IO.Path.GetFileName(dialog.FileName), dialog.FileName, 0);
+            tab.CurrentUrl, System.IO.Path.GetFileName(finalPath), finalPath, 0);
 
         // A capture runs for as long as the media plays — minutes — and has no
         // known total, so the only honest feedback is the running byte count.
@@ -2770,9 +2831,12 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() =>
             {
                 item.ReceivedBytes = result.Bytes;
-                item.State = result.Outcome == VELO.Core.Media.CaptureOutcome.Completed
-                    ? DownloadState.Completed
-                    : DownloadState.Interrupted;
+
+                var completed = result.Outcome == VELO.Core.Media.CaptureOutcome.Completed;
+                if (completed && (wantsOgg || preferMp4))
+                    completed = RewrapCapture(capturePath, finalPath, item, toOgg: wantsOgg);
+
+                item.State = completed ? DownloadState.Completed : DownloadState.Interrupted;
 
                 if (result.Outcome != VELO.Core.Media.CaptureOutcome.Completed)
                     MessageBox.Show(this, result.Error ?? "The capture produced nothing.",
@@ -2783,9 +2847,88 @@ public partial class MainWindow : Window
         }
 
         tab.MediaCaptureFinished += OnFinished;
-        await tab.StartMediaCaptureAsync(kind, dialog.FileName);
+        await tab.StartMediaCaptureAsync(kind, capturePath, preferMp4);
 
-        Log.Information("Media capture armed: {Kind} → {Path}", kind, dialog.FileName);
+        Log.Information("Media capture armed: {Kind} → {Path} (toOgg={ToOgg} preferMp4={PreferMp4})",
+            kind, capturePath, wantsOgg, preferMp4);
+    }
+
+    /// <summary>
+    /// D-1 — rewraps a finished WebM capture as Ogg-Opus and drops the
+    /// original. Returns false when the rewrap failed, so the caller marks the
+    /// row interrupted rather than claiming a file that is not there.
+    ///
+    /// On failure the captured WebM is KEPT and renamed into place. The user
+    /// waited through a whole playback for those bytes; handing them a working
+    /// .webm is far better than deleting good audio because the envelope could
+    /// not be changed.
+    /// </summary>
+    private bool RewrapCapture(string capturePath, string finalPath, DownloadItem item, bool toOgg)
+    {
+        try
+        {
+            var bytes = System.IO.File.ReadAllBytes(capturePath);
+
+            using (var output = System.IO.File.Create(finalPath))
+            {
+                var result = toOgg
+                    ? VELO.Core.Media.OggOpusRemuxer.ToOggOpus(bytes, output)
+                    : VELO.Core.Media.Mp4Flattener.ToPlainMp4(bytes, output);
+
+                if (!result.Success)
+                {
+                    output.Dispose();
+                    try { System.IO.File.Delete(finalPath); } catch { }
+                    return KeepRawInstead(capturePath, finalPath, item, result.Error, toOgg);
+                }
+
+                item.ReceivedBytes = result.BytesWritten;
+                item.TotalBytes    = result.BytesWritten;
+                Log.Information("Rewrapped capture ({Kind}): {Count} units, {Bytes} bytes → {Path}",
+                    toOgg ? "Ogg-Opus" : "plain MP4", result.Packets, result.BytesWritten, finalPath);
+            }
+
+            try { System.IO.File.Delete(capturePath); } catch { }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            return KeepRawInstead(capturePath, finalPath, item, ex.Message, toOgg);
+        }
+    }
+
+    /// <summary>
+    /// The rewrap failed, so the captured bytes are kept under a name that
+    /// matches what they actually are. The user waited through a whole
+    /// playback for those bytes; deleting good audio because the envelope
+    /// could not be changed would be the worst outcome available.
+    /// </summary>
+    private bool KeepRawInstead(
+        string capturePath, string finalPath, DownloadItem item, string? why, bool wasOgg)
+    {
+        Log.Warning("Rewrap failed ({Why}); keeping the raw capture", why);
+        try
+        {
+            var rawExtension = wasOgg ? ".webm" : ".mp4";
+            var fallback = System.IO.Path.ChangeExtension(finalPath, rawExtension);
+            if (System.IO.File.Exists(fallback)) System.IO.File.Delete(fallback);
+            System.IO.File.Move(capturePath, fallback);
+
+            item.FilePath = fallback;
+            item.FileName = System.IO.Path.GetFileName(fallback);
+
+            MessageBox.Show(this,
+                $"The audio was captured, but VELO could not rewrap it.\n\n{why}\n\n" +
+                $"It has been saved as {System.IO.Path.GetFileName(fallback)} instead, which plays " +
+                "in VLC and in any browser — just not necessarily in a car stereo.",
+                "Saved in its original container", MessageBoxButton.OK, MessageBoxImage.Information);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Could not keep the captured WebM either");
+            return false;
+        }
     }
 
     private void SwitchToTabByNumber(int zeroBasedIndex)
@@ -2934,7 +3077,11 @@ public partial class MainWindow : Window
                 VELO.Core.Media.MediaInventory.FileNameFor(playlistUrl));
             if (string.IsNullOrWhiteSpace(baseName)) baseName = "stream";
 
-            suggestedName = baseName + extension;
+            // The manifest's own filename is almost always something like
+            // "index" or "playlist", which tells the user nothing about what
+            // they just downloaded. Prefer what the page says is playing.
+            suggestedName = VELO.Core.Media.MediaFileName.Suggest(
+                tab.Media.MediaTitle, extension, baseName);
             filter        = initSegment is null
                 ? "MPEG transport stream|*.ts|All files|*.*"
                 : "MP4 video|*.mp4|All files|*.*";

@@ -72,6 +72,15 @@ public sealed class MediaInventory
     }
 
     /// <summary>
+    /// What the page says is playing, for naming the saved file. Empty when
+    /// the page offers nothing usable — callers fall back rather than guess.
+    /// </summary>
+    public string MediaTitle
+    {
+        get { lock (_lock) return _page.MediaTitle; }
+    }
+
+    /// <summary>
     /// True when the page is actually using encryption — not merely probing
     /// for it. See <see cref="MediaClassifier.IsProtected"/>.
     /// </summary>

@@ -592,6 +592,7 @@ public class WiringSmokeTests
             "buffers", "mime", "appends", "bytes", "encrypted", "first", "container",
             "pssh", "sinf", "eme", "probed", "resolved", "mediaKeysAttached",
             "encryptedEvents", "elements", "tag", "srcKind", "duration", "url",
+            "title",
         })
         {
             Assert.True(js.Contains($"{field}", StringComparison.Ordinal),
